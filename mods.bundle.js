@@ -3432,37 +3432,51 @@ EH.transition('realism',MOD);
    Beats (seconds of D, see T): the realism room goes dark, one spotlight stays on the Gleaners (the frame glides to the new size) ·
    the picture is repainted stroke by stroke in Monet's strokes (Hertzmann-style layered strokes, coarse → fine, painted with the
    target's real pixels; the stroke list is precomputed: rooms/impressionism/t_strokes.bin, fetched in init): grey-blue water rises
-   from the bottom and mist comes down from the top and drown the brown earth; the three gleaners are left standing in it · they darken
-   into contre-jour silhouettes, lift off and glide/shrink into the harbour's small dark boats (left woman → far boat, middle → middle
-   boat, the standing woman → the rower's boat), the water closes over the places they stood · a held breath: the harbour complete, no
-   sun · the LAST stroke: the orange sun, one loaded round stroke, then its short reflections dab by dab down the water · the picture
+   from the bottom and mist comes down from the top and drown the brown earth; the three gleaners are left standing in it · they are
+   painted INTO the water like everything else: horizontal water strokes sweep across each woman, band by band, and drag her dark
+   paint sideways into a few dark ripples; the next water strokes thin the ripples until they are grey-blue water (nothing moves or
+   morphs — left woman first, the standing woman last) · the boats are painted the way Monet did them, two or three quick dark strokes
+   each, far boats first, the near boat with its standing rower last (the strokes reveal Monet's own boat pixels) · a held breath: the
+   harbour complete, no sun · the LAST stroke: the orange sun, one loaded round stroke, then its short reflections dab by dab down the water · the picture
    settles and slowly drains to black-and-white — the sun (same lightness as the sky, L* 47.1 vs 47.3 measured on main.webp) vanishes ·
    the sun jumps back in colour a beat before the rest of the colour returns · morning light spills out of the sun over the dark room,
    tinting walls, label and title grey-blue and orange; the wall comes up to the room's colour · "印象" lifts off the label and floats
    up into the vertical title 印象派 · hand-over. Rest: a faint morning glow on the wall round the picture (never on the work/panel).
    Pure function of p: the stroke list carries one timestamp per stroke; draw() paints strokes 0..N(p) incrementally on a paint canvas
    and redraws from the base when seeking backwards.
-   Assets (rooms/impressionism/): t_clean.webp (main.webp with sun, reflections and boats inpainted — what the "sunless" strokes paint),
+   Assets (rooms/impressionism/): t_clean.webp (main.webp with sun and reflections inpainted and the boats' dark strokes replaced by the
+   water beside them — r4, gen_anim.py; the old pale inpainted blobs are in _wip/backup_r4 — what the "sunless" strokes paint),
    t_grey.webp (L*-matched greyscale of main.webp), t_masks.png (offline source only: R sun disc, G reflections, B boats, main.webp px),
-   t_women.png (R/G/B = the three gleaners, rooms/realism/main.webp px), t_sunalpha.png (alpha = max(R,G) of t_masks, blurred 2 px).
-   t_strokes.bin (the precomputed stroke schedule, see below).
-   Init decodes the images into ImageBitmaps one per task (no long freeze during the realism rest); the stroke list is fetched once per page
-   and decoded in chunks — nothing is computed at runtime. */
+   t_women.png (offline source only: R/G/B = the three gleaners, rooms/realism/main.webp px), t_sunalpha.png (alpha = max(R,G) of t_masks,
+   blurred 2 px), t_strokes.bin (the precomputed stroke schedule, see below), t_anim_m.png + t_anim_s.webp (the drag / water / boat
+   strokes, baked by _wip/r4-impressionism/gen_anim.py: LA masks at 0.5× and RGBA ripples at 0.75× picture px; table ANIM below).
+   Smoothness (Retina, dpr 2): everything is prepared once per page and size in small tasks during the realism rest (module-level caches
+   shared by every init): images decoded off the main thread (fetch → blob → createImageBitmap), all canvases (incl. checkpoints and the
+   scratch canvas) allocated up front, and every kind of draw the transition makes (patterned strokes, gradients, clips, composite modes)
+   executed once on a warm-up canvas, and the flying word's glyph sprites built, so no GPU program, texture upload, image decode or
+   font rasterisation happens first during playback. Stroke painting has a per-frame
+   time budget (the paint catches up over the next frames instead of blocking one). */
 (function(){
 'use strict';
 var D=24, PW=2400, PH=1862, GW=2400, GH=1796, CW=1000;
 var T={fromDom:[0.2,1.9], dim:[0.3,2.6], geo:[0.6,2.6],
   L:[[2.6,5.6],[4.3,7.6],[6.4,9.8],[8.4,11.4]],
-  sil:[10.4,11.5], fly:[[11.5,13.0],[11.95,13.45],[12.4,13.9]],
+  // 9.95–13.1 the gleaners are painted into the water (drags + water passes, ANIM); 12.95–14.27 the boats, 2–3 strokes each (ANIM)
   sunIn:[14.5,15.45], refl:[15.15,16.4], halo:[14.6,16.6], settle:[15.9,16.9],
   grey:[16.9,19.0], jump:[19.5,19.66], colour:[19.66,20.5],
   bloom:[19.5,21.8], spill:[19.8,22.4], wall:[20.3,23.3], spot:[20.6,23.3], tintIn:[20.2,21.4], tintOut:[22.3,23.6],
   label:20.7, ink:21.8, lift:[21.3,21.8], word:[21.6,23.1], pai:[22.7,23.2], title:[23.0,23.5], wordOut:[23.1,23.55]};
-// main.webp px (impressionism): the sun, the boats (body + rower), the reflection column
-var SUN=[1460,576,40], REFL=[1340,960,1605,1800], BOATS=[[330,1010,530,1095],[585,1105,825,1225],[1030,1215,1265,1410]];
-// rooms/realism/main.webp px: the three gleaners (t_women.png channel boxes); woman i → BOATS[i]
-var WOM=[[418,694,1030,1300],[864,740,1500,1429],[1470,564,2090,1570]];
-var NIGHT=[14,12,11], SIL='36,50,52';
+// main.webp px (impressionism): the sun, the reflection column
+var SUN=[1460,576,40], REFL=[1340,960,1605,1800];
+var NIGHT=[14,12,11];
+// the animated strokes (gen_anim.py): [t0, t1, dir (0 → right, 1 → left, 2 down), box x0,y0,x1,y1 (main px), mask atlas x,y,w,h,
+// colour source (0 clean plate, 1 the real picture), alpha, ripple atlas x,y,w,h (x = −1: none)]. Sorted by t1. Rows 0–15: each gleaner
+// swept band by band (clean water over her + the dark ripples her paint makes), then two uneven water passes that thin the ripples away;
+// rows 16–23: the boats, far → near, the standing rower last.
+var ANIM=[[9.95,10.27,1,59,671,1053,980,1022,1166,497,154,0,1,766,802,746,232],[10.2,10.52,1,59,880,1053,1189,1521,1166,497,154,0,1,0,1058,746,232],[10.45,10.77,1,59,1089,1053,1398,0,1337,497,154,0,1,748,1058,746,232],[10.55,10.87,1,522,717,1540,1055,0,1166,509,169,0,1,0,546,764,254],[10.8,11.12,1,522,955,1540,1293,511,1166,509,169,0,1,766,546,764,254],[11.05,11.37,1,522,1193,1540,1532,1457,984,509,170,0,1,0,802,764,254],[11.15,11.47,1,1150,535,2152,895,1509,574,501,180,0,1,714,273,752,270],[11.15,11.57,0,59,671,1053,1398,511,574,497,364,0,1,-1,0,0,0],[11.38,11.7,0,1450,795,2400,1156,0,984,475,180,0,1,0,0,712,271],[11.61,11.93,1,1150,1056,2152,1417,477,984,501,180,0,1,714,0,752,271],[11.7,12.12,0,522,717,1540,1532,1254,0,509,408,0,1,-1,0,0,0],[11.72,12.14,1,59,671,1053,1398,1010,574,497,364,0,1,-1,0,0,0],[11.84,12.16,0,1450,1317,2400,1678,980,984,475,180,0,1,0,273,712,271],[12.25,12.67,1,522,717,1540,1532,0,574,509,408,0,1,-1,0,0,0],[12.3,12.72,0,1150,535,2400,1678,0,0,625,572,0,1,-1,0,0,0],[12.66,13.08,1,1150,535,2400,1678,627,0,625,572,0,1,-1,0,0,0],[12.95,13.11,0,303,1044,560,1115,946,1337,128,36,1,1,-1,0,0,0],[13.13,13.26,0,303,986,542,1053,1220,1337,120,34,1,1,-1,0,0,0],[13.32,13.46,0,563,1134,848,1205,1076,1337,142,36,1,1,-1,0,0,0],[13.47,13.59,0,580,1076,837,1143,1342,1337,128,34,1,1,-1,0,0,0],[13.6,13.72,1,572,1196,830,1255,1472,1337,129,30,1,1,-1,0,0,0],[13.8,13.97,0,1003,1308,1288,1410,802,1337,142,51,1,1,-1,0,0,0],[13.99,14.12,2,995,1401,1305,1540,499,1337,155,70,1,1,-1,0,0,0],[14.13,14.27,2,999,1186,1286,1317,656,1337,144,66,1,1,-1,0,0,0]];
+// the gleaners' own strokes (class k 1..3 of t_strokes.bin) land while the water sweeps her: retimed from the old lift-off windows
+// (each starts once her last band has begun: dabbed earlier they break the still-standing figure into blotches)
+var KWIN=[null,[10.6,11.4],[11.2,12.0],[11.95,12.75]];
 var SH=window.EH_SHARED=window.EH_SHARED||{};
 
 function cl(x){return x<0?0:x>1?1:x;}
@@ -3486,8 +3500,6 @@ function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy
   return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr};}
 function drawShadow(g,sh,a){if(!sh||a<=0)return;g.save();g.globalAlpha=a;g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
 function artCanvas(im,r,dpr,src){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*(im.naturalHeight||1)/(im.naturalWidth||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(src||im,0,0,w,h);return c;}
-// the decoded bitmap of an image when init made one (drawImage from an <img> decodes it synchronously on the main thread: ~180 ms per 2400 px webp)
-function B(S,im){var b=S.bm&&im&&S.bm.get(im);return b||im;}
 // the hung painting's pixels: Chrome composites the DOM art canvas into the device-pixel rect ENCLOSED by its CSS box (measured at
 // 1389×713 dpr 2: left edge 363.53 px → the DOM image starts one device pixel in and is 2 px narrower); drawing the cached canvas into
 // that same rect makes the settled picture and the hand-over pixel-identical (art-rect mean diff 3.4 → 0.09)
@@ -3511,8 +3523,8 @@ SH.impressionismRest=function(g,o){glow(g,o.W,o.H,o.rect,restA(o.t||0));};
 // rooms/impressionism/t_strokes.bin = the exact schedule the page used to compute at runtime in a Web Worker (Hertzmann-style layered
 // strokes ported from ../gallery2.template.html + ../worker.part.js, seed 20251; run A on t_clean, run B on main.webp inside the boat
 // masks; class k: 0 normal · 1..3 inside gleaner k-1 · 4..6 boat k-4; timestamps = the choreography: layers overlap, inside a layer the
-// tide comes from the top and bottom edges towards the horizon, gleaner k's strokes land while she lifts off, boat k's as her silhouette
-// arrives). Dumped from that run in headless Chrome and packed by _wip/r3-impressionism/enc.py (the worker took ~10 s live: the stall).
+// tide comes from the top and bottom edges towards the horizon; at load the gleaners' strokes are retimed into KWIN and the boat classes
+// are dropped, see merge()). Dumped from that run in headless Chrome and packed by _wip/r3-impressionism/enc.py (the worker took ~10 s live: the stall).
 // Layout, little-endian, sorted by time: 'IMS1', u32 N, u32 D, u32 0 · u16 t[N] (t/D·65535) · u16 w[N] (w·CW·2048) · u16 pts[6N]
 // (x,y ×3, ·CW·64) · u8 meta[N] (L | k<<2 | comp<<5 | (points−1)<<6) · u8 rgb[3N]. Lengths are in units of the picture width.
 function mark(n){try{performance.mark(n);}catch(e){}}
@@ -3525,55 +3537,99 @@ function decode(buf,done){var dv=new DataView(buf),N=dv.getUint32(4,true),Dd=dv.
       var s={L:L,k:(m>>2)&7,a:(m>>5)&1?.7:.9,w:wq[i]*KW,p:p};
       if(L<2){var r=cb[3*i],g=cb[3*i+1],b=cb[3*i+2];s.c0='rgb('+r+','+g+','+b+')';s.c1='rgb('+Math.min(255,r+10)+','+Math.min(255,g+10)+','+Math.min(255,b+10)+')';s.c2='rgb('+Math.max(0,r-11)+','+Math.max(0,g-11)+','+Math.max(0,b-11)+')';}
       out[i]=s;ts[i]=tq[i]/65535*Dd;}
-    if(i<N)setTimeout(chunk,0);else done({s:out,ts:ts});})();}
+    if(i<N)setTimeout(chunk,0);else setTimeout(function(){done(merge(out,ts));},0);})();}
+// the gleaners' fine strokes (layers 2–3, the clean plate's own pixels) retimed into their sweep windows — their coarse flat-colour
+// strokes are dropped (the sweeps already lay the water; the coarse ones read as blotches there) — the old boat strokes (class 4..6) dropped — Monet's boats are the ANIM strokes —
+// and one entry per ANIM row (baked into the paint canvas at its t1): a k-way merge of already sorted lists
+function merge(out,ts){var L=[[],[],[],[]],lo=[1e9,1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9,-1e9],i,k;
+  for(i=0;i<out.length;i++){k=out[i].k;if(k>=4||(k>0&&out[i].L<2))continue;L[k].push(i);if(ts[i]<lo[k])lo[k]=ts[i];if(ts[i]>hi[k])hi[k]=ts[i];}
+  var lists=L.map(function(ix,k){return{s:ix.map(function(j){return out[j];}),t:ix.map(function(j){var t=ts[j];if(k>0){var w=KWIN[k];t=w[0]+(t-lo[k])/Math.max(1e-6,hi[k]-lo[k])*(w[1]-w[0]);}return t;})};});
+  lists.push({s:ANIM.map(function(a,j){return{an:a,j:j};}),t:ANIM.map(function(a){return a[1];})});
+  var n=lists.reduce(function(a,l){return a+l.s.length;},0),s=new Array(n),t=new Float32Array(n),h=lists.map(function(){return 0;}),o=0,ai=new Int32Array(ANIM.length);
+  while(o<n){var b=-1,bt=1e9;for(k=0;k<lists.length;k++){if(h[k]<lists[k].s.length&&lists[k].t[h[k]]<bt){bt=lists[k].t[h[k]];b=k;}}
+    var e=lists[b].s[h[b]++];if(e.an)ai[e.j]=o;s[o]=e;t[o++]=bt;}
+  return{s:s,ts:t,ai:ai};}
 // fetched and decoded once per page (init runs during the realism rest), reused by every later init (re-entering the room, replays)
 function loadStrokes(S){if(S.job)return;S.job='load';
   if(!LOADING)LOADING=fetch(BIN_URL).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
     .then(function(b){mark('imp:fetched');return new Promise(function(res){decode(b,res);});}).then(function(sc){STROKES=sc;return sc;});
-  LOADING.then(function(sc){S.strokes=sc.s;S.ts=sc.ts;S.ready=true;S.drawn=-1;S.job='done';window.__impReady=true;mark('imp:strokes');},
+  LOADING.then(function(sc){S.strokes=sc.s;S.ts=sc.ts;S.ai=sc.ai;S.ready=true;S.job='done';window.__impReady=true;mark('imp:strokes');},
     function(e){console.warn('impressionism: stroke list failed',e);S.job='fail';LOADING=null;});}
 function countAt(ts,t){var lo=0,hi=ts.length;while(lo<hi){var m=(lo+hi)>>1;if(ts[m]<=t)lo=m+1;else hi=m;}return lo;}
 
 function pathOf(c,p,S,ox,oy){c.beginPath();c.moveTo(p[0]*S+ox,p[1]*S+oy);if(p.length===2){c.lineTo(p[0]*S+ox+.01,p[1]*S+oy);return;}
   for(var i=2;i<p.length-2;i+=2){var mx=(p[i]+p[i+2])/2*S,my=(p[i+1]+p[i+3])/2*S;c.quadraticCurveTo(p[i]*S+ox,p[i+1]*S+oy,mx+ox,my+oy);}
   c.lineTo(p[p.length-2]*S+ox,p[p.length-1]*S+oy);}
-function drawStroke(c,s,S,pA,pB){var p=s.p,w=s.w*S;
+function drawStroke(c,s,S,pA,pB,C){if(s.an){drawAnim(c,s.an,1,0,0,C.k,C);c.lineCap='round';c.lineJoin='round';return;}var p=s.p,w=s.w*S;
   if(s.L>=2){c.globalAlpha=1;c.strokeStyle=s.k>=4?pB:pA;c.lineWidth=w*1.25;pathOf(c,p,S,0,0);c.stroke();return;}
   var nx=.7,ny=.7;if(p.length>=4){var dx=p[2]-p[0],dy=p[3]-p[1],n=Math.hypot(dx,dy)||1;nx=-dy/n;ny=dx/n;}
   c.globalAlpha=s.a;c.strokeStyle=s.c0;c.lineWidth=w;pathOf(c,p,S,0,0);c.stroke();
   c.globalAlpha=s.a*.42;c.lineWidth=w*.26;c.strokeStyle=s.c1;pathOf(c,p,S,nx*w*.28,ny*w*.28);c.stroke();
   c.strokeStyle=s.c2;pathOf(c,p,S,-nx*w*.3,-ny*w*.3);c.stroke();c.globalAlpha=1;}
-// bring the paint canvas to exactly strokes 0..n (forward: incremental; backward: from the base)
-// Seeking backwards restores the nearest checkpoint (a copy of the paint canvas taken when forward painting crossed it) and paints on
-// from there, so a scrub back never repaints all ~40k strokes in one frame.
-var NCP=12;
-function paintTo(C,S,n){var q=C.pq,Wc=C.paint.width,N=S.strokes.length,step=Math.ceil(N/NCP);
-  if(C.pkey!==S.pkeyDrawn){C.cp=[];S.drawn=-1;S.pkeyDrawn=C.pkey;}
-  if(S.drawn==null||S.drawn<0||n<S.drawn){var k=Math.min(NCP-1,Math.floor(n/step));while(k>0&&!C.cp[k])k--;q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='copy';
-    if(k>0){q.drawImage(C.cp[k],0,0);S.drawn=k*step;}else{q.drawImage(C.base,0,0);S.drawn=0;}q.globalCompositeOperation='source-over';}
-  if(n>S.drawn){q.lineCap='round';q.lineJoin='round';
-    for(var i=S.drawn;i<n;i++){drawStroke(q,S.strokes[i],Wc,C.patA,C.patB);var j=i+1;if(j%step===0&&j/step<NCP&&!C.cp[j/step]){q.globalAlpha=1;var c=cv(C.paint.width,C.paint.height);c.getContext('2d').drawImage(C.paint,0,0);C.cp[j/step]=c;}}
-    S.drawn=n;q.globalAlpha=1;}}
+// the animated strokes: the mask (atlas) wiped along the stroke's direction up to f, filled with the clean plate / the real picture in the
+// scratch canvas at paint resolution, then the ripples (RGBA atlas) wiped the same way. A lighter tip leads the wipe.
+function part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,u0,u1){if(u1<=u0)return;
+  if(d===0)c.drawImage(im,sx+sw*u0,sy,sw*(u1-u0),sh,dx+dw*u0,dy,dw*(u1-u0),dh);
+  else if(d===1){var a0=1-u1,a1=1-u0;c.drawImage(im,sx+sw*a0,sy,sw*(a1-a0),sh,dx+dw*a0,dy,dw*(a1-a0),dh);}
+  else c.drawImage(im,sx,sy+sh*u0,sw,sh*(u1-u0),dx,dy+dh*u0,dw,dh*(u1-u0));}
+function wipe(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,f){if(f>=1){c.drawImage(im,sx,sy,sw,sh,dx,dy,dw,dh);return;}var a=c.globalAlpha;
+  part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,0,f);c.globalAlpha=a*.45;part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,f,Math.min(1,f+.07));c.globalAlpha=a;}
+function drawAnim(c,A,f,X0,Y0,sc,C){if(f<=0)return;var k=C.k,bx=A[3],by=A[4],bw=A[5]-A[3],bh=A[6]-A[4],sw=Math.min(C.scr.width,Math.ceil(bw*k)),sh=Math.min(C.scr.height,Math.ceil(bh*k)),q=C.sq;
+  q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.clearRect(0,0,sw+2,sh+2);
+  wipe(q,C.am,A[7],A[8],A[9],A[10],0,0,bw*k,bh*k,A[2],f);
+  q.globalCompositeOperation='source-in';q.drawImage(A[11]?C.real:C.clean,bx*k,by*k,sw,sh,0,0,sw,sh);q.globalCompositeOperation='source-over';
+  c.globalAlpha=A[12];c.drawImage(C.scr,0,0,sw,sh,X0+bx*sc,Y0+by*sc,sw/k*sc,sh/k*sc);
+  if(A[13]>=0)wipe(c,C.as,A[13],A[14],A[15],A[16],X0+bx*sc,Y0+by*sc,bw*sc,bh*sc,A[2],f);c.globalAlpha=1;}
+// bring the paint canvas to strokes 0..n (forward: incremental; backward: from the base or the nearest checkpoint)
+// Seeking backwards restores the nearest checkpoint (a copy of the paint canvas taken when forward painting crossed it: canvases allocated
+// up front) and paints on from there. Forward painting stops after ~BUDGET ms and goes on in the next frame, so a late frame never
+// turns into a long one (at 60 fps the schedule needs ≤ ~150 strokes per frame, well inside the budget).
+var NCP=8,BUDGET=5;
+function paintTo(C,S,n,budget){var q=C.pq,Wc=C.paint.width,N=S.strokes.length,step=Math.ceil(N/NCP);
+  if(C.drawn<0||n<C.drawn){var k=Math.min(NCP-1,Math.floor(n/step));while(k>0&&!C.cpOk[k])k--;q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='copy';
+    if(k>0){q.drawImage(C.cp[k],0,0);C.drawn=k*step;}else{q.drawImage(C.base,0,0);C.drawn=0;}q.globalCompositeOperation='source-over';}
+  if(n>C.drawn){q.lineCap='round';q.lineJoin='round';var t0=performance.now(),i=C.drawn;
+    for(;i<n;i++){drawStroke(q,S.strokes[i],Wc,C.patA,C.patB,C);var j=i+1;if(j%step===0&&j/step<NCP&&!C.cpOk[j/step]){q.globalAlpha=1;var cq=C.cp[j/step].getContext('2d');cq.globalCompositeOperation='copy';cq.drawImage(C.paint,0,0);cq.globalCompositeOperation='source-over';C.cpOk[j/step]=true;}
+      if(budget&&(j&15)===0&&performance.now()-t0>budget){i++;break;}}
+    C.drawn=i;q.globalAlpha=1;}}
 
-// ---------------------------------------------------------------- caches (built in init one step per task; rebuilt at once only if the size changes)
+// ---------------------------------------------------------------- caches (module level: built once per page and size, in small tasks)
+// K = {key, C (the canvases), steps, n (steps done), ready}. Every init (the realism rest's pre-init, a cold enter, a replay) shares it.
+var K=null,BM={};
 function cacheKey(ctx){var to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null;return[ctx.W,ctx.H,ctx.dpr||1,to.x,to.y,to.w,to.h,fr?[fr.x,fr.y,fr.w,fr.h].join(','):''].join('/');}
-function cacheSteps(ctx,S,k){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,C={key:k},aw,ah,pw,ph,ma,cr=coverCrop(PW/PH);
+// decoded pixels: fetched as a blob (HTTP cache) and decoded off the main thread; the <img> itself only as a fallback
+function bitmap(im){var u=im&&im.src;if(!u)return Promise.resolve(null);if(BM[u])return BM[u];
+  var p=(window.createImageBitmap?fetch(u).then(function(r){if(!r.ok)throw 0;return r.blob();}).then(function(b){return createImageBitmap(b);})
+    .catch(function(){return new Promise(function(r){if(ok(im))r();else{im.addEventListener('load',r,{once:true});im.addEventListener('error',r,{once:true});}}).then(function(){return ok(im)?createImageBitmap(im):null;});})
+    :Promise.resolve(null)).catch(function(){return null;});
+  return(BM[u]=p);}
+function pix(S,im){var b=im&&S.bmv&&S.bmv[im.src];return b||im;}
+var WARM=null;function warmCanvas(){if(!WARM){WARM=cv(300,300);}var q=WARM.getContext('2d');q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.filter='none';return q;}
+function cacheSteps(ctx,S,k){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,C={key:k,drawn:-1,cpOk:[]},aw,ah,pw,ph,ma,cr=coverCrop(PW/PH),I=ctx.to.image,Fi=ctx.from&&ctx.from.image;
   var steps=[
-  function(){C.art=artCanvas(ctx.to.image,to,dpr,B(S,ctx.to.image));aw=C.art.width;ah=C.art.height;C.shTo=shadowCache(dpr,to);},
-  function(){if(ctx.from){C.fromArt=artCanvas(ctx.from.image,fr,dpr,B(S,ctx.from.image));C.shFr=shadowCache(dpr,fr);}},
+  // first what the opening beats draw (the realism picture, its shadow, the dark room), then the rest
+  function(){if(ctx.from){C.fromArt=artCanvas(Fi,fr,dpr,pix(S,Fi));C.shFr=shadowCache(dpr,fr);}},
+  function(){var hq=.5;C.room=cv(W*hq,H*hq);var rq=C.room.getContext('2d');rq.scale(hq,hq);rq.fillStyle=mixc(NIGHT,NIGHT,0);rq.fillRect(0,0,W,H);
+    rq.save();rq.translate(to.x+to.w/2,to.y+to.h/2);rq.scale(to.w*.95,to.h*1.05);var pg=rq.createRadialGradient(0,0,0,0,0,1);pg.addColorStop(0,'rgba(255,236,210,.13)');pg.addColorStop(.55,'rgba(255,236,210,.06)');pg.addColorStop(1,'rgba(255,236,210,0)');
+    rq.fillStyle=pg;rq.fillRect(-2,-2,4,4);rq.restore();},
+  function(){C.art=artCanvas(I,to,dpr,pix(S,I));aw=C.art.width;ah=C.art.height;C.shTo=shadowCache(dpr,to);},
   // paint canvas (≤ 2000 px), its base (the Gleaners cropped to Impression) and the two stroke patterns (clean plate / real picture)
   // the whole Gleaners pre-scaled so that its Impression-shaped crop is exactly the paint canvas: the gliding frame (geo beat) and the base
   // the strokes paint over are the same pixels, so the hand-over from gliding to painting is seamless
-  function(){pw=Math.min(aw,2000);ph=Math.round(pw*PH/PW);C.paint=cv(pw,ph);C.pq=C.paint.getContext('2d');C.base=cv(pw,ph);
+  function(){pw=Math.min(aw,2000);ph=Math.round(pw*PH/PW);C.k=pw/PW;C.paint=cv(pw,ph);C.pq=C.paint.getContext('2d');C.base=cv(pw,ph);
     var fw=Math.round(pw*GW/cr[2]),fh=Math.round(fw*GH/GW);C.fromFull=cv(fw,fh);C.kf=fw/GW;
-    if(ctx.from&&ok(ctx.from.image)){var ff=C.fromFull.getContext('2d');ff.imageSmoothingQuality='high';ff.drawImage(B(S,ctx.from.image),0,0,fw,fh);}},
+    if(ctx.from&&ok(Fi)){var ff=C.fromFull.getContext('2d');ff.imageSmoothingQuality='high';ff.drawImage(pix(S,Fi),0,0,fw,fh);}},
   function(){C.base.getContext('2d').drawImage(C.fromFull,cr[0]*C.kf,cr[1]*C.kf,cr[2]*C.kf,cr[3]*C.kf,0,0,pw,ph);},
-  function(){var pc=cv(pw,ph);if(ok(S.clean))pc.getContext('2d').drawImage(B(S,S.clean),0,0,pw,ph);C.patA=C.pq.createPattern(pc,'no-repeat');},
-  function(){var pr=cv(pw,ph);pr.getContext('2d').drawImage(B(S,ctx.to.image),0,0,pw,ph);C.patB=C.pq.createPattern(pr,'no-repeat');C.real=pr;C.pkey=k;},
+  function(){var pc=cv(pw,ph);if(ok(S.clean))pc.getContext('2d').drawImage(pix(S,S.clean),0,0,pw,ph);C.patA=C.pq.createPattern(pc,'no-repeat');C.clean=pc;},
+  function(){var pr=cv(pw,ph);pr.getContext('2d').drawImage(pix(S,I),0,0,pw,ph);C.patB=C.pq.createPattern(pr,'no-repeat');C.real=pr;},
+  // checkpoints and the scratch canvas of the animated strokes, allocated (and touched) now, not during playback
+  function(){C.cp=[];for(var j=0;j<NCP;j++){var c=cv(pw,ph);c.getContext('2d').fillRect(0,0,1,1);C.cp.push(c);}C.scr=cv(pw,ph);C.sq=C.scr.getContext('2d');C.sq.fillRect(0,0,1,1);},
+  function(){C.am=cv(S.animM.naturalWidth||1,S.animM.naturalHeight||1);if(ok(S.animM))C.am.getContext('2d').drawImage(pix(S,S.animM),0,0);
+    C.as=cv(S.animS.naturalWidth||1,S.animS.naturalHeight||1);if(ok(S.animS))C.as.getContext('2d').drawImage(pix(S,S.animS),0,0);},
   // grey: whole, with the sun+reflections cut out, and the sun+reflections alone (so the sun can come back first)
-  function(){C.grey=cv(aw,ah);if(ok(S.grey))C.grey.getContext('2d').drawImage(B(S,S.grey),0,0,aw,ah);},
+  function(){C.grey=cv(aw,ah);if(ok(S.grey))C.grey.getContext('2d').drawImage(pix(S,S.grey),0,0,aw,ah);},
   // sun + reflections as alpha: t_sunalpha.png = max(R, G) of t_masks, Gaussian-blurred 2 px (baked offline: no pixel loop here)
-  function(){ma=cv(aw,ah);var mq=ma.getContext('2d');if(ok(S.sunA))mq.drawImage(B(S,S.sunA),0,0,aw,ah);
+  function(){ma=cv(aw,ah);var mq=ma.getContext('2d');if(ok(S.sunA))mq.drawImage(pix(S,S.sunA),0,0,aw,ah);
     C.greyHole=cv(aw,ah);var gh=C.greyHole.getContext('2d');gh.drawImage(C.grey,0,0);gh.globalCompositeOperation='destination-out';gh.drawImage(ma,0,0);},
   function(){C.greySun=cv(aw,ah);var gs=C.greySun.getContext('2d');gs.drawImage(ma,0,0);gs.globalCompositeOperation='source-in';gs.drawImage(C.grey,0,0);},
   // the sun disc and the reflection column as sprites of the real picture (exact pixels)
@@ -3582,24 +3638,37 @@ function cacheSteps(ctx,S,k){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,f
     C.sunBrush=cv(C.sun.width,C.sun.height);
     var rx=REFL[0]*sk,ry=REFL[1]*sk,rw=(REFL[2]-REFL[0])*sk,rh=(REFL[3]-REFL[1])*sk;C.refl=cv(rw,rh);var r2=C.refl.getContext('2d');r2.drawImage(ma,rx,ry,rw,rh,0,0,rw,rh);
     r2.globalCompositeOperation='source-in';r2.drawImage(C.art,rx,ry,rw,rh,0,0,rw,rh);ma=null;},
-  // the dark room: night plus a spotlight pool round the picture (half resolution)
-  function(){var hq=.5;C.room=cv(W*hq,H*hq);var rq=C.room.getContext('2d');rq.scale(hq,hq);rq.fillStyle=mixc(NIGHT,NIGHT,0);rq.fillRect(0,0,W,H);
-    rq.save();rq.translate(to.x+to.w/2,to.y+to.h/2);rq.scale(to.w*.95,to.h*1.05);var pg=rq.createRadialGradient(0,0,0,0,0,1);pg.addColorStop(0,'rgba(255,236,210,.13)');pg.addColorStop(.55,'rgba(255,236,210,.06)');pg.addColorStop(1,'rgba(255,236,210,0)');
-    rq.fillStyle=pg;rq.fillRect(-2,-2,4,4);rq.restore();C.wom=[];}];
-  // the gleaners as sprites (their own pixels) and as dark contre-jour silhouettes, at screen resolution (one per step)
-  WOM.forEach(function(b,i){steps.push(function(){var s=(to.w/cr[2])*dpr,w=Math.ceil((b[2]-b[0])*s),h=Math.ceil((b[3]-b[1])*s),c=cv(w,h),q=c.getContext('2d');
-    if(ok(S.women)){q.drawImage(B(S,S.women),b[0],b[1],b[2]-b[0],b[3]-b[1],0,0,w,h);var id=q.getImageData(0,0,w,h),d=id.data;for(var j=0;j<d.length;j+=4){d[j+3]=d[j+i];d[j]=d[j+1]=d[j+2]=255;}q.putImageData(id,0,0);}
-    // contre-jour: her own folds (the Gleaners' pixels) kept faintly under a cool dark glaze, not a flat cut-out
-    q.globalCompositeOperation='source-in';q.fillStyle='rgb('+SIL+')';q.fillRect(0,0,w,h);
-    var fi=ctx.from&&ctx.from.image;if(ok(fi)){q.globalCompositeOperation='source-atop';q.globalAlpha=.3;q.filter='grayscale(1) contrast(1.4) brightness(.55)';q.drawImage(B(S,fi),b[0],b[1],b[2]-b[0],b[3]-b[1],0,0,w,h);q.filter='none';q.globalAlpha=1;}
-    C.wom[i]=c;});});
+  // ---- warm-up: every canvas drawn once, every kind of draw made once (GPU uploads and program compiles happen now, not at 0.3 s / 6.5 s)
+  function(){var q=warmCanvas();['fromArt','room','art','paint','base','fromFull','clean','real','grey','greyHole','greySun','sun','refl','am','as','scr','sunBrush'].forEach(function(n){var c=C[n];if(!c)return;q.globalAlpha=.5;q.drawImage(c,0,0,c.width,c.height,0,0,8,8);q.drawImage(c,0,0,Math.min(40,c.width),Math.min(40,c.height),10,10,60,60);});
+    q.globalAlpha=1;C.cp.forEach(function(c){q.drawImage(c,0,0,4,4);});if(C.shTo)q.drawImage(C.shTo.c,0,0,8,8);if(C.shFr)q.drawImage(C.shFr.c,0,0,8,8);},
+  // the paint canvas: a flat stroke, a patterned stroke of each pattern, a checkpoint copy and the reset ('copy'), an animated stroke
+  function(){var q=C.pq,s0={L:0,a:.9,w:.02,p:[.3,.3,.35,.32,.4,.3],c0:'rgb(90,110,110)',c1:'rgb(100,120,120)',c2:'rgb(80,100,100)'},s1={L:2,k:0,w:.01,p:[.3,.4,.36,.41,.42,.4]},s2={L:3,k:4,w:.01,p:[.3,.5,.36,.51]};
+    q.lineCap='round';q.lineJoin='round';drawStroke(q,s0,pw,C.patA,C.patB,C);drawStroke(q,s1,pw,C.patA,C.patB,C);drawStroke(q,s2,pw,C.patA,C.patB,C);q.globalAlpha=1;},
+  function(){var q=C.pq;drawAnim(q,ANIM[0],.5,0,0,C.k,C);drawAnim(q,ANIM[ANIM.length-1],1,0,0,C.k,C);var cq=C.cp[0].getContext('2d');cq.globalCompositeOperation='copy';cq.drawImage(C.paint,0,0);cq.globalCompositeOperation='source-over';
+    q.setTransform(1,0,0,1,0,0);q.globalCompositeOperation='copy';q.drawImage(C.base,0,0);q.globalCompositeOperation='source-over';C.drawn=0;},
+  // the stage's kinds of draw, on the warm canvas: gradients (plain, 'lighter', inside an even-odd clip), the sun brush (source-in spiral),
+  // the grey layers, an animated stroke at stage scale, blurred warm text (the flying word's sprites)
+  function(){var q=warmCanvas();wash(q,300,300,{x:50,y:50,w:100,h:80},true,1);wash(q,300,300,{x:50,y:50,w:100,h:80},false,1);glow(q,300,300,{x:60,y:60,w:120,h:90},.5,200);
+    q.save();q.globalCompositeOperation='lighter';var hg=q.createRadialGradient(150,150,0,150,150,80);hg.addColorStop(0,'rgba(255,120,50,.2)');hg.addColorStop(1,'rgba(255,120,50,0)');q.fillStyle=hg;q.fillRect(70,70,160,160);q.restore();
+    q.fillStyle='rgb(14,12,11)';q.globalAlpha=.5;q.fillRect(0,0,300,300);q.globalAlpha=1;},
+  function(){var q=warmCanvas(),bq=C.sunBrush.getContext('2d'),bw=C.sunBrush.width;bq.clearRect(0,0,bw,bw);bq.lineCap='round';bq.lineWidth=bw*.4;bq.strokeStyle='#fff';bq.beginPath();bq.moveTo(bw*.2,bw*.5);bq.lineTo(bw*.6,bw*.4);bq.stroke();
+    bq.globalCompositeOperation='source-in';bq.drawImage(C.sun,0,0);bq.globalCompositeOperation='source-over';q.drawImage(C.sunBrush,0,0,40,40);},
+  function(){var q=warmCanvas();q.save();q.globalCompositeOperation='lighter';q.globalAlpha=.2;q.drawImage(C.sun,0,0,40,40);q.restore();
+    q.globalAlpha=.5;q.drawImage(C.greyHole,0,0,60,50);q.drawImage(C.greySun,0,0,60,50);q.drawImage(C.refl,0,0,20,40,0,0,20,40);q.globalAlpha=1;},
+  function(){var q=warmCanvas();drawAnim(q,ANIM[1],.5,-ANIM[1][3]*.1,-ANIM[1][4]*.1,.1,C);},
+  function(){var q=warmCanvas();drawAnim(q,ANIM[20],.6,-ANIM[20][3]*.1,-ANIM[20][4]*.1,.1,C);},
+  function(){var q=warmCanvas();q.save();q.beginPath();q.rect(0,0,300,300);q.rect(20,20,100,100);q.clip('evenodd');q.fillStyle='rgba(0,0,0,.1)';q.fillRect(0,0,300,300);q.restore();}];
+  // the flying word's glyph sprites, built now from the DOM's computed fonts (no layout needed), one glyph per step
+  preSprites(ctx).forEach(function(f){steps.push(f);});
   return{C:C,steps:steps};}
-// all at once (draw() after a resize, or a cold start): cancels an incremental build in progress
-function ensure(ctx,S){var k=cacheKey(ctx);if(S.C&&S.C.key===k)return S.C;var j=cacheSteps(ctx,S,k);S.cj=null;j.steps.forEach(function(f){f();});S.drawn=-1;S.C=j.C;return S.C;}
-// incremental (init): steps in separate tasks, a few per task while they stay under ~10 ms; done() when finished
-function ensureSteps(ctx,S,done){var k=cacheKey(ctx);if(S.C&&S.C.key===k){done();return;}var j=cacheSteps(ctx,S,k),n=0;S.cj=j;
-  (function step(){if(S.cj!==j){done();return;}var t0=performance.now();do{j.steps[n++]();}while(n<j.steps.length&&performance.now()-t0<10);
-    if(n<j.steps.length){setTimeout(step,0);return;}S.cj=null;S.drawn=-1;S.C=j.C;done();})();}
+// all at once (draw() after a resize): cancels an incremental build in progress
+function ensure(ctx,S){var k=cacheKey(ctx);if(K&&K.key===k&&K.ready)return K.C;var t0=performance.now();var j=cacheSteps(ctx,S,k);j.steps.forEach(function(f){f();});K={key:k,C:j.C,ready:true,n:j.steps.length};
+  console.warn('impressionism: caches rebuilt in draw ('+(performance.now()-t0).toFixed(0)+' ms)');return K.C;}
+// incremental (init): one step per task (each is one or two big draws, ≤ ~20 ms at dpr 2), a frame's breath between them
+function ensureSteps(ctx,S,done){var k=cacheKey(ctx);if(K&&K.key===k){if(K.ready)done();else K.wait.push(done);return;}
+  var j=cacheSteps(ctx,S,k),me=K={key:k,C:j.C,ready:false,n:0,wait:[done]};
+  (function step(){if(K!==me)return;var t0=performance.now();do{j.steps[me.n++]();}while(me.n<j.steps.length&&performance.now()-t0<4);
+    if(me.n<j.steps.length){setTimeout(step,8);return;}me.ready=true;mark('imp:caches');me.wait.forEach(function(f){f();});me.wait=[];})();}
 
 // ---------------------------------------------------------------- DOM: the previous room's title/label fade with the lights; our title is set by hand
 var dirty=[],watching=false,myIdx=-1;
@@ -3642,11 +3711,23 @@ function wordGeo(ctx,S){var l=document.getElementById('lab'+ctx.to.idx),e=docume
 // glyph sprites (rendered once per layout at the title's size, then only scaled: fillText at a new size every frame misses the glyph cache)
 function glyph(ch,font,px,col,glowA,dpr){var m=Math.ceil(px*.5+18),w=Math.ceil(px*(ch.length>1?ch.length*.62:1.1))+2*m,h=Math.ceil(px*1.3)+2*m,c=cv(w*dpr,h*dpr),q=c.getContext('2d');
   q.scale(dpr,dpr);q.textAlign='center';q.textBaseline='middle';q.font=font;q.fillStyle=col;if(glowA){q.shadowColor='rgba(255,170,100,'+glowA+')';q.shadowBlur=7*dpr;}q.fillText(ch,w/2,h/2);return{c:c,w:w,h:h};}
-function sprites(G,dpr,ink){if(G.sp)return G.sp;var src=G.src,d=G.dst,ts=d.size,base=src.col||'#efe6d6',cool=(getComputedStyle(document.documentElement).getPropertyValue(ink==='dark'?'--ink-dark':'--ink-light')||'').trim()||d.col,warm='rgb(255,178,112)';
-  var F=d.font+ts+'px '+d.fam,sp={chars:[]};
-  d.chars.slice(0,3).forEach(function(c){sp.chars.push({base:glyph(c.ch,F,ts,base,0,dpr),warm:glyph(c.ch,F,ts,warm,.55,dpr),cool:glyph(c.ch,F,ts,cool,0,dpr)});});
-  if(src.latin){var FL=src.font+src.size+'px '+src.fam;sp.lat=glyph('Impression',FL,src.size,base,0,dpr);sp.latW=glyph('Impression',FL,src.size,warm,.55,dpr);}
-  return(G.sp=sp);}
+// built once per fonts/colours/dpr (SPR): by preSprites() in init, so nothing is rasterised (blurred text) while the word flies
+var SPR={};
+function sprKey(src,d,dpr,ink){return[src.col,src.font,src.size,src.fam,src.latin,d.font,d.size,d.fam,d.chars.slice(0,3).map(function(c){return c.ch;}).join(''),dpr,ink].join('|');}
+function spriteJobs(src,d,dpr,ink){var k=sprKey(src,d,dpr,ink);if(SPR[k])return{k:k,sp:SPR[k],jobs:[]};var ts=d.size,base=src.col||'#efe6d6',cool=(getComputedStyle(document.documentElement).getPropertyValue(ink==='dark'?'--ink-dark':'--ink-light')||'').trim()||d.col,warm='rgb(255,178,112)';
+  var F=d.font+ts+'px '+d.fam,sp={chars:[]},jobs=[];
+  d.chars.slice(0,3).forEach(function(c,i){var P=sp.chars[i]={};jobs.push(function(){P.base=glyph(c.ch,F,ts,base,0,dpr);},function(){P.warm=glyph(c.ch,F,ts,warm,.55,dpr);},function(){P.cool=glyph(c.ch,F,ts,cool,0,dpr);});});
+  if(src.latin){var FL=src.font+src.size+'px '+src.fam;jobs.push(function(){sp.lat=glyph('Impression',FL,src.size,base,0,dpr);},function(){sp.latW=glyph('Impression',FL,src.size,warm,.55,dpr);});}
+  jobs.push(function(){SPR[k]=sp;});return{k:k,sp:sp,jobs:jobs};}
+function sprites(G,dpr,ink){if(G.sp)return G.sp;var k0=sprKey(G.src,G.dst,dpr,ink);if(SPR[k0])return(G.sp=SPR[k0]);var j=spriteJobs(G.src,G.dst,dpr,ink);j.jobs.forEach(function(f){f();});return(G.sp=j.sp);}
+// the same fonts/characters charRects() will find, read from computed styles only (the label is not placed yet during init)
+function fontsOf(el,re){if(!el)return null;var tw=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),n;while((n=tw.nextNode())){var m=re.exec(n.data);if(m){var cs=getComputedStyle(n.parentNode);
+  return{chars:m[0].split('').map(function(ch){return{ch:ch};}),font:cs.fontStyle+' '+cs.fontWeight+' ',size:parseFloat(cs.fontSize),fam:cs.fontFamily,col:cs.color,latin:/[A-Za-z]/.test(m[0])};}}return null;}
+function preSprites(ctx){try{var l=document.getElementById('lab'+ctx.to.idx),e=document.getElementById('era'+ctx.to.idx),h1=e&&e.querySelector('h1');if(!l||!h1)return[];
+  var src=fontsOf(l,/印象/)||fontsOf(l,/Impression/i),dst=fontsOf(h1,/[\s\S]{1,3}/);if(!src||!dst)return[];
+  // the word lifts off while the room's ink is still 'light' (t < T.ink): the label's text colour then is --ink-light
+  var il=hex((getComputedStyle(document.documentElement).getPropertyValue('--ink-light')||'').trim());src.col='rgb('+il[0]+', '+il[1]+', '+il[2]+')';
+  return spriteJobs(src,dst,ctx.dpr||1,ctx.to.ink).jobs;}catch(e){return[];}}
 function blit(g,s,x,y,k,a){if(a<=0.002)return;g.globalAlpha=Math.min(1,a);g.drawImage(s.c,x-s.w*k/2,y-s.h*k/2,s.w*k,s.h*k);}
 function drawWord(g,ctx,S,t){var G=wordGeo(ctx,S);if(!G)return;var src=G.src,dst=G.dst.chars,lift=eo(seg(t,T.lift)),out=1-sm(seg(t,T.wordOut));if(out<=0||lift<=0)return;
   var ts=G.dst.size,sp=sprites(G,ctx.dpr||1,ctx.to.ink);
@@ -3668,30 +3749,29 @@ function drawWord(g,ctx,S,t){var G=wordGeo(ctx,S);if(!G)return;var src=G.src,dst
 // ---------------------------------------------------------------- the frame
 var MOD={
   duration:D,
-  assets:['t_clean.webp','t_grey.webp','t_women.png','t_sunalpha.png'],
+  assets:['t_clean.webp','t_grey.webp','t_sunalpha.png','t_anim_m.png','t_anim_s.webp'],
   fromAssets:[],
   init:function(ctx){var S=ctx.state;myIdx=ctx.to.idx;mark('imp:init');
-    S.clean=ctx.asset('t_clean.webp');S.grey=ctx.asset('t_grey.webp');
-    // the gleaners' masks are in the realism picture's pixels; kept in this room's folder (the realism folder belongs to others)
-    S.women=ctx.asset('t_women.png');S.sunA=ctx.asset('t_sunalpha.png');
+    S.clean=ctx.asset('t_clean.webp');S.grey=ctx.asset('t_grey.webp');S.sunA=ctx.asset('t_sunalpha.png');S.animM=ctx.asset('t_anim_m.png');S.animS=ctx.asset('t_anim_s.webp');
     S.tint=ctx.layer('tint',{z:8,blend:'color'});S.word=ctx.layer('word',{z:9});
+    // the core paints the hung picture from this <img> at the hand-over: ask for its decode early (off the main thread; a warm-up draw
+    // was tried and dropped — Chrome's canvas decode cache did not reliably keep it until the hand-over, and a late pre-init put the
+    // ~120 ms decode into the opening seconds instead)
+    try{if(ctx.to.image&&ctx.to.image.decode)ctx.to.image.decode().catch(function(){});}catch(e){}
     // the stroke list: fetched now, in parallel with the image decoding
     loadStrokes(S);
-    // decode every big image off the main thread first (init runs during the realism room's rest: a synchronous decode there is a visible freeze),
-    // then build the caches in a separate task
-    var ims=[S.clean,S.grey,S.women,S.sunA,ctx.to.image,ctx.from&&ctx.from.image].filter(Boolean);S.bm=new Map();
-    function loaded(im){return ok(im)?Promise.resolve():new Promise(function(r){im.addEventListener('load',r,{once:true});im.addEventListener('error',r,{once:true});});}
-    // one image per task (createImageBitmap of an <img> may decode on the main thread): no single long freeze
-    var chain=Promise.all(ims.map(loaded));ims.forEach(function(im){chain=chain.then(function(){return new Promise(function(r){setTimeout(r,0);});}).then(function(){
-      return window.createImageBitmap&&ok(im)?createImageBitmap(im).then(function(b){S.bm.set(im,b);}):null;}).catch(function(){});});
-    chain.then(function(){
-      S.decoded=true;mark('imp:decoded');setTimeout(function(){ensureSteps(ctx,S,function(){mark('imp:caches');
+    if(K&&K.key===cacheKey(ctx)&&K.ready){S.decoded=true;return;}
+    // decode every image off the main thread (fetch → blob → createImageBitmap), the opening beats' images first; then the caches in small tasks
+    var ims=[ctx.from&&ctx.from.image,ctx.to.image,S.clean,S.grey,S.sunA,S.animM,S.animS].filter(Boolean);S.bmv={};
+    Promise.all(ims.map(function(im){return bitmap(im).then(function(b){if(b)S.bmv[im.src]=b;});})).then(function(){
+      S.decoded=true;mark('imp:decoded');ensureSteps(ctx,S,function(){
         // the bitmaps (~18 MB each) are only needed to build the caches; a later resize rebuilds from the <img>s
-        if(S.bm){S.bm.forEach(function(b){try{b.close();}catch(e){}});S.bm=null;}});},0);});},
-  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,to=ctx.to.rect,F=ctx.from,fr=F?F.rect:null;myIdx=ctx.to.idx;S.restT0=null;
+        if(S.bmv){for(var u in S.bmv){try{S.bmv[u].close();}catch(e){}delete BM[u];}S.bmv=null;}});});},
+  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,dpr0=ctx.dpr||1,to=ctx.to.rect,F=ctx.from,fr=F?F.rect:null;myIdx=ctx.to.idx;S.restT0=null;
     if(!S.tint){S.tint=ctx.layer('tint',{z:8,blend:'color'});S.word=ctx.layer('word',{z:9});}
     // cold start only (images still decoding, caches still being built by init): hold the previous room's frame, then the plain hand-over frame
-    if(!S.decoded||!ok(S.women)||(S.cj&&S.cj.C.key===cacheKey(ctx))){if(F&&t<D/2){g.fillStyle=F.wall;g.fillRect(0,0,W,H);g.drawImage(F.image,fr.x,fr.y,fr.w,fr.h);}else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);g.drawImage(ctx.to.image,to.x,to.y,to.w,to.h);}return;}
+    // (the previous picture from the core's hung-art canvas, which still holds it: drawing the <img> here would decode it synchronously)
+    var key=cacheKey(ctx);if(!K||K.key!==key||!K.ready){if(!S.decoded||(K&&K.key===key)){if(F&&t<D/2){g.fillStyle=F.wall;g.fillRect(0,0,W,H);var ac=document.getElementById('art');if(ac&&ac.width===Math.min(Math.round(fr.w*dpr0),2600))artAt(g,ac,fr,dpr0);else g.drawImage(F.image,fr.x,fr.y,fr.w,fr.h);}else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);g.drawImage(ctx.to.image,to.x,to.y,to.w,to.h);}return;}}
     var C=ensure(ctx,S);if(!S.job)loadStrokes(S);var toWall=hex(ctx.to.wall),dpr=ctx.dpr||1;
     // ===== DOM
     if(!S.warm){
@@ -3723,15 +3803,10 @@ var MOD={
     else{
       var set=sm(seg(t,T.settle));
       if(set<1){
-        if(S.ready){paintTo(C,S,countAt(S.ts,t));g.drawImage(C.paint,to.x,to.y,to.w,to.h);}
-        else{g.drawImage(C.base,to.x,to.y,to.w,to.h);var fb=sm(seg(t,[T.L[0][0],T.fly[2][1]]));if(fb>0){g.globalAlpha=fb;g.drawImage(C.real,to.x,to.y,to.w,to.h);g.globalAlpha=1;}}
-        var ks=to.w/(coverCrop(PW/PH)[2]),cr2=coverCrop(PW/PH);
-        // the gleaners: silhouettes in the mist, then lifted into the boats
-        C.wom.forEach(function(c,i){var b=WOM[i],f=T.fly[i],da=sm(seg(t,T.sil)),u=eio(seg(t,f)),fade=1-sm(seg(t,[f[1]-.3,f[1]+.3]));if(da<=0||fade<=0)return;
-          var x0=to.x+(b[0]-cr2[0])*ks,y0=to.y+(b[1]-cr2[1])*ks,w0=(b[2]-b[0])*ks,h0=(b[3]-b[1])*ks,B=BOATS[i],x1=to.x+B[0]/PW*to.w,y1=to.y+B[1]/PH*to.h,w1=(B[2]-B[0])/PW*to.w,h1=(B[3]-B[1])/PH*to.h;
-          var w=Math.exp(lerp(Math.log(w0),Math.log(w1),u)),h=Math.exp(lerp(Math.log(h0),Math.log(h1),u)),cx=lerp(x0+w0/2,x1+w1/2,u),cy=lerp(y0+h0/2,y1+h1/2,u)-Math.sin(Math.PI*u)*to.h*.05;
-          if(u>0&&u<1){g.globalAlpha=.25*da*fade*Math.sin(Math.PI*u);g.drawImage(c,cx-w/2-(x1-x0)*.02,cy-h/2-(y1-y0)*.02,w,h);}
-          g.globalAlpha=da*fade*(u>0?.95:.9);g.drawImage(c,cx-w/2,cy-h/2,w,h);g.globalAlpha=1;});
+        if(S.ready){paintTo(C,S,countAt(S.ts,t),BUDGET);g.drawImage(C.paint,to.x,to.y,to.w,to.h);
+          // the animated strokes still being laid (or laid but not yet baked into the paint canvas: it may be a frame behind)
+          for(var ai=0;ai<ANIM.length;ai++){var A=ANIM[ai];if(A[0]>t)continue;if(S.ai[ai]<C.drawn)continue;drawAnim(g,A,cl((t-A[0])/(A[1]-A[0])),to.x,to.y,to.w/PW,C);}}
+        else{g.drawImage(C.base,to.x,to.y,to.w,to.h);var fb=sm(seg(t,[T.L[0][0],13.9]));if(fb>0){g.globalAlpha=fb;g.drawImage(C.real,to.x,to.y,to.w,to.h);g.globalAlpha=1;}}
         // the last stroke: the sun (one loaded round stroke of the real pixels), with a wet highlight that dries
         var su=seg(t,T.sunIn);if(su>0){var sk=to.w/PW,sr=C.sunR*sk,sx=to.x+SUN[0]*sk,sy=to.y+SUN[1]*sk;
           var hal=Math.sin(Math.PI*seg(t,T.halo))*(1-set);if(hal>0){g.save();g.globalCompositeOperation='lighter';var hg=g.createRadialGradient(sx,sy,0,sx,sy,sr*3.2);hg.addColorStop(0,'rgba(255,120,50,'+(.22*hal).toFixed(3)+')');hg.addColorStop(1,'rgba(255,120,50,0)');g.fillStyle=hg;g.fillRect(sx-sr*3.2,sy-sr*3.2,sr*6.4,sr*6.4);g.restore();}
@@ -3771,6 +3846,8 @@ var MOD={
     var g=ctx.g,r=ctx.to.rect;glow(g,ctx.W,ctx.H,r,restA(el));
     if(ctx.reading&&ctx.readRect){var R=ctx.readRect;g.clearRect(R.x,R.y,R.w,R.h);}}
 };
+// debugging hook for the test scripts (read-only)
+SH.impDebug=function(){return{K:K,SL:STROKES,ANIM:ANIM,drawAnim:drawAnim,SPR:SPR};};
 EH.transition('impressionism',MOD);
 })();
 
@@ -3781,8 +3858,11 @@ EH.transition('impressionism',MOD);
    Beats (seconds of D = 14, see T):
    0–0.4     the impressionism room at rest (white frame, the morning glow on the wall).
    0.4–3.5   one slow push-in (a single zoom about a fixed point) into Monet's sun until the screen lies inside the disc: a soft, mixed,
-             orange-red smear, brush swirl and all (full screen because we go closer than the frame).
-   3.6       tick 1: the smear breaks into discrete, equal round dots — each still the smear's mixed colour — with the canvas between them.
+             orange-red smear, brush swirl and all (full screen because we go closer than the frame). The raster is never shown magnified
+             past what it holds: from DAB[0] to DAB[1] device px per Monet px (~2.15–2.5 s at dpr 2) round, touching dabs of the painting's
+             own colour (the dots of the field below, tiled beyond the Grande Jatte's extent) cover it, and the push-in goes on over the
+             dabs, which stay crisp at any zoom (r4 fix: the old frames 2.5–3.6 s were a very blurry up-scaled sun).
+   3.6       tick 1: the dabs contract into discrete, equal round dots — each still the smear's mixed colour — with the canvas between them.
    4.05 · 4.5 · 4.95   ticks 2–4: the mixture splits, a third at each tick, into pure orange and its complementary pure blues. Hold to 5.8
              (the camera keeps creeping in by 5 %, no cut; the dots slowly swell to the size of Seurat's touches until 6.8).
    5.8–6.8   the same dots are the Grande Jatte's own dots inside the fishing woman's orange skirt (the one place where orange and blue
@@ -3808,10 +3888,10 @@ var D=14,MW=2400,MH=1862,PW=2400,PH=1598,SP=4.37,NDOT=201153;
 // make_col.py (_wip/t-postimpressionism/col.json): the pigments, Monet's sun (main px), the landing point in the Grande Jatte, Monet px per GJ px there
 var PAL=[[228,106,44],[48,108,205],[40,58,150],[26,30,84],[236,230,212],[230,205,80],[140,165,50],[40,145,90],[28,28,40]];
 var SUN=[1461,576],SUNR=37,SUNBOX=[1310,425,300,300],LAND=[270,805],RM=0.6;
-var BEIGE=[232/255,222/255,200/255],CREEP=.05,R0=.62,RF=.9;
+var BEIGE=[232/255,222/255,200/255],CREEP=.05,R0=.62,RF=.9,RD=1.3,DAB=[7,16],MONLOD=.6;
 var T={push:[0.4,3.5],glowOut:[0.5,2.4],fromOut:[0.4,2.0],chromeOff:1.6,swap:3.5,
   ticks:[3.6,4.05,4.5,4.95],tk:.18,appear:.34,monetOff:3.9,creep:[3.0,6.8],grow:[3.6,6.8],land:[5.8,6.8],landAt:5.75,landSpan:.55,
-  pull:[6.8,12.6],chromeOn:11.8,imgBy:[11.4,12.6],title:12.4,label:12.8,fin:[12.9,13.7]};
+  pull:[6.8,12.6],chromeOn:11.8,imgBy:[11.4,12.6],title:12.4,label:12.8,fin:[12.9,13.7],monDots:5.0};
 
 function clamp(x){return x<0?0:x>1?1:x;}
 function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
@@ -3876,18 +3956,22 @@ var VS_DOT=['#version 300 es','precision highp float;precision highp int;',
 'layout(location=0) in vec2 aQ;',
 'uniform highp sampler2D uDots;uniform highp sampler2D uCol;uniform sampler2D uSun;',
 'uniform vec2 uView;uniform float uDpr,uT;uniform vec3 uCam;uniform vec4 uSunMap;uniform vec3 uPal[9];uniform vec4 uPh;uniform vec2 uLand;uniform float uRf;',
+'uniform sampler2D uMon;uniform vec4 uMonMap;uniform vec3 uPre;uniform vec2 uOff;',
 'out vec2 vQ;out vec3 vCol;out float vA;out float vPx;out vec3 vSh;out float vIrr;',
 'float h1(float n){return fract(sin(n*12.9898+78.233)*43758.5453);}',
 'void off(){gl_Position=vec4(2.,2.,2.,1.);vQ=vec2(0.);vCol=vec3(0.);vA=0.;vPx=1.;vSh=vec3(1.,0.,1.);vIrr=0.;}',
 'void main(){int id=gl_InstanceID;int i0=id*2,i1=id*2+1;',
 '  vec3 p0=floor(texelFetch(uDots,ivec2(i0&1023,i0>>10),0).rgb*255.+.5);vec3 p1=floor(texelFetch(uDots,ivec2(i1&1023,i1>>10),0).rgb*255.+.5);',
-'  vec2 g=vec2(p0.r*256.+p0.g,p0.b*256.+p1.r)/16.;float rr=p1.g/20.;vec2 pos=uCam.xy+g*uCam.z;float pad=1.2/uDpr;',
-'  float hm=rr*uCam.z*1.42+pad;if(uPh.x<=.002||pos.x<-hm||pos.y<-hm||pos.x>uView.x+hm||pos.y>uView.y+hm){off();return;}',   // off screen: no further fetches
-'  float cb=floor(texelFetch(uCol,ivec2(id&1023,id>>10),0).r*255.+.5);int cG=int(mod(cb,16.));int cM=int(floor(cb/16.));',
+'  vec2 g=vec2(p0.r*256.+p0.g,p0.b*256.+p1.r)/16.+uOff;float rr=p1.g/20.;vec2 pos=uCam.xy+g*uCam.z;float pad=1.2/uDpr;',
+'  float hm=rr*uCam.z*1.6+pad;if(uPh.x<=.002||pos.x<-hm||pos.y<-hm||pos.x>uView.x+hm||pos.y>uView.y+hm){off();return;}',   // off screen: no further fetches
+'  float cb=floor(texelFetch(uCol,ivec2(id&1023,id>>10),0).r*255.+.5);int cG=int(mod(cb,16.));int cM=int(floor(cb/16.));if(uPre.y>.5)cM=15;',
 '  float fid=float(id);vec3 col=uPal[cG];float r=rr*uCam.z;float irr=1.;float rf=uRf;',
-'  if(cM<15){',   // a landing dot: first Monet's smear (sampled), split into its orange/blue pigment, then the Grande Jatte's own pigment
-'    vec3 mixc=textureLod(uSun,g*uSunMap.x+uSunMap.yz,uSunMap.w).rgb;vec3 mc=mix(mixc,uPal[cM],uPh.y);',
-'    float ls=uLand.x+uLand.y*h1(fid*.731+.13);col=mix(mc,col,smoothstep(0.,1.,clamp((uT-ls)/.5,0.,1.)));rf=uPh.z;irr=uPh.w;}',
+'  if(cM<15||uPre.x>.5){',   // Monet's colour here: the sun scan, and the Monet itself outside the scan's feathered box
+'    vec4 ss=textureLod(uSun,g*uSunMap.x+uSunMap.yz,uSunMap.w);vec3 mixc=ss.rgb;if(ss.a<1.)mixc=mix(textureLod(uMon,g*uMonMap.xy+uMonMap.zw,uPre.z).rgb,ss.rgb,ss.a);',
+'    if(cM<15){',   // a landing dot: first Monet's smear (sampled), split into its orange/blue pigment, then the Grande Jatte's own pigment
+'      vec3 mc=mix(mixc,uPal[cM],uPh.y);',
+'      float ls=uLand.x+uLand.y*h1(fid*.731+.13);col=mix(mc,col,smoothstep(0.,1.,clamp((uT-ls)/.5,0.,1.)));rf=uPh.z;irr=uPh.w;}',
+'    else{col=mixc;rf=uPh.z;irr=0.;}}',   // any other dot during the push-in: a round dab of the Monet's colour (off screen from 3.5 s until it is a Grande Jatte dot)
 '  r*=rf;float px=r*uDpr;irr*=step(4.,px);',   // the dab shape only where a dot is big enough to show it
 '  float asp=1.+.26*h1(fid*1.3+.5);float ro=6.2831*h1(fid*2.1+.9);vSh=vec3(cos(ro),sin(ro),asp);vIrr=irr;',
 '  float hs=r*mix(1.12,1.42,irr)+pad;',
@@ -3929,24 +4013,36 @@ function GL(){var c=cv(4,4),gl=c.getContext('webgl2',{premultipliedAlpha:true,al
     if(mip){var ext=gl.getExtension('EXT_texture_filter_anisotropic');if(ext)gl.texParameterf(gl.TEXTURE_2D,ext.TEXTURE_MAX_ANISOTROPY_EXT,4);}return t;};
   return X;}
 
+// the tiled copies of the dot field that cover the Monet left of and below the Grande Jatte's own field during the push-in (GJ px)
+var OFFS=[[0,0],[-PW,0],[0,PH],[-PW,PH]];
 // one frame of the offscreen GL canvas: the canvas ground, the dots, the mipmapped picture
-function renderGL(S,G,t,W,H,dpr,mon){var X=S.gl,gl=X.gl,c=gjCam(G,t),k=c.k,pitch=SP*k;
+function renderGL(S,G,t,W,H,dpr,mon,from){var X=S.gl,gl=X.gl,c=gjCam(G,t);
+  // until the push-in ends the dots ride on the Monet camera (the same camera as the Grande Jatte's from 3.5 s on)
+  var mc=from?monCam(G,Math.min(t,T.push[1])):null,pre=!!mc&&t<T.push[1];
+  if(pre)c={k:mc.k*RM,ox:mc.a*(G.F.x+(SUN[0]-LAND[0]*RM)*G.kM0)+mc.bx,oy:mc.a*(G.F.y+(SUN[1]-LAND[1]*RM)*G.kM0)+mc.by,E:0};
+  var k=c.k,pitch=SP*k;
   var cw=Math.round(W*dpr),chh=Math.round(H*dpr);if(X.c.width!==cw||X.c.height!==chh){X.c.width=cw;X.c.height=chh;}
   gl.viewport(0,0,cw,chh);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
-  var a1=sm(seg(t,[T.ticks[0],T.ticks[0]+T.appear])),gm=sm((10-pitch)/6),imgA=Math.max(sm((2.9-pitch*dpr)/1.2),sm(seg(t,T.imgBy)));
+  var a1=sm(seg(t,[T.ticks[0],T.ticks[0]+T.appear])),gm=sm((10-pitch)/6),imgA=t<T.pull[0]?0:Math.max(sm((2.9-pitch*dpr)/1.2),sm(seg(t,T.imgBy)));
+  // the dabs: before the raster is magnified past what it holds (DAB: device px per Monet px) round dabs of its own colour cover it,
+  // crisp at any zoom; at tick 1 they contract into the separate dots and the canvas shows between them
+  var aDab=mc&&t<T.ticks[0]+T.appear?sm((mc.k*dpr-DAB[0])/(DAB[1]-DAB[0])):0,aDot=Math.max(a1,aDab),grow=lerp(R0,RF,eio(seg(t,T.grow)));
   var Q=X.PQ;gl.useProgram(Q.p);gl.bindVertexArray(X.vao);gl.uniform2f(Q.U.uView,W,H);gl.uniform3f(Q.U.uBeige,BEIGE[0],BEIGE[1],BEIGE[2]);
   // the Monet (mipmapped) and, as the camera nears the sun, the 3840-px scan's sun (feathered), through the push-in camera
   if(mon){var m=monCam(G,t),F=G.F,aSun=sm((m.k-2.2)/2.5);gl.uniform1i(Q.U.uMode,2);gl.uniform1f(Q.U.uA,1);
     gl.uniform1i(Q.U.uTex,X.UNIT.mon);gl.uniform4f(Q.U.uRect,m.a*F.x+m.bx,m.a*F.y+m.by,m.a*F.w,m.a*F.h);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     if(aSun>0){gl.uniform1i(Q.U.uTex,X.UNIT.sun);gl.uniform1f(Q.U.uA,aSun);gl.uniform4f(Q.U.uRect,m.a*(F.x+SUNBOX[0]*G.kM0)+m.bx,m.a*(F.y+SUNBOX[1]*G.kM0)+m.by,m.a*SUNBOX[2]*G.kM0,m.a*SUNBOX[3]*G.kM0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}}
-  if(t>=T.ticks[0]){gl.uniform1i(Q.U.uTex,X.UNIT.gj);gl.uniform4f(Q.U.uRect,c.ox,c.oy,PW*k,PH*k);
-    if(imgA<.999){gl.uniform1i(Q.U.uMode,0);gl.uniform1f(Q.U.uA,a1);gl.uniform1f(Q.U.uGm,gm);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  if(t>=T.ticks[0]||aDot>.002){gl.uniform1i(Q.U.uTex,X.UNIT.gj);gl.uniform4f(Q.U.uRect,c.ox,c.oy,PW*k,PH*k);
+    if(imgA<.999){if(t>=T.ticks[0]){gl.uniform1i(Q.U.uMode,0);gl.uniform1f(Q.U.uA,a1);gl.uniform1f(Q.U.uGm,gm);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}
       var P=X.PD,U=P.U,split=(sm((t-T.ticks[1])/T.tk)+sm((t-T.ticks[2])/T.tk)+sm((t-T.ticks[3])/T.tk))/3;gl.useProgram(P.p);
       gl.uniform1i(U.uDots,X.UNIT.dots);gl.uniform1i(U.uCol,X.UNIT.col);gl.uniform1i(U.uSun,X.UNIT.sun);gl.uniform2f(U.uView,W,H);gl.uniform1f(U.uDpr,dpr);gl.uniform1f(U.uT,t);
       gl.uniform3f(U.uCam,c.ox,c.oy,k);gl.uniform4f(U.uSunMap,RM/SUNBOX[2],(SUN[0]-LAND[0]*RM-SUNBOX[0])/SUNBOX[2],(SUN[1]-LAND[1]*RM-SUNBOX[1])/SUNBOX[3],2.5);
-      gl.uniform3fv(U.uPal,S.pal);gl.uniform4f(U.uPh,a1,split,lerp(R0,RF,eio(seg(t,T.grow))),sm(seg(t,T.land)));gl.uniform1f(U.uRf,RF);gl.uniform2f(U.uLand,T.landAt,T.landSpan);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,NDOT);gl.useProgram(Q.p);}
-    if(imgA>0){gl.uniform1i(Q.U.uMode,1);gl.uniform1f(Q.U.uA,imgA);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}}
+      gl.uniform3fv(U.uPal,S.pal);gl.uniform4f(U.uPh,aDot,split,mc?lerp(RD,grow,a1):grow,sm(seg(t,T.land)));gl.uniform1f(U.uRf,RF);gl.uniform2f(U.uLand,T.landAt,T.landSpan);
+      gl.uniform1i(U.uMon,X.UNIT.mon);gl.uniform4f(U.uMonMap,RM/MW,RM/MH,(SUN[0]-LAND[0]*RM)/MW,(SUN[1]-LAND[1]*RM)/MH);
+      for(var i=0;i<(pre?OFFS.length:1);i++){var o=OFFS[i],x0=c.ox+o[0]*k,y0=c.oy+o[1]*k,mg=8*k;if(i&&(x0-mg>W||x0+PW*k+mg<0||y0-mg>H||y0+PH*k+mg<0))continue;
+        gl.uniform3f(U.uPre,t<T.monDots?1:0,i?1:0,MONLOD);gl.uniform2f(U.uOff,o[0],o[1]);gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,NDOT);}
+      gl.useProgram(Q.p);}
+    if(imgA>0&&t>=T.ticks[0]){gl.uniform1i(Q.U.uMode,1);gl.uniform1f(Q.U.uA,imgA);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}}
   gl.bindVertexArray(null);return c;}
 
 // ---------------------------------------------------------------- the Monet side: the impressionism rest seen through the push-in camera
@@ -3991,12 +4087,12 @@ function prep(ctx,S){var X=S.gl,F=ctx.from;
       function(){X.texture('dots',b[3],{nearest:true});},function(){X.texture('col',b[4],{nearest:true});},
       function(){X.texture('sun',b[2]||cv(2,2),{mip:true});},function(){X.texture('gj',b[1],{mip:true});},function(){X.texture('mon',b[0]||cv(2,2),{mip:true});},
       function(){ensure(ctx,S,'art');},function(){ensure(ctx,S,'fromArt');},function(){ensure(ctx,S,'shTo');},function(){ensure(ctx,S,'shFr');S.ok=true;}];
-    [.1,.2,.3,.45,.55,.7,.85,.95].forEach(function(p){steps.push(function(){warm(ctx,S,p);});});
+    [.1,.12,.16,.2,.3,.45,.55,.7,.85,.95].forEach(function(p){steps.push(function(){warm(ctx,S,p);});});
     steps.push(function(){S.ready=true;window.__postimpReady=true;});
     (function next(){if(!steps.length)return;var f=steps[0],r;try{r=f();}catch(e){console.error(e);S.ok=false;return;}
       if(r==='wait'){setTimeout(next,30);return;}if(r===false){S.ok=false;return;}steps.shift();setTimeout(next,16);})();});}
 // every GL path once (first use of each program and texture) before the passage plays — into the offscreen canvas only, one frame per task
-function warm(ctx,S,p){renderGL(S,geo(ctx),p*D,ctx.W,ctx.H,ctx.dpr||1,!!ctx.from&&p*D<T.monetOff);}
+function warm(ctx,S,p){renderGL(S,geo(ctx),p*D,ctx.W,ctx.H,ctx.dpr||1,!!ctx.from&&p*D<T.monetOff,!!ctx.from);}
 
 // ================================================================== the module
 var MOD={
@@ -4016,7 +4112,7 @@ var MOD={
     if(t>=T.pull[0]){var c=gjCam(G,t),rc={x:c.ox,y:c.oy,w:PW*c.k,h:PH*c.k},near=sm((3-rc.w/R.w)/2);wash(g,W,H,rc,ctx.to.ink==='dark',near);
       if(ctx.to.frame==='none'&&near>0)drawShadow(g,C.shTo,.6*near,rc);}
     var mon=!!F&&t<T.monetOff&&monCam(G,t).a>1.0001;
-    if(mon||t>=T.ticks[0]){renderGL(S,G,t,W,H,dpr,mon);g.drawImage(S.gl.c,0,0,W,H);}
+    if(mon||t>=T.ticks[0]){renderGL(S,G,t,W,H,dpr,mon,!!F);g.drawImage(S.gl.c,0,0,W,H);}
     if(F&&t<T.monetOff)drawFromArt(g,S,G,t,dpr);
     // the exact hung picture takes over (same resampling as the DOM)
     var fa=sm(seg(t,T.fin));if(fa>0){var rs=snapR(R,dpr);g.globalAlpha=fa;g.drawImage(C.art,rs.x,rs.y,rs.w,rs.h);g.globalAlpha=1;}},
@@ -5358,7 +5454,10 @@ function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy
 // the shadow follows the moving photograph: its cache is placed relative to the rect it was made for
 function drawShadow(g,sh,a,r){if(!sh||a<=0)return;g.save();g.globalAlpha=a;if(r){var k=r.w/sh.r.w;g.drawImage(sh.c,r.x+(sh.x-sh.r.x)*k,r.y+(sh.y-sh.r.y)*k,sh.w*k,sh.h*k);}else g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
 // the hung work 1:1 on device pixels (the DOM canvas is round(w·dpr) px wide and lands on whole device pixels): no resampling blur
-function artAt(g,C,r,dpr,a){g.save();g.globalAlpha=a;g.setTransform(1,0,0,1,0,0);g.drawImage(C.art,Math.round(r.x*dpr),Math.round(r.y*dpr));g.restore();}
+// (2026-09-26, ep-t) was 1:1 at round(x·dpr): at dpr 2 the DOM canvas (round(w·dpr) px) is scaled into the whole device pixels inside its CSS box
+// (see encl in t-impressionism.js) — 1:1 left a resampling seam of 7.4 mean at 1389×713 dpr 2
+function encl(r,dpr){var x0=Math.ceil(r.x*dpr-1e-3),x1=Math.floor((r.x+r.w)*dpr+1e-3),y0=Math.ceil(r.y*dpr-1e-3),y1=Math.floor((r.y+r.h)*dpr+1e-3);return[x0/dpr,y0/dpr,(x1-x0)/dpr,(y1-y0)/dpr];}
+function artAt(g,C,r,dpr,a){var e=encl(r,dpr);g.save();g.globalAlpha=a;g.drawImage(C.art,e[0],e[1],e[2],e[3]);g.restore();}
 function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*(im.naturalHeight||1)/(im.naturalWidth||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
 
 // ---------------------------------------------------------------- Judd's camera: world (cm) → minimal px
@@ -5531,6 +5630,519 @@ function placeLabel(ctx){var l=document.getElementById('lab'+ctx.to.idx);if(!l)r
   else if(land){var eb=document.getElementById('era'+ctx.to.idx);eb=eb?eb.getBoundingClientRect():null;x=Math.round(W*.58+24);y=Math.round((eb?eb.bottom:40)+14);}
   else{x=Math.round(Math.min(Math.max(f.left,g),W-g-w));y=Math.round(f.bottom+16);}
   var xs=x+'px',ys=y+'px';if(l.style.left!==xs)l.style.left=xs;if(l.style.top!==ys)l.style.top=ys;}
+})();
+
+;
+/* 尾声 · 最远的那一盏灯 — the passage from Kusama's Infinity Mirrored Room (contemporary) into the exhibition's closing salon wall (epilogue).
+   One discovery: every light in the mirror is a room you walked through — the farthest one is a hand on a cave wall.
+   Beats (seconds, see T): the mirror room on the wall, at rest · the near lights dim, the room goes quiet; a row of lights along the mirror depth
+   stays lit, converging on the vanishing point (the camera drifts in) · one by one, near to far, each of those lights takes on a colour, blooms into
+   a soft glow the size of a small picture and resolves into it — newest near (Kusama, Judd, Lichtenstein …), oldest far (… Giotto-era Madonna,
+   Polykleitos, Chauvet); the farthest light resolves into the ochre hand stencil of the Cueva de las Manos, glowing · the mirror room fades,
+   the pictures float forward out of the depth and hang on one dark wall exactly at their places in the salon wall (rooms/epilogue/cut/layers.json),
+   the hand in the centre; the empty rock panel beside it receives the visitor's own handprint (EH_SAVED.handprint / localStorage 'eh.handprint'),
+   if there is one · the composed wall (main.webp) takes over · hand-over.
+   The visitor's handprint is part of the picture state: drawn into the slot in the last frames AND in rest() (so p = 1 == rest).
+   Pictures are cut from main.webp itself (so they land on the exact pixels of the hung wall); the mirror room is rooms/epilogue/t_base.webp
+   (= contemporary cut plate_empty + haze + far) + contemporary cut/mid.webp + cut/near.webp. */
+(function(){
+'use strict';
+var D=14, KW=2048, KH=1536, VP=[1000,750], EW=2400, EHH=1244;
+var T={cross:[0.7,1.45], dim:[1.5,4.3], push:[1.5,10.2], orb:[1.7,3.9], edge:[1.6,3.6], fwash:[1.5,4.5],
+  res0:4.0, resStep:.245, hand0:8.2, fade:[9.3,11.4], wall:[9.3,11.5], fly0:9.3, flyStep:.055, flyDur:2.3,
+  slot:[11.2,12.2], mine:[11.8,12.9], main:[12.3,13.3], twash:[11.2,13.3], ink:9.8, title:12.3, label:12.8};
+// rooms/epilogue/cut/layers.json (picture area inside the frame, main.webp px; ft = frame thickness). k = depth rank: 0 nearest (newest) … 17 the hand
+var LAY=[
+  ['contemporary',2009,862,318,238,9],['minimal',1705,862,246,308,9],['pop',73,862,423,179,9],['abex',1952,185,375,191,9],['dada',1579,149,315,227,9],
+  ['avantgarde',73,158,328,218,9],['postimpressionism',1310,862,337,224,9],['impressionism',559,867,312,242,14],['realism',934,862,318,238,9],
+  ['romanticism',459,73,236,303,9],['neoclassical',1213,135,303,236,14],['rococo',97,473,233,292,18],['baroque',1947,466,324,306,18],
+  ['renaissance',753,196,397,180,9],['medieval',836,443,197,352,18],['antiquity',1610,439,270,360,9],['prehistory',397,495,372,248,9],
+  ['hand',1100,499,200,240,9]];
+var SLOT={x:1352,y:499,w:200,h:240,ft:9};
+var OCHRE=[176,74,38], HANDGLOW=[236,128,62];
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[0,0,0];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function rgb(c){return 'rgb('+c.map(Math.round).join(',')+')';}
+function rgba(c,a){return 'rgba('+c.map(Math.round).join(',')+','+a.toFixed(4)+')';}
+function mix(a,b,u){return[lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(a[2],b[2],u)];}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!im&&(im.naturalWidth||im.width)>0&&(im.complete===undefined||im.complete);}
+
+// ---------------------------------------------------------------- the wall at rest: wash (CSS .wash), shadow (.f-none::before), the hung work
+function wash(g,W,H,r,light,a){if(a<=0)return;g.save();g.translate(r.x+r.w/2,r.y+r.h/2);g.scale(.7*W,.6*H);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)');gr.addColorStop(.7,light?'rgba(255,255,255,0)':'rgba(255,244,225,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();}
+function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy+4),X0=r.x-spread-M,Y0=r.y-spread-M,X1=r.x+r.w+spread+M,Y1=r.y+r.h+spread+M;
+  var dx=Math.floor(X0*dpr),dy=Math.floor(Y0*dpr),c=cv(Math.ceil(X1*dpr)-dx,Math.ceil(Y1*dpr)-dy),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,-dx,-dy);
+  q.shadowColor='#000';q.shadowBlur=blur*dpr;q.shadowOffsetX=1e5*dpr;q.shadowOffsetY=oy*dpr;q.fillStyle='#000';q.fillRect(r.x-spread-1e5,r.y-spread,r.w+2*spread,r.h+2*spread);
+  return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr};}
+function drawShadow(g,sh,a){if(!sh||a<=0)return;g.save();g.globalAlpha=a;g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
+// the core's hung canvas (paintArt): round(w·dpr) px wide (≤ 2600), height from the art's aspect
+function artCanvas(im,r,dpr,aw,ah){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*ah/aw),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+// the contemporary room's hung work, as t-contemporary hands it over: 1:1 on device pixels
+function art11(g,c,r,dpr,a){g.save();g.globalAlpha=a;g.setTransform(1,0,0,1,0,0);g.drawImage(c,Math.round(r.x*dpr),Math.round(r.y*dpr));g.restore();}
+// this room's hung work: into the whole device pixels inside its CSS box (the DOM canvas is composited there)
+function encl(r,dpr){var x0=Math.ceil(r.x*dpr-1e-3),x1=Math.floor((r.x+r.w)*dpr+1e-3),y0=Math.ceil(r.y*dpr-1e-3),y1=Math.floor((r.y+r.h)*dpr+1e-3);return[x0/dpr,y0/dpr,(x1-x0)/dpr,(y1-y0)/dpr];}
+function artEncl(g,c,r,dpr,a){if(a<=0)return;var e=encl(r,dpr);g.globalAlpha=a;g.drawImage(c,e[0],e[1],e[2],e[3]);g.globalAlpha=1;}
+
+// ---------------------------------------------------------------- the visitor's handprint (a 256² transparent PNG, pigment only), tinted warm ochre
+function savedHand(){var S=window.EH_SAVED=window.EH_SAVED||{},u=S.handprint;if(!u){try{u=localStorage.getItem('eh.handprint');if(u)S.handprint=u;}catch(e){}}return typeof u==='string'&&u.indexOf('data:image')===0?u:null;}
+var HAND={url:null,img:null,c:null};
+function loadHand(cb){var u=savedHand();if(!u){HAND.url=null;HAND.img=null;HAND.c=null;return;}if(HAND.url===u){if(HAND.c&&cb)cb();return;}
+  HAND.url=u;HAND.c=null;var im=new Image();HAND.img=im;
+  var fin=function(){if(HAND.img!==im)return;try{var c=cv(256,256),q=c.getContext('2d');q.drawImage(im,0,0,256,256);q.globalCompositeOperation='source-in';q.fillStyle=rgb(OCHRE);q.fillRect(0,0,256,256);HAND.c=c;
+      var s=cv(8,8);s.getContext('2d').drawImage(c,0,0,8,8);}catch(e){HAND.c=null;}if(cb)cb();};   // draw once small: no first-use cost later
+  im.onload=function(){if(im.decode)im.decode().then(fin,fin);else fin();};im.src=u;}
+// the slot of rect r (the hung work's CSS box); the stencil covers the slot's height, centred, clipped to the slot
+function slotRect(r){var sx=r.w/EW,sy=r.h/EHH;return{x:r.x+SLOT.x*sx,y:r.y+SLOT.y*sy,w:SLOT.w*sx,h:SLOT.h*sy};}
+function drawMine(g,r,a,avoid){if(!HAND.c||a<=0)return;var s=slotRect(r),side=s.h*1.02;g.save();g.beginPath();g.rect(s.x,s.y,s.w,s.h);g.clip();
+  if(avoid){g.beginPath();g.rect(-1e4,-1e4,3e4,3e4);g.rect(avoid.x,avoid.y,avoid.w,avoid.h);g.clip('evenodd');}
+  // plain source-over: rest() draws it on the fx canvas above the DOM painting, where a blend mode has nothing beneath to work with
+  g.globalAlpha=.9*a;g.drawImage(HAND.c,s.x+s.w/2-side/2,s.y+s.h/2-side/2,side,side);g.restore();}
+// a short line in the label, below the meta: whose hand is next to the cave hand (or who the empty panel waits for)
+function caption(idx){var l=document.getElementById('lab'+idx);if(!l)return;var p=l.querySelector('.ep-mine'),has=!!savedHand();
+  // only when there is a hand: the empty panel is already explained by the wall text (lede)
+  if(!has){if(p)p.parentNode.removeChild(p);return;}var txt='正中手印右边那只，是你吹下的。';
+  if(!p){p=document.createElement('p');p.className='meta ep-mine';p.style.marginTop='8px';l.appendChild(p);}if(p.textContent!==txt)p.textContent=txt;}
+
+// ---------------------------------------------------------------- the pictures: cut from main.webp (frame included), a small mip, a colour glow
+function items(im){var sc=ok(im)?(im.naturalWidth||im.width)/EW:1;return LAY.map(function(L,k){var ft=L[5],f=[L[1]-ft,L[2]-ft,L[3]+2*ft,L[4]+2*ft],hand=L[0]==='hand';
+    // a spiral into the mirror depth (golden-angle turns, perspective 1/z), the hand at the vanishing point
+    var z=1+.24*k,a=(-24+137.5*k)*Math.PI/180,long=Math.max(f[2],f[3]),Ld=hand?84:250/z;
+    return{k:k,room:L[0],hand:hand,f:f,z:z,cx:VP[0]+(hand?0:640*Math.cos(a)/z),cy:VP[1]+(hand?-12:400*Math.sin(a)/z),dk:Ld/long,orbR:hand?11:Math.max(5,34/Math.pow(z,.7)),
+      s0:hand?T.hand0:T.res0+T.resStep*k,dur:hand?1.5:1.05,fly:T.fly0+T.flyStep*k,sc:sc};});}
+function cutItem(it,im){var f=it.f,s=it.sc,c=cv(f[2]*s,f[3]*s);if(ok(im))c.getContext('2d').drawImage(im,f[0]*s,f[1]*s,f[2]*s,f[3]*s,0,0,c.width,c.height);it.full=c;
+  var k=96/Math.max(c.width,c.height),m=cv(c.width*k,c.height*k),mq=m.getContext('2d');mq.imageSmoothingQuality='high';
+  var h=cv(c.width*.5,c.height*.5);h.getContext('2d').drawImage(c,0,0,h.width,h.height);var h2=cv(h.width*.5,h.height*.5);h2.getContext('2d').drawImage(h,0,0,h2.width,h2.height);
+  mq.drawImage(h2,0,0,m.width,m.height);it.small=m;
+  // the glow: the picture shrunk to a few pixels and blown up soft (its colours, no detail), feathered at its edges
+  var t4=cv(5,5*c.height/c.width),t4q=t4.getContext('2d');t4q.drawImage(m,0,0,t4.width,t4.height);var t16=cv(20,20*c.height/c.width);t16.getContext('2d').drawImage(t4,0,0,t16.width,t16.height);
+  var B=cv(96,96),bq=B.getContext('2d');bq.drawImage(t16,16,16,64,64);var gr=bq.createRadialGradient(48,48,20,48,48,48);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');
+  bq.globalCompositeOperation='destination-in';bq.fillStyle=gr;bq.fillRect(0,0,96,96);it.blob=B;
+  var col=[200,200,200];try{var d=t4q.getImageData(0,0,t4.width,t4.height).data,n=0,r=0,g2=0,b=0;for(var i=0;i<d.length;i+=4){r+=d[i];g2+=d[i+1];b+=d[i+2];n++;}col=[r/n,g2/n,b/n];}catch(e){}
+  // the light it was: a warm white lamp that takes on the picture's colour (brightened, so it still reads as a light)
+  var mx=Math.max(col[0],col[1],col[2],1),lc=it.hand?HANDGLOW:col.map(function(v){return Math.min(255,60+v*195/mx);});it.col=lc;it.orbC=orbSprite(lc);}
+function orbSprite(col){var c=cv(64,64),g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,253,248,1)');gr.addColorStop(.14,'rgba(255,248,238,.95)');gr.addColorStop(.26,rgba(col,.5));gr.addColorStop(.55,rgba(col,.12));gr.addColorStop(1,rgba(col,0));
+  g.fillStyle=gr;g.fillRect(0,0,64,64);g.globalCompositeOperation='lighter';
+  [[1,0],[0,1]].forEach(function(d){var l=g.createLinearGradient(32-31*d[0],32-31*d[1],32+31*d[0],32+31*d[1]);l.addColorStop(0,rgba(col,0));l.addColorStop(.5,rgba(mix(col,[255,255,255],.5),.45));l.addColorStop(1,rgba(col,0));g.fillStyle=l;
+    if(d[0])g.fillRect(1,31.3,62,1.4);else g.fillRect(31.3,1,1.4,62);});return c;}
+
+// ---------------------------------------------------------------- caches that depend on the size (rebuilt only when it changes)
+function ensure(ctx,S){var dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,k=[ctx.W,ctx.H,dpr,to.x,to.y,to.w,to.h,fr?[fr.x,fr.y,fr.w,fr.h].join(','):''].join('/');
+  if(S.C&&S.C.key===k)return S.C;var C={key:k},a=ctx.to.room.art||{w:EW,h:EHH};
+  C.art=artCanvas(ctx.to.image,to,dpr,a.w,a.h);C.shTo=shadowCache(dpr,to);
+  if(fr){var fa=ctx.from.room.art||{w:KW,h:KH};C.fart=artCanvas(ctx.from.image,fr,dpr,fa.w,fa.h);C.shFr=shadowCache(dpr,fr);}
+  S.C=C;return C;}
+// Kusama px → screen at time t: the photo on the wall (from.rect), the camera drifting in towards the vanishing point
+function cam(ctx,t){var fr=ctx.from?ctx.from.rect:null,to=ctx.to.rect,s0,o0;
+  if(fr){s0=fr.w/KW;o0=[fr.x,fr.y];}else{s0=to.h/KH;o0=[to.x+to.w/2-KW*s0/2,to.y];}
+  var Z=1+.75*eio(seg(t,T.push)),vx=o0[0]+VP[0]*s0,vy=o0[1]+VP[1]*s0,s=s0*Z;return{s:s,x:vx-VP[0]*s,y:vy-VP[1]*s};}
+function finalBox(it,to){var sx=to.w/EW,sy=to.h/EHH,f=it.f;return{x:to.x+f[0]*sx,y:to.y+f[1]*sy,w:f[2]*sx,h:f[3]*sy};}
+
+var MOD={
+  duration:D,
+  musicAt:.8,
+  assets:['t_base.webp'],
+  fromAssets:['cut/mid.webp','cut/near.webp'],
+  init:function(ctx){var S=ctx.state;S.base=ctx.asset('t_base.webp');S.mid=ctx.fromAsset('cut/mid.webp');S.near=ctx.fromAsset('cut/near.webp');
+    LAST_IDX=ctx.to.idx;S.it=items(ctx.to.image);S.ready=false;S.orbW=orbSprite([255,236,214]);caption(ctx.to.idx);ensure(ctx,S);
+    // the pictures are cut in small tasks (the previous room is resting meanwhile); the transition draws lights only until they are ready
+    var q=S.it.slice(),im=ctx.to.image;(function step(){var it=q.shift();if(!it){S.ready=true;warmUp(ctx,S);return;}try{cutItem(it,im);var w4=cv(4,4).getContext('2d');[it.full,it.small,it.blob,it.orbC].forEach(function(c){if(c)w4.drawImage(c,0,0,4,4);});}catch(e){}setTimeout(step,12);})();
+    loadHand();},
+  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,dpr=ctx.dpr||1,C=ensure(ctx,S);
+    if(!S.warm){var late=t>=T.ink||!ctx.from,ink=late?ctx.to.ink:ctx.from.ink,wallCss=late?ctx.to.wall:ctx.from.wall;
+      if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}if(S.wallNow!==wallCss){ctx.ui.wall(wallCss);S.wallNow=wallCss;}
+      ctx.ui.title(ctx.to.idx,t>=T.title);var labOn=t>=T.label;ctx.ui.label(ctx.to.idx,labOn);if(labOn)placeLabel(ctx);}
+    var toLight=ctx.to.ink==='dark';
+    if(t>=D-1e-6||!S.ready&&t>=T.main[1]){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,to,toLight,1);if(ctx.to.frame==='none')drawShadow(g,C.shTo,.6);artEncl(g,C.art,to,dpr,1);drawMine(g,to,1);return;}
+    var fw=ctx.from?hex(ctx.from.wall):hex(ctx.to.wall),tw=hex(ctx.to.wall),wu=sm(seg(t,T.wall)),wall=mix(fw,tw,wu);
+    g.fillStyle=rgb(wall);g.fillRect(0,0,W,H);
+    // ===== 1. the mirror room at rest (exact hung pixels), then the same photograph as its light layers
+    var fwA=1-sm(seg(t,T.fwash));
+    if(fr){wash(g,W,H,fr,ctx.from.ink==='dark',fwA);if(ctx.from.frame==='none')drawShadow(g,C.shFr,.6*fwA);if(t<T.cross[1])artEncl(g,C.fart,fr,dpr,1);}
+    var cm=cam(ctx,t),s=cm.s,R={x:cm.x,y:cm.y,w:KW*s,h:KH*s};
+    var cu=fr?sm(seg(t,T.cross)):1,du=sm(seg(t,T.dim)),fu=1-sm(seg(t,T.fade)),kB=lerp(1,.46,du)*fu*cu,kM=lerp(1,.3,du)*fu*cu,kN=lerp(1,.2,du)*fu*cu;
+    if(kB>.002&&ok(S.base)){g.globalAlpha=kB;g.drawImage(S.base,R.x,R.y,R.w,R.h);
+      if(kM>.002&&ok(S.mid)){g.globalAlpha=kM;g.drawImage(S.mid,R.x,R.y+8*s,R.w,1528*s);}
+      if(kN>.002&&ok(S.near)){g.globalAlpha=kN;g.drawImage(S.near,R.x,R.y,R.w,1521*s);}
+      g.globalAlpha=1;
+      // the photograph's edges melt into the wall as the room goes quiet
+      var ea=sm(seg(t,T.edge));if(ea>0){var fw2=R.w*.12,fh=R.h*.12;g.save();g.globalAlpha=ea;
+        [[R.x,0,R.x+fw2,0,R.x,R.y,fw2,R.h],[R.x+R.w,0,R.x+R.w-fw2,0,R.x+R.w-fw2,R.y,fw2,R.h],[0,R.y,0,R.y+fh,R.x,R.y,R.w,fh],[0,R.y+R.h,0,R.y+R.h-fh,R.x,R.y+R.h-fh,R.w,fh]].forEach(function(e){
+          var gr=g.createLinearGradient(e[0],e[1],e[2],e[3]);gr.addColorStop(0,rgba(wall,1));gr.addColorStop(1,rgba(wall,0));g.fillStyle=gr;g.fillRect(e[4],e[5],e[6],e[7]);});g.restore();}}
+    // ===== 2. the lights along the mirror depth → coloured glows → small pictures → they float forward onto the wall
+    var ow=sm(seg(t,T.orb)),L=S.it,i,it;
+    for(i=L.length-1;i>=0;i--){it=L[i];
+      var u1=sm(seg(t,[it.s0,it.s0+.35*it.dur])),u2=sm(seg(t,[it.s0+.14*it.dur,it.s0+.58*it.dur])),u3=sm(seg(t,[it.s0+.42*it.dur,it.s0+it.dur])),fly=eio(seg(t,[it.fly,it.fly+T.flyDur]));
+      if(it.hand&&!S.ready)u2=u3=0;
+      // where it is: in the depth (camera) and on the wall (final), and between
+      var dx=it.cx*s+cm.x,dy=it.cy*s+cm.y,dw=it.f[2]*it.dk*s,dh=it.f[3]*it.dk*s,fb=finalBox(it,to);
+      var bw=Math.exp(lerp(Math.log(dw),Math.log(fb.w),fly)),bh=bw*dh/dw,bx=lerp(dx,fb.x+fb.w/2,fly)-bw/2,by=lerp(dy,fb.y+fb.h/2,fly)-bh/2;
+      // the light (before it becomes a picture)
+      var oa=ow*(1-u2)*fu;if(oa>.004){var r=it.orbR*s*(1+.6*u1)*(it.hand?1+.3*u1:1);
+        g.globalCompositeOperation='lighter';if(u1<1){g.globalAlpha=oa*(1-u1);g.drawImage(S.orbW,dx-r*2.4,dy-r*2.4,r*4.8,r*4.8);}
+        if(u1>0&&it.orbC){g.globalAlpha=oa*u1;g.drawImage(it.orbC,dx-r*2.4,dy-r*2.4,r*4.8,r*4.8);}g.globalCompositeOperation='source-over';g.globalAlpha=1;}
+      if(!it.full||u2<=0)continue;
+      // the glow: it blooms from the light to the picture's size (its colours), then stays as a faint halo until the picture is on the wall
+      var halo=it.hand?.55+.06*Math.sin(t*2.3):.2,ga=u2*(1-u3*(1-halo))*(1-sm(seg(t,[it.fly+.2,it.fly+1.6]))),gs=lerp(.35,1.5,eio(u2))-(it.hand?0:.2*u3);
+      if(ga>.004){g.globalCompositeOperation='lighter';g.globalAlpha=Math.min(1,ga);var gx=bx+bw/2,gy=by+bh/2,gw=bw*gs*96/64,gh=bh*gs*96/64;g.drawImage(it.blob,gx-gw/2,gy-gh/2,gw,gh);
+        if(it.hand){var hr=Math.max(bw,bh)*1.6;g.globalAlpha=Math.min(1,ga)*.5;g.drawImage(it.orbC,gx-hr,gy-hr,2*hr,2*hr);}g.globalCompositeOperation='source-over';g.globalAlpha=1;}
+      if(u3>0){var dev=Math.max(bw,bh)*dpr;g.globalAlpha=u3;g.drawImage(dev<120?it.small:it.full,bx,by,bw,bh);
+        // deeper in the mirror, a little dimmer (the mirrors' own loss); full light once it floats forward
+        var dd=(it.hand?0:.34*(1-1/it.z))*(1-fly);if(dd>.004){g.globalAlpha=u3*dd;g.fillStyle='#05080c';g.fillRect(bx,by,bw,bh);}g.globalAlpha=1;}
+      // the ochre hand keeps a warm glow on its rock while it floats forward
+      if(it.hand&&u3>0){var wg=u3*.18*(1-sm(seg(t,[T.slot[0],T.main[1]])));if(wg>.004){g.globalCompositeOperation='lighter';g.globalAlpha=wg;g.drawImage(it.blob,bx,by,bw,bh);g.globalCompositeOperation='source-over';g.globalAlpha=1;}}
+    }
+    // ===== 3. the empty rock panel beside the hand, and the visitor's own handprint on it
+    var sa=sm(seg(t,T.slot));if(sa>0&&S.slotC){var sb=finalBox({f:[SLOT.x-SLOT.ft,SLOT.y-SLOT.ft,SLOT.w+2*SLOT.ft,SLOT.h+2*SLOT.ft]},to);g.globalAlpha=sa;g.drawImage(S.slotC,sb.x,sb.y,sb.w,sb.h);g.globalAlpha=1;}
+    // ===== 4. the composed wall takes over (shadows, the wall's own light), the room's wash and shadow
+    var ta=sm(seg(t,T.twash));if(ta>0){wash(g,W,H,to,toLight,ta);if(ctx.to.frame==='none'){g.save();g.beginPath();g.rect(0,0,W,H);g.rect(to.x,to.y,to.w,to.h);g.clip('evenodd');drawShadow(g,C.shTo,.6*ta);g.restore();}}
+    artEncl(g,C.art,to,dpr,sm(seg(t,T.main)));
+    drawMine(g,to,sm(seg(t,T.mine)));
+  },
+  done:function(ctx){caption(ctx.to.idx);},
+  rest:function(ctx){var S=ctx.state,u=savedHand();
+    // follow the saved handprint: the atlas special (s-atlas) can clear it, the prehistory room can replace it
+    if(u!==HAND.url){loadHand(function(){caption(ctx.to.idx);});if(!u)caption(ctx.to.idx);}
+    if(!HAND.c)return;
+    if(ctx.tool==='era'||ctx.hidden)return;           // the era compare covers the work; the stencil belongs to the picture, not to the compare
+    drawMine(ctx.g,ctx.to.rect,1,ctx.reading?ctx.readRect:null);}
+};
+EH.transition('epilogue',MOD);
+window.EH_SHARED=window.EH_SHARED||{};
+// for the reading panel / specials: the visitor's handprint slot (main.webp px) and a drawer (g, rect of the hung work)
+window.EH_SHARED.epilogueSlot=SLOT;
+window.EH_SHARED.epilogueHand=function(g,rect,a){if(savedHand()!==HAND.url)loadHand();drawMine(g,rect,a==null?1:a);};
+// s-atlas saves / clears the handprint and says so: follow it (the stencil in the slot, the line in the label)
+var LAST_IDX=null;
+window.addEventListener('eh:handprint',function(){loadHand();if(LAST_IDX!=null)caption(LAST_IDX);});
+// every draw path is run once on a scratch canvas, one phase per task, so no frame of the passage pays a first-use cost
+function warmUp(ctx,S){var slot=S.it[0]&&S.it[0].sc||1,im=ctx.to.image,f=[SLOT.x-SLOT.ft,SLOT.y-SLOT.ft,SLOT.w+2*SLOT.ft,SLOT.h+2*SLOT.ft];
+  S.slotC=cv(f[2]*slot,f[3]*slot);if(ok(im))S.slotC.getContext('2d').drawImage(im,f[0]*slot,f[1]*slot,f[2]*slot,f[3]*slot,0,0,S.slotC.width,S.slotC.height);
+  var dpr=ctx.dpr||1,c=cv(ctx.W*dpr,ctx.H*dpr),q=c.getContext('2d'),w=Object.assign({},ctx,{g:q}),P=[];for(var k=1;k<50;k++)P.push(k/50);
+  (function step(){if(!P.length){S.warm=null;return;}var p=P.shift();S.warm={g:q};try{q.setTransform(dpr,0,0,dpr,0,0);MOD.draw(p,w);}catch(e){}S.warm=null;setTimeout(step,24);})();}
+// the label hangs where the core will put it (core hangLabels): right of the frame on wide screens, else under it
+function placeLabel(ctx){var l=document.getElementById('lab'+ctx.to.idx);if(!l)return;var r=ctx.to.rect,fp=r.fp||0,f={left:r.x-fp,right:r.x+r.w+fp,bottom:r.y+r.h+fp};
+  var W=innerWidth,Hh=innerHeight,wide=W>1180,h=l.offsetHeight,w=l.offsetWidth,g=W<=560?16:36,ft=document.querySelector('.foot'),footTop=ft?ft.getBoundingClientRect().top:Hh-80;
+  var land=W<=980&&Hh<520&&W>Hh,x,y;
+  if(wide){x=Math.round(f.right+34);y=Math.round(Math.max(64,Math.min(f.bottom-h,footTop-24-h)));}
+  else if(land){var eb=document.getElementById('era'+ctx.to.idx);eb=eb?eb.getBoundingClientRect():null;x=Math.round(W*.58+24);y=Math.round((eb?eb.bottom:40)+14);}
+  else{x=Math.round(Math.min(Math.max(f.left,g),W-g-w));y=Math.round(f.bottom+16);}
+  var xs=x+'px',ys=y+'px';if(l.style.left!==xs)l.style.left=xs;if(l.style.top!==ys)l.style.top=ys;}
+})();
+
+;
+/* Special exhibit "atlas" (尾声 · 展厅地图).
+   The closing room hangs every room's main work on one salon wall. While the reading panel is open that wall is the exhibition's map:
+   - hovering (mouse), focusing (keyboard) or long-pressing (touch) a work lights its frame, dims the rest and names it (厅名 · 作品名);
+     clicking it goes back to that room at rest — through the timeline's own control (#line .tick[data-i]), the public navigation;
+   - 从头再看: back to the prehistory room and the tour starts again, as after the gate (transition from black, 自动播放 on);
+   - 致谢: the complete colophon, gathered at runtime from window.EH_ROOMS (art.credit, works[].credit, sources[]) and window.EH_AUDIO
+     (music[*].title/credit, credits[room] for CC-BY sound sources), grouped by room; links open in a new tab;
+   - the handprint the visitor blew in the prehistory room (s-handprint: localStorage 'eh.handprint' / window.EH_SAVED.handprint, a
+     transparent PNG dataURL) is handed back: shown large on the cave rock, with 保存 (an <a download> of the dataURL) and 清除.
+   Narrow screens (the hung work is hidden while reading): the same wall is drawn inside the panel with the same hotspots.
+   Work positions come from rooms/epilogue/cut/layers.json (main.webp pixel space). Texts: room.special.* with fallbacks below. */
+(function(){
+'use strict';
+if(!window.EH||!EH.special)return;
+
+var CSS=
+  '.at{margin-top:14px}'+
+  '.at p{max-width:34em}'+
+  '.at-hint{margin:0 0 8px!important;font-size:14px!important;color:var(--ink-2)}'+
+  '.at-map{position:relative;display:none;margin:6px 0 10px;line-height:0;overflow:hidden;background:#141210;box-shadow:0 18px 40px -22px rgba(0,0,0,.7);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'+
+  '.at.narrow .at-map{display:block}'+
+  '.at-map img{display:block;width:100%;height:auto;pointer-events:none}'+
+  '.at-now{margin:0 0 6px!important;min-height:1.9em;font-size:14px!important}'+
+  '.at-now b{font-weight:500}'+
+  '.at .acts{margin:4px 0 2px}'+
+  '.at a.act{display:inline-flex;align-items:center;color:inherit}'+
+  // hotspots (on the hung wall and on the in-panel map)
+  '.at-ov{position:absolute;inset:0;z-index:3;overflow:hidden;line-height:0}'+
+  '.at-ov.off{display:none}'+
+  '.at-spot{position:absolute;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;'+
+    'outline:none;transition:box-shadow .28s ease;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'+
+  '.at-spot.hi{z-index:2;box-shadow:0 0 0 2px rgba(246,236,214,.95),0 0 24px 3px rgba(255,232,196,.38),0 0 0 200vmax rgba(8,7,6,.42)}'+
+  '.at-spot.shut{cursor:default}'+
+  '.at-slot{position:absolute;overflow:hidden;opacity:0;transition:opacity 1.6s ease .5s;pointer-events:none}'+
+  '.at-slot.on{opacity:1}'+
+  '.at-slotc{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}'+
+  '.at-slot img{position:absolute;left:50%;top:0;height:100%;width:auto;transform:translateX(-50%)}'+
+  '.at-ov.intro .at-spot{animation:atIntro 1.9s ease both}'+
+  '.at-ov.intro .at-spot:nth-child(3n+1){animation-delay:.12s}.at-ov.intro .at-spot:nth-child(3n+2){animation-delay:.24s}'+
+  '@keyframes atIntro{0%{box-shadow:0 0 0 1px rgba(246,236,214,0)}35%{box-shadow:0 0 0 1.5px rgba(246,236,214,.75)}100%{box-shadow:0 0 0 1px rgba(246,236,214,0)}}'+
+  '.at-tip{position:fixed;left:0;top:0;z-index:12;max-width:min(320px,calc(100vw - 32px));padding:7px 12px 8px;background:rgba(14,12,10,.9);color:#efe6d6;'+
+    'font:400 14px/1.55 var(--song);pointer-events:none;opacity:0;transition:opacity .2s ease;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}'+
+  '.at-tip.on{opacity:1}.at-tip b{font-weight:500}.at-tip small{display:block;font-size:12.5px;color:#bfb4a2}'+
+  // the returned handprint
+  '.at-hand{margin:6px 0 18px;scroll-margin-top:24px}'+
+  '.at-hand.flash .at-rock{animation:atFlash 1.4s ease}'+
+  '@keyframes atFlash{0%,100%{box-shadow:0 18px 40px -22px rgba(0,0,0,.7)}30%{box-shadow:0 0 0 2px rgba(246,236,214,.9),0 18px 40px -22px rgba(0,0,0,.7)}}'+
+  '.at-rock{position:relative;width:100%;max-width:24em;aspect-ratio:4/3;background:#6f5a45 center/cover no-repeat;box-shadow:0 18px 40px -22px rgba(0,0,0,.7);overflow:hidden}'+
+  '.at-rock::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 65% at 50% 50%,rgba(255,214,160,.10),rgba(20,12,6,.38) 100%);pointer-events:none}'+
+  '.at-rock img{position:absolute;left:50%;top:50%;height:96%;width:auto;transform:translate(-50%,-50%);image-rendering:auto}'+
+  '.at-hand p{margin:12px 0 4px!important}'+
+  '.at-none{margin:6px 0 12px}'+
+  // colophon
+  '.at-cred{margin:10px 0 4px}'+
+  '.at-cred[hidden]{display:none}'+
+  '.at-scroll{max-height:min(62vh,560px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:4px 14px 8px 0;'+
+    '-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 var(--mt,0px),#000 calc(100% - var(--mb,0px)),transparent 100%);'+
+    'mask-image:linear-gradient(to bottom,transparent 0,#000 var(--mt,0px),#000 calc(100% - var(--mb,0px)),transparent 100%)}'+
+  '.at-scroll:focus-visible{outline:1px solid currentColor;outline-offset:4px}'+
+  '.at-sec{margin:0 0 22px;max-width:34em}'+
+  '.at-sec h4{margin:0 0 6px;font:500 15px/1.6 var(--song);letter-spacing:.04em}'+
+  '.at-sec h4 i{margin-left:10px;font:italic 400 14px/1.3 var(--didone,serif);color:var(--ink-3);letter-spacing:0}'+
+  '.at-sec h5{margin:10px 0 2px;font:400 13px/1.6 var(--song);color:var(--ink-3);letter-spacing:.06em}'+
+  '.at-sec ul,.at-sec ol{margin:0;padding:0 0 0 1.4em}'+
+  '.at-sec ul{list-style:none;padding-left:0}'+
+  '.at-sec li{margin:3px 0;font:400 13.5px/1.75 var(--song);overflow-wrap:anywhere}'+
+  '.at-sec li small{display:block;font-size:12.5px;color:var(--ink-2)}'+
+  '.at-sec a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-color:var(--ink-3)}'+
+  '.at-sec a:hover{text-decoration-color:currentColor}'+
+  '.at-sec .at-lead{margin:0 0 4px!important;font-size:13.5px!important;color:var(--ink-2)}';
+
+function css(){if(document.getElementById('s-atlas-css'))return;var s=document.createElement('style');s.id='s-atlas-css';s.textContent=CSS;document.head.appendChild(s);}
+function clamp(x,a,b){return x<a?a:x>b?b:x;}
+// a half-width space between Chinese and Latin/digits becomes a no-break space (the core's nb())
+function nb(t){return String(t==null?'':t).replace(/([㐀-鿿）》”]) (?=[0-9A-Za-z])/g,'$1 ').replace(/([0-9A-Za-z.%°]) (?=[㐀-鿿（《“])/g,'$1 ');}
+function trimDot(t){return String(t==null?'':t).replace(/[。.．]\s*$/,'');}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=nb(text);return e;}
+function xhrJSON(url,cb){try{var x=new XMLHttpRequest();x.open('GET',url,true);x.overrideMimeType('application/json');
+  x.onload=function(){if(x.status===200||(x.status===0&&x.responseText)){try{cb(JSON.parse(x.responseText));}catch(e){cb(null);}}else cb(null);};
+  x.onerror=function(){cb(null);};x.send();}catch(e){cb(null);}}
+function safeUrl(u){u=String(u||'');return /^https?:\/\//i.test(u)?u:'';}
+
+// ---------------------------------------------------------------- rooms and public navigation
+function ROOMSD(){return window.EH_ROOMS||{};}
+function roomIds(){var R=ROOMSD(),ids=window.EH_ROOM_LIST||Object.keys(R);return ids.filter(function(id){return !!R[id];});}
+function tickFor(idx){return idx>=0?document.querySelector('#line .tick[data-i="'+idx+'"]'):null;}
+// the timeline's own control: open that room at rest (no transition), 自动播放 off — exactly what a click on the timeline does
+function goRoom(id){var t=tickFor(roomIds().indexOf(id));if(!t)return false;t.click();return true;}
+// the tour from the start: the prehistory room from black with 自动播放 on (as after the gate). The core has no public "go"; this uses the
+// visitor's own controls: the timeline's first tick (→ the room at rest), and — at the very moment it is hung, before anything is painted
+// (a MutationObserver runs before the next paint) — 重看转场 (→ its transition from the beginning) and 自动播放.
+function tour(){
+  if(EH.nav&&typeof EH.nav.tour==='function'){EH.nav.tour();return;}
+  var ids=roomIds(),first=ids[0],t0=tickFor(0),fr=document.getElementById('frame'),now=document.getElementById('now'),rp=document.getElementById('replay'),au=document.getElementById('auto');
+  if(!t0||!fr||!rp)return;var zh=(ROOMSD()[first]||{}).zh,done=false,mo=null,to=0;
+  function fin(){if(done)return;done=true;if(mo)mo.disconnect();clearTimeout(to);}
+  function hung(){return !fr.classList.contains('hidden')&&(!now||!zh||now.textContent===zh);}
+  function restart(){fin();rp.click();if(au&&au.getAttribute('aria-pressed')!=='true')au.click();}
+  if(window.MutationObserver){mo=new MutationObserver(function(){if(!done&&hung())restart();});mo.observe(fr,{attributes:true,attributeFilter:['class']});}
+  to=setTimeout(function(){if(!done){if(hung())restart();else fin();}},8000);
+  t0.click();
+  if(!mo){var poll=function(){if(done)return;if(hung())restart();else setTimeout(poll,16);};poll();}}
+
+// ---------------------------------------------------------------- the wall's layout (rooms/epilogue/cut/layers.json)
+// accepted: {W,H, works|rooms|items|pieces|tiles|frames|layers: [ {room|roomId|id, x,y,w,h | rect | box | bbox, frame?:{…}} ] } or the same keyed by room id
+function boxOf(o){if(!o)return null;
+  if(typeof o.x==='number'&&typeof o.y==='number'&&typeof o.w==='number'&&typeof o.h==='number')return[o.x,o.y,o.w,o.h];
+  if(typeof o.x0==='number'&&typeof o.x1==='number')return[o.x0,o.y0,o.x1-o.x0,o.y1-o.y0];
+  if(typeof o.left==='number'&&typeof o.width==='number')return[o.left,o.top,o.width,o.height];
+  return null;}
+function arrBox(v,kind){if(!Array.isArray(v)||v.length<4||typeof v[0]!=='number')return null;return kind==='xyxy'?[v[0],v[1],v[2]-v[0],v[3]-v[1]]:[v[0],v[1],v[2],v[3]];}
+function entryBoxes(e){
+  var art=boxOf(e)||boxOf(e.rect)||boxOf(e.art)||boxOf(e.image)||boxOf(e.img&&typeof e.img==='object'?e.img:null)||arrBox(e.rect,'xywh')||arrBox(e.xywh,'xywh')||arrBox(e.box,'xyxy')||arrBox(e.bbox,'xyxy');
+  var fo=boxOf(e.frame)||boxOf(e.outer)||arrBox(e.frame,'xywh')||arrBox(e.outer,'xywh')||arrBox(e.frameBox,'xyxy')||arrBox(e.outerBox,'xyxy');
+  if(!art&&fo)art=fo;var ft=typeof e.ft==='number'?e.ft:typeof e.fp==='number'?e.fp:0;if(!fo&&art&&ft)fo=[art[0]-ft,art[1]-ft,art[2]+2*ft,art[3]+2*ft];
+  return art?{art:art,frame:fo||art}:null;}
+function roomOf(e,key){var R=ROOMSD(),c=[e&&e.room,e&&e.roomId,e&&e.room_id,e&&e.id,key].filter(function(x){return typeof x==='string';});
+  for(var i=0;i<c.length;i++){if(R[c[i]]&&c[i]!=='epilogue')return c[i];}
+  var ids=Object.keys(R);for(i=0;i<c.length;i++){for(var k=0;k<ids.length;k++){if(ids[k]!=='epilogue'&&c[i].toLowerCase().indexOf(ids[k])>=0)return ids[k];}}return null;}
+function parseLayout(j,art){if(!j||typeof j!=='object')return null;var W=j.W||j.w||j.width||art.w,H=j.H||j.h||j.height||art.h,out=[],seen={};
+  ['works','rooms','items','pieces','tiles','frames','hung','wall','layers','positions'].forEach(function(k){var v=j[k];if(!v||typeof v!=='object')return;
+    var list=Array.isArray(v)?v.map(function(e){return[e,null];}):Object.keys(v).map(function(key){return[v[key],key];});
+    list.forEach(function(p){var e=p[0];if(!e||typeof e!=='object')return;var id=roomOf(e,p[1]);if(!id)return;var b=entryBoxes(e);if(!b)return;var sk=id+'@'+b.art.join(',');if(seen[sk])return;seen[sk]=1;
+      out.push({key:'w'+out.length,id:id,art:b.art,frame:b.frame,title:typeof e.title==='string'?e.title:'',zh:typeof e.zh==='string'?e.zh:'',role:e.role||''});});});
+  if(!out.length)return null;
+  // scale if the layout is in another pixel space than main.webp
+  // the empty rock panel beside the hand, kept for the visitor's own handprint
+  var slot=null,sb=j.slot&&entryBoxes(j.slot);if(sb)slot={key:'slot',id:null,art:sb.art,frame:sb.frame,role:'slot'};
+  var kx=art.w/W,ky=art.h/H;if(Math.abs(kx-1)>1e-3||Math.abs(ky-1)>1e-3)out.concat(slot?[slot]:[]).forEach(function(o){['art','frame'].forEach(function(n){var b=o[n];o[n]=[b[0]*kx,b[1]*ky,b[2]*kx,b[3]*ky];});});
+  return {W:art.w,H:art.h,items:out,slot:slot};}
+
+EH.special('atlas',function(host,room,api){
+  css();
+  var sp=room.special||{},LB=sp.labels||{},art=room.art||{w:2400,h:1600},SAVED=window.EH_SAVED=window.EH_SAVED||{};
+  var mqT=window.matchMedia?matchMedia('(hover: none)'):null;function touchUI(){return !!(mqT&&mqT.matches);}
+  var reduce=false;try{reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  function pick(){for(var i=0;i<arguments.length;i++){var v=arguments[i];if(typeof v==='string'&&v)return v;}return '';}
+  var MP=sp.map||{},HP=sp.handprint||{},CR=sp.credits||{};
+  var T={
+    hintWall:pick(MP.hint,sp.mapHint,LB.mapHint)||'墙上的每一件作品都通向它的展厅：把鼠标移到作品上，看它来自哪一厅；点一下，就回到那里。',
+    hintWallTouch:pick(MP.hintTouch,sp.mapHintTouch,LB.mapHintTouch)||'墙上的每一件作品都通向它的展厅：长按作品，看它来自哪一厅；轻点，就回到那里。',
+    hintPanel:pick(MP.hintNarrow,MP.hintPanel,sp.mapHintNarrow)||'下面就是这面墙：长按一件作品，看它来自哪一厅；轻点，就回到那里。',
+    hintPanelMouse:pick(MP.hintNarrowMouse,sp.mapHintNarrowMouse)||'下面就是这面墙：把鼠标移到一件作品上，看它来自哪一厅；点一下，就回到那里。',
+    shut:pick(LB.shut)||'尚未开放',
+    replay:pick(LB.replay,sp.replay)||'从头再看',
+    credits:pick(LB.credits,CR.button)||'致谢',
+    download:pick(LB.download,HP.download)||'保存手印',
+    clear:pick(LB.clear,HP.clear)||'清除手印',
+    clearSure:pick(LB.clearConfirm,HP.clearConfirm)||'再点一次清除',
+    goPre:pick(LB.goPrehistory,HP.go)||'去史前厅',
+    handTitle:pick(HP.title)||'你的手印',
+    handText:pick(HP.text)||'这是你在史前厅的洞壁上吹下的手印。很久以前，有人用同样的办法，在洞壁上留下了自己的手；这一路的展厅，都是从那样一只手开始的。现在，它交还给你。',
+    handNone:pick(HP.none)||'史前厅的特别展项里，可以把手按在洞壁上，吹出一个自己的手印。吹好了，它会在这里等你。',
+    handAlt:pick(HP.alt)||'你在史前厅吹下的手印',
+    slotHas:pick(HP.slotHas)||'挂在古人的手旁边，这一只是你的。',
+    slotNone:pick(HP.slotNone)||'这块岩面留给你的手印；在史前厅吹一个，它就会挂在这里。',
+    file:pick(HP.file)||'我的手印.png',
+    credTitle:pick(CR.title)||'致谢',
+    credLead:pick(CR.intro,CR.lead)||'本展每件作品图片、音乐和声音素材的出处与许可，按展厅排列；各厅的资料来源附在后面。链接在新标签页打开。',
+    mainWork:pick(CR.main)||'墙上作品',works:pick(CR.works)||'同厅其他作品',music:pick(CR.music)||'音乐',sound:pick(CR.sound)||'声音素材',
+    sources:pick(CR.sources)||'资料来源',other:pick(CR.other)||'全展通用',fonts:pick(CR.fonts)||'字体',ui:pick(CR.ui)||'界面音效',
+    soundRest:pick(CR.soundRest)||'其余为公有领域录音或本展合成。',
+    fontLine:pick(CR.fontLine)||'Noto Serif SC、Bodoni Moda、Cinzel · SIL Open Font License 1.1（字体文件由本站自行托管）'
+  };
+
+  // ---------- DOM
+  var wrap=el('div','at');host.appendChild(wrap);
+  var handBox=el('div','at-handwrap');wrap.appendChild(handBox);
+  var hintEl=el('p','at-hint');wrap.appendChild(hintEl);
+  var map=el('div','at-map');map.setAttribute('role','group');map.setAttribute('aria-label','展厅地图');
+  var mapImg=document.createElement('img');mapImg.alt='';mapImg.decoding='async';mapImg.src=api.path(art.img||'main.webp');map.appendChild(mapImg);
+  var mapOv=el('div','at-ov');map.appendChild(mapOv);wrap.appendChild(map);
+  var nowEl=el('p','at-now');nowEl.setAttribute('aria-live','polite');wrap.appendChild(nowEl);
+  var acts=el('div','acts');acts.setAttribute('role','group');acts.setAttribute('aria-label','尾声');
+  var bReplay=el('button','act',T.replay);bReplay.type='button';
+  var bCred=el('button','act',T.credits);bCred.type='button';bCred.setAttribute('aria-expanded','false');
+  acts.appendChild(bReplay);acts.appendChild(bCred);wrap.appendChild(acts);
+  var cred=el('div','at-cred');cred.hidden=true;cred.id='at-cred';bCred.setAttribute('aria-controls','at-cred');wrap.appendChild(cred);
+  var tip=el('div','at-tip');tip.setAttribute('aria-hidden','true');(document.getElementById('room')||document.body).appendChild(tip);
+
+  // ---------- hotspots: one set on the hung wall (#cw), one on the in-panel map
+  var cw=document.getElementById('cw'),frameEl=document.getElementById('frame');
+  var wallOv=null;if(cw){wallOv=el('div','at-ov off');wallOv.setAttribute('role','group');wallOv.setAttribute('aria-label','展厅地图：墙上的作品');cw.appendChild(wallOv);}
+  var L=null,spots={wall:[],map:[]},hi={where:null,key:null},dead=false,raf=0,pollT=0,tipT=0,slotImgs=[],slotCv=null,slotKey='';
+  function itemOf(key){if(!L)return null;if(key==='slot')return L.slot;for(var i=0;i<L.items.length;i++)if(L.items[i].key===key)return L.items[i];return null;}
+  // 厅名 · 作品名 (+ the artist): the wall entry's own title first (the hand is one of the prehistory room's other works), else the room's work
+  function info(it){if(!it)return{zh:'',title:'',who:'',open:false};
+    if(it.role==='slot'){var has=!!readHand();return{zh:T.handTitle,title:'',who:has?T.slotHas:T.slotNone,open:true,slot:true};}
+    var r=ROOMSD()[it.id]||{},a=r.art||{},title=it.title||a.short||a.title||'',who=a.who||'';
+    if(it.title){var all=[a].concat(r.works||[]);for(var i=0;i<all.length;i++){var w=all[i]||{};if(w.title===it.title||w.short===it.title){who=w.who||who;break;}}}
+    return{zh:r.zh||it.zh||it.id,title:title,who:who,open:roomIds().indexOf(it.id)>=0};}
+  function pct(b){return 'left:'+(b[0]/L.W*100).toFixed(3)+'%;top:'+(b[1]/L.H*100).toFixed(3)+'%;width:'+(b[2]/L.W*100).toFixed(3)+'%;height:'+(b[3]/L.H*100).toFixed(3)+'%';}
+  function build(){slotImgs=[];slotCv=null;slotKey='';['wall','map'].forEach(function(where){var ov=where==='wall'?wallOv:mapOv;if(!ov)return;ov.innerHTML='';spots[where]=[];
+    // the visitor's handprint in the empty rock panel beside the ancient hand. On the hung wall the room's rest() draws it (t-epilogue, part of
+    // the picture); the in-panel map draws it with the same drawer (EH_SHARED.epilogueHand), or — without it — as a plain image (cover the slot
+    // height, centred, clipped)
+    if(L.slot&&where==='map'){if(window.EH_SHARED&&EH_SHARED.epilogueHand){slotCv=el('canvas','at-slotc');slotCv.setAttribute('aria-hidden','true');ov.appendChild(slotCv);}
+      else{var sl=el('div','at-slot');sl.style.cssText=pct(L.slot.art);var im=document.createElement('img');im.alt='';im.decoding='async';sl.appendChild(im);ov.appendChild(sl);slotImgs.push(im);}}
+    L.items.concat(L.slot?[L.slot]:[]).forEach(function(it){var f=it.frame,I=info(it),b=document.createElement('button');b.type='button';b.className='at-spot'+(I.open?'':' shut')+(I.slot?' slot':'');
+      b.style.cssText=pct(f);b.dataset.k=it.key;
+      b.setAttribute('aria-label',nb(I.slot?I.zh+'：'+I.who:(I.open?'回到展厅：':'')+I.zh+' · '+I.title+(I.open?'':'（'+T.shut+'）')));
+      wireSpot(b,where,it.key);ov.appendChild(b);spots[where].push(b);});});
+    paintSlot();[300,1000,2500].forEach(function(ms){setTimeout(function(){if(!dead&&L)paintSlot();},ms);});   // the room's copy of the stencil decodes asynchronously
+    if(!reduce&&wallOv&&wallVisible()){wallOv.classList.add('intro');setTimeout(function(){if(wallOv)wallOv.classList.remove('intro');},2600);}}
+  function paintSlot(){var u=readHand();
+    if(slotCv){var w=mapOv.clientWidth,h=mapOv.clientHeight,d=Math.min(devicePixelRatio||1,2);if(w&&h){var W2=Math.round(w*d),H2=Math.round(h*d);if(slotCv.width!==W2||slotCv.height!==H2){slotCv.width=W2;slotCv.height=H2;}
+      var g=slotCv.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W2,H2);if(u){g.setTransform(d,0,0,d,0,0);try{EH_SHARED.epilogueHand(g,{x:0,y:0,w:w,h:h},1);}catch(e){}}slotKey=w+'x'+h+(u?u.length:0);}}
+    slotImgs.forEach(function(im){var p=im.parentNode;if(u){if(im.getAttribute('src')!==u)im.src=u;p.classList.add('on');}else{p.classList.remove('on');im.removeAttribute('src');}});
+    ['wall','map'].forEach(function(w){spots[w].forEach(function(b){if(b.dataset.k==='slot'){var I=info(L.slot);b.setAttribute('aria-label',nb(I.zh+'：'+I.who));}});});}
+  function setHi(where,key){hi.where=key?where:null;hi.key=key;['wall','map'].forEach(function(w){spots[w].forEach(function(b){b.classList.toggle('hi',!!key&&w===where&&b.dataset.k===key);});});
+    if(!key){tip.classList.remove('on');nowEl.textContent='';return;}
+    var I=info(itemOf(key));tip.innerHTML='';nowEl.innerHTML='';tip.appendChild(el('b',null,I.zh));nowEl.appendChild(el('b',null,I.zh));
+    if(I.title){tip.appendChild(document.createTextNode(' · '+nb(I.title)));nowEl.appendChild(document.createTextNode(' · '+nb(I.title)));}
+    var sub=I.slot?I.who:(I.who||'')+(I.open?'':(I.who?' · ':'')+T.shut);if(sub)tip.appendChild(el('small',null,sub));if(I.slot)nowEl.appendChild(document.createTextNode('：'+nb(I.who)));
+    placeTip(where,key);tip.classList.add('on');}
+  function placeTip(where,key){var b=null;spots[where].forEach(function(s){if(s.dataset.k===key)b=s;});if(!b)return;var r=b.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight,m=16,gap=10;
+    var x=clamp(r.left+r.width/2-tw/2,m,innerWidth-m-tw),y=r.top-gap-th;if(y<m)y=r.bottom+gap;if(y+th>innerHeight-m)y=clamp(r.top+r.height/2-th/2,m,innerHeight-m-th);
+    tip.style.transform='translate('+Math.round(x)+'px,'+Math.round(y)+'px)';}
+  function go(key){if(dead)return;var it=itemOf(key),I=info(it);if(!it||!I.open)return;tip.classList.remove('on');
+    if(I.slot){setHi(null,null);var box=handBox.firstChild;if(box){try{box.scrollIntoView({block:'start',behavior:reduce?'auto':'smooth'});}catch(e){}box.classList.remove('flash');void box.offsetWidth;box.classList.add('flash');}return;}
+    try{api.sfx.tick&&api.sfx.tick(.04);}catch(e){}goRoom(it.id);}
+  function wireSpot(b,where,key){var lp=null,sup=false;
+    b.addEventListener('pointerenter',function(e){if(e.pointerType==='mouse')setHi(where,key);});
+    b.addEventListener('pointerleave',function(e){if(e.pointerType==='mouse'&&hi.key===key&&hi.where===where)setHi(null,null);});
+    b.addEventListener('focus',function(){if(b.matches&&b.matches(':focus-visible'))setHi(where,key);});
+    b.addEventListener('blur',function(){if(hi.key===key&&hi.where===where)setHi(null,null);});
+    // touch: a long press names the work (and the release does not navigate); a tap goes
+    b.addEventListener('pointerdown',function(e){e.stopPropagation();if(e.pointerType==='mouse')return;sup=false;clearTimeout(tipT);
+      lp={x:e.clientX,y:e.clientY,t:setTimeout(function(){sup=true;setHi(where,key);},420)};});
+    b.addEventListener('pointermove',function(e){if(lp&&Math.hypot(e.clientX-lp.x,e.clientY-lp.y)>10){clearTimeout(lp.t);lp=null;}});
+    function up(){if(!lp)return;clearTimeout(lp.t);lp=null;if(sup){tipT=setTimeout(function(){if(hi.key===key)setHi(null,null);},2600);}}
+    b.addEventListener('pointerup',up);b.addEventListener('pointercancel',function(){up();sup=false;});
+    b.addEventListener('contextmenu',function(e){e.preventDefault();});
+    b.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();if(sup){sup=false;return;}go(key);});}
+  // the painting's own click opens the viewer: keep it for the bare wall, but not for a press that started on a work
+  function wallVisible(){if(!cw)return false;var r=api.artRect(),cmp=document.getElementById('cmpA');return r.width>40&&r.height>40&&!(frameEl&&frameEl.classList.contains('hidden'))&&!(cmp&&cmp.classList.contains('on'));}
+  function toolOn(){return !!document.querySelector('#read .act[data-tool][aria-pressed="true"]');}
+
+  function loadLayout(){var tries=0;(function poll(){if(dead)return;xhrJSON(api.path('cut/layers.json'),function(j){if(dead)return;var P=parseLayout(j,{w:art.w,h:art.h});
+      if(P){L=P;build();sync(true);}else if(++tries<30)pollT=setTimeout(poll,tries<4?1500:6000);});})();}
+  loadLayout();
+
+  // ---------- which version: the hung wall (wide) or the in-panel map (narrow)
+  var lastMode='';
+  function sync(force){var wv=wallVisible(),narrow=!wv&&!(frameEl&&!frameEl.classList.contains('hidden')&&api.artRect().width>40),tool=toolOn();
+    wrap.classList.toggle('narrow',narrow);if(wallOv)wallOv.classList.toggle('off',!wv||tool||!L);
+    var mode=(narrow?'n':'w')+(touchUI()?'t':'m')+(L?1:0);if(mode!==lastMode||force){lastMode=mode;
+      hintEl.textContent=nb(narrow?(touchUI()?T.hintPanel:T.hintPanelMouse):(touchUI()?T.hintWallTouch:T.hintWall));
+      if(hi.key&&((hi.where==='wall'&&narrow)||(hi.where==='map'&&!narrow)))setHi(null,null);}
+    if(hi.key&&tip.classList.contains('on'))placeTip(hi.where,hi.key);
+    if(slotCv&&narrow){var u=readHand(),k=mapOv.clientWidth+'x'+mapOv.clientHeight+(u?u.length:0);if(k!==slotKey)paintSlot();}}
+  function tick(){if(dead)return;raf=requestAnimationFrame(tick);if(!host.isConnected){dispose();return;}sync(false);}
+  raf=requestAnimationFrame(tick);
+
+  // ---------- 从头再看
+  bReplay.addEventListener('click',function(){tip.classList.remove('on');tour();});
+
+  // ---------- 致谢
+  var credBuilt=false,scroller=null;
+  bCred.addEventListener('click',function(){var on=cred.hidden;if(on&&!credBuilt){buildCredits();credBuilt=true;}cred.hidden=!on;bCred.setAttribute('aria-expanded',on?'true':'false');
+    if(on){edge();try{cred.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'});}catch(e){}}});
+  function edge(){if(!scroller)return;var s=scroller,top=s.scrollTop>2,bot=s.scrollTop+s.clientHeight<s.scrollHeight-2;s.style.setProperty('--mt',top?'28px':'0px');s.style.setProperty('--mb',bot?'36px':'0px');}
+  function liCredit(title,who,credit){var li=el('li');var t=el('span',null,(title||'')+(who?' · '+who:''));li.appendChild(t);if(credit){li.appendChild(el('small',null,trimDot(credit)));}return li;}
+  function link(label,url){var u=safeUrl(url);if(!u)return el('span',null,label||url||'');var a=el('a',null,label||u);a.href=u;a.target='_blank';a.rel='noopener noreferrer';return a;}
+  function buildCredits(){var A=window.EH_AUDIO||{},MU=A.music||{},SC=A.credits||{},R=ROOMSD(),ids=roomIds(),usedSC={};
+    cred.innerHTML='';var h=el('h4',null,T.credTitle);h.className='at-ctitle';h.style.cssText='margin:0 0 4px;font:500 16px/1.5 var(--song);letter-spacing:.06em';cred.appendChild(h);
+    cred.appendChild(el('p','small',T.credLead));
+    scroller=el('div','at-scroll');scroller.tabIndex=0;scroller.setAttribute('role','region');scroller.setAttribute('aria-label',T.credTitle);cred.appendChild(scroller);
+    scroller.addEventListener('scroll',edge,{passive:true});
+    ids.forEach(function(id,n){var r=R[id];if(!r||r._stub)return;var sec=el('section','at-sec');var hh=el('h4',null,(n+1<10?'0':'')+(n+1)+'　'+(r.zh||id));if(r.lat){var i=el('i',null,r.lat);hh.appendChild(i);}sec.appendChild(hh);
+      var a=r.art||{};if(a.credit||a.title){sec.appendChild(el('h5',null,T.mainWork));var ul=el('ul');ul.appendChild(liCredit(a.title,a.who,a.credit));sec.appendChild(ul);}
+      var ws=(r.works||[]).filter(function(w){return w&&(w.title||w.credit);});if(ws.length){sec.appendChild(el('h5',null,T.works));var ul2=el('ul');ws.forEach(function(w){ul2.appendChild(liCredit(w.title,w.who,w.credit));});sec.appendChild(ul2);}
+      var m=MU[id];if(m&&(m.title||m.credit)){sec.appendChild(el('h5',null,T.music));var ul3=el('ul');ul3.appendChild(liCredit(m.title||'',null,m.credit||''));sec.appendChild(ul3);}
+      var c=SC[id]||[];usedSC[id]=1;if(c.length){sec.appendChild(el('h5',null,T.sound));var ul4=el('ul');c.forEach(function(x){var li=el('li');li.appendChild(link(x.title||'录音',x.url));li.appendChild(document.createTextNode(nb('（'+(x.author||'')+(x.lic?'，'+x.lic:'')+'）')));ul4.appendChild(li);});
+        var li2=el('li');li2.appendChild(el('small',null,T.soundRest));ul4.appendChild(li2);sec.appendChild(ul4);}
+      var S=(r.sources||[]).filter(function(s){return s&&(s.url||s.label);});if(S.length){sec.appendChild(el('h5',null,T.sources));var ol=el('ol');S.forEach(function(s){var li=el('li');li.appendChild(link(s.label||s.claim||s.url,s.url));ol.appendChild(li);});sec.appendChild(ol);}
+      scroller.appendChild(sec);});
+    // sounds not tied to a room (the interface) + fonts
+    var rest=el('section','at-sec');rest.appendChild(el('h4',null,T.other));
+    Object.keys(SC).forEach(function(k){if(usedSC[k]||!SC[k]||!SC[k].length)return;rest.appendChild(el('h5',null,k==='ui'?T.ui:T.sound+'（'+((R[k]&&R[k].zh)||k)+'）'));var ul=el('ul');
+      SC[k].forEach(function(x){var li=el('li');li.appendChild(link(x.title||'录音',x.url));li.appendChild(document.createTextNode(nb('（'+(x.author||'')+(x.lic?'，'+x.lic:'')+'）')));ul.appendChild(li);});rest.appendChild(ul);});
+    Object.keys(MU).forEach(function(k){if(ids.indexOf(k)>=0||!MU[k]||!(MU[k].title||MU[k].credit))return;rest.appendChild(el('h5',null,T.music+'（'+k+'）'));var ul=el('ul');ul.appendChild(liCredit(MU[k].title||'',null,MU[k].credit||''));rest.appendChild(ul);});
+    rest.appendChild(el('h5',null,T.fonts));var uf=el('ul');uf.appendChild(el('li',null,T.fontLine));rest.appendChild(uf);scroller.appendChild(rest);}
+
+  // ---------- the returned handprint
+  function readHand(){var u=SAVED.handprint;if(!u){try{u=localStorage.getItem('eh.handprint');}catch(e){u=null;}if(u)SAVED.handprint=u;}return typeof u==='string'&&/^data:image\/png;base64,/.test(u)?u:null;}
+  var sure=0;
+  function showHand(){handBox.innerHTML='';var u=readHand();
+    if(u){var box=el('div','at-hand');var h=el('h4',null,T.handTitle);h.style.cssText='margin:0 0 8px;font:500 15px/1.6 var(--song);letter-spacing:.04em';box.appendChild(h);
+      var rock=el('div','at-rock');rock.style.backgroundImage='url("rooms/prehistory/s_rock.webp")';var im=document.createElement('img');im.alt=T.handAlt;im.src=u;rock.appendChild(im);box.appendChild(rock);
+      box.appendChild(el('p',null,T.handText));
+      var a2=el('div','acts');var dl=el('a','act',T.download);dl.href=u;dl.download=T.file;dl.setAttribute('role','button');
+      var cl=el('button','act',T.clear);cl.type='button';
+      cl.addEventListener('click',function(){if(!sure){sure=1;cl.textContent=nb(T.clearSure);clearTimeout(cl._t);cl._t=setTimeout(function(){sure=0;cl.textContent=nb(T.clear);},3200);return;}
+        sure=0;clearTimeout(cl._t);try{localStorage.removeItem('eh.handprint');}catch(e){}delete SAVED.handprint;delete SAVED.handprintInfo;try{api.sfx.tick&&api.sfx.tick(.03);}catch(e){}showHand();if(L)paintSlot();try{window.dispatchEvent(new CustomEvent('eh:handprint',{detail:{url:null}}));}catch(e){}});
+      a2.appendChild(dl);a2.appendChild(cl);box.appendChild(a2);handBox.appendChild(box);}
+    else{var nb2=el('div','at-none');nb2.appendChild(el('p','small',T.handNone));var a3=el('div','acts');var g=el('button','act',T.goPre);g.type='button';g.addEventListener('click',function(){goRoom(roomIds()[0]||'prehistory');});
+      a3.appendChild(g);nb2.appendChild(a3);handBox.appendChild(nb2);}}
+  showHand();
+
+  function dispose(){if(dead)return;dead=true;cancelAnimationFrame(raf);clearTimeout(pollT);clearTimeout(tipT);
+    if(wallOv&&wallOv.parentNode)wallOv.parentNode.removeChild(wallOv);if(tip.parentNode)tip.parentNode.removeChild(tip);wallOv=null;}
+  host._dispose=dispose;
+  if(EH.debug)EH.debug.atlas={layout:function(){return L;},hi:setHi,go:go,tour:tour,credits:function(){if(!credBuilt){buildCredits();credBuilt=true;}return cred;},hand:showHand,hiKey:function(){return hi;}};
+});
 })();
 
 ;
@@ -6865,7 +7477,7 @@ EH.special('dots',function(host,room,api){
    2. "绕着画走": drag sideways on the hung work (or on the small copy in the panel on narrow screens): the painting lies down on the floor
       (CSS 3D, like the transition's falling wall) and turns as you walk round it; let go and it stands up again, hung from the side you stopped at.
    Text comes from room.special (all optional, with fallbacks). Sounds: the room's recorded ones if audio/parts/sfx-abex.json lists them,
-   else api.sfx synth + a small WebAudio pour noise of our own (silent whenever api.sfx.on() is false). */
+   else api.sfx synth + a small WebAudio pour noise of our own on the core's context (EH.audio; silent whenever api.sfx.on() is false). */
 (function(){
 'use strict';
 if(!window.EH||!EH.special)return;
@@ -7042,12 +7654,16 @@ EH.special('drip',function(host,room,api){
     var n=REC[kind];if(n&&api.sfx.play){var h=api.sfx.play(n,{v:v,pan:0});if(h)return;}fb&&fb();}
   // the pour: a soft filtered-noise stream of our own, following the flow and the stick's speed
   var PA=null;
-  function pourAudio(){if(PA||!api.sfx.on||!api.sfx.on())return PA;try{var ac=new (window.AudioContext||window.webkitAudioContext)();
+  // It runs on the core's audio context and effects bus (EH.audio): the 声音 toggle and hush apply, and the core stops it when the panel
+  // closes or another room is entered. Every frame re-arms a fade to silence 0.25 s ahead, so if the frames stop (hidden tab) it fades by itself.
+  function pourAudio(){if(PA)return PA;var A=EH.audio,ac=A&&A.ctx&&A.ctx();if(!ac||!A.on())return null;try{
       var b=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate),d=b.getChannelData(0),l=0;for(var i=0;i<d.length;i++){var w=Math.random()*2-1;l=(l+.05*w)/1.05;d[i]=l*4;}
+      var out=A.out();if(!out)return null;
       var s=ac.createBufferSource();s.buffer=b;s.loop=true;var f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=500;f.Q.value=.7;var g=ac.createGain();g.gain.value=0;
-      s.connect(f);f.connect(g);g.connect(ac.destination);s.start();PA={ac:ac,f:f,g:g};}catch(e){PA=null;}return PA;}
-  function pourSound(level,speed){if(!PA)return;var on=api.sfx.on&&api.sfx.on(),t=PA.ac.currentTime;
-    PA.g.gain.setTargetAtTime(on?clamp(level,0,1)*.05:0,t,.05);PA.f.frequency.setTargetAtTime(380+clamp(speed,0,2000)*.9,t,.06);}
+      s.connect(f);f.connect(g);g.connect(out);s.start();A.keep(s);PA={ac:ac,s:s,f:f,g:g,out:out};}catch(e){PA=null;}return PA;}
+  function pourSound(level,speed){if(!PA)return;var on=api.sfx.on&&api.sfx.on(),t=PA.ac.currentTime,v=on?clamp(level,0,1)*.05:0,G=PA.g.gain;
+    if(G.cancelAndHoldAtTime)G.cancelAndHoldAtTime(t);else G.cancelScheduledValues(t);G.setTargetAtTime(v,t,.05);if(v>0)G.setTargetAtTime(0,t+.25,.08);
+    PA.f.frequency.setTargetAtTime(380+clamp(speed,0,2000)*.9,t,.06);}
 
   // ---------- toy state
   var P={H:HDEF,load:1,paint:0,T:{x:-999,y:-999},Tt:null,Nprev:null,U:{x:0,y:0},Up:{x:0,y:0},C:{x:0,y:0},psi:0,chir:1,flow:0,
@@ -7358,7 +7974,7 @@ EH.special('drip',function(host,room,api){
 
   function dispose(){if(dead)return;dead=true;cancelAnimationFrame(raf);clearTimeout(pollT);
     if(wallV&&wallV.ov.parentNode)wallV.ov.parentNode.removeChild(wallV.ov);if(cw)cw.style.touchAction=cwTouch;
-    if(PA){try{PA.g.gain.setTargetAtTime(0,PA.ac.currentTime,.05);var ac=PA.ac;setTimeout(function(){try{ac.close();}catch(_){}} ,300);}catch(_){}PA=null;}
+    if(PA){try{var pa=PA,t=pa.ac.currentTime;pa.g.gain.cancelScheduledValues(t);pa.g.gain.setTargetAtTime(0,t,.03);pa.s.stop(t+.25);setTimeout(function(){try{pa.out.disconnect();}catch(_){}},400);}catch(_){}PA=null;}
     if(frameEl){frameEl.removeEventListener('pointerdown',wDown,true);frameEl.removeEventListener('pointermove',wMove,true);frameEl.removeEventListener('pointerup',wUp,true);
       frameEl.removeEventListener('pointercancel',wUp,true);frameEl.removeEventListener('click',wClick,true);}}
   host._dispose=dispose;
@@ -7988,7 +8604,7 @@ EH.special('handprint',function(host,room,api){
   var para=host.querySelector('p');if(para&&!(sp.text||'').trim())para.textContent=TEXT;
   var h3=host.previousElementSibling;if(h3&&h3.tagName==='H3'&&!(sp.title||'').trim())h3.textContent='本厅特别展项：你的手印';
   var CAP_IDLE='按住岩面，赭石粉会吹到手的四周。按得越久，颜色越浓。',CAP_ON='继续按住……拖动可以换个方向吹。',
-      CAP_DONE='手印留下了。它会一直跟着你，到当代厅再交还给你。',CAP_SHORT='吹得太短，再按久一点。';
+      CAP_DONE='手印留下了。它会一直跟着你，到最后一个展厅再交还给你。',CAP_SHORT='吹得太短，再按久一点。';
 
   var box=document.createElement('div');box.className='hp';
   box.innerHTML='<div class="hp-rock"><canvas tabindex="0" role="application" aria-roledescription="岩面" aria-label="岩面。按住回车或空格喷颜料，方向键移动手的位置。"></canvas></div>'+
@@ -10738,11 +11354,14 @@ EH.special('silkscreen',function(host,room,api){
   var REC={peel:recName(/peel|paper|lift/),pin:recName(/pin|stick|slap|land/),squeegee:recName(/squeeg|scrape|pull|print/),lens:recName(/lens|loupe|glass/),clear:recName(/clear|tear|rip/)};
   function snd(kind,v,fb){var n=REC[kind];if(n&&api.sfx.play){var h=api.sfx.play(n,{v:v});if(h)return;}fb&&fb();}
   var AU=null;   // own scrape voice: noise → band-pass → gain, driven by the squeegee's speed
-  function scrape(level,speed){try{if(!api.sfx.on||!api.sfx.on()){if(AU)AU.g.gain.setTargetAtTime(0,AU.ac.currentTime,.05);return;}
-      if(!AU){if(level<=0)return;var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;var ac=new AC(),n=ac.createBufferSource(),b=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate),d=b.getChannelData(0);
+  // on the core's audio context and effects bus (EH.audio): the 声音 toggle and hush apply, the core stops it with the panel / room.
+  // Every call re-arms a fade to silence 0.25 s ahead, so it fades by itself if the frames stop (hidden tab).
+  function auLevel(v){var t=AU.ac.currentTime,G=AU.g.gain;if(G.cancelAndHoldAtTime)G.cancelAndHoldAtTime(t);else G.cancelScheduledValues(t);G.setTargetAtTime(v,t,.05);if(v>0)G.setTargetAtTime(0,t+.25,.08);}
+  function scrape(level,speed){try{if(!api.sfx.on||!api.sfx.on()){if(AU)auLevel(0);return;}
+      if(!AU){if(level<=0)return;var A=EH.audio,ac=A&&A.ctx&&A.ctx(),out=ac&&A.out();if(!out)return;var n=ac.createBufferSource(),b=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate),d=b.getChannelData(0);
         for(var i=0,l=0;i<d.length;i++){var w=Math.random()*2-1;l=l*.6+w*.4;d[i]=l;}n.buffer=b;n.loop=true;var f=ac.createBiquadFilter();f.type='bandpass';f.Q.value=1.4;f.frequency.value=700;
-        var f2=ac.createBiquadFilter();f2.type='peaking';f2.frequency.value=2600;f2.gain.value=6;var g=ac.createGain();g.gain.value=0;n.connect(f);f.connect(f2);f2.connect(g);g.connect(ac.destination);n.start();AU={ac:ac,f:f,g:g};}
-      if(AU.ac.state==='suspended')AU.ac.resume();var t=AU.ac.currentTime;AU.f.frequency.setTargetAtTime(420+clamp(speed,0,4)*520,t,.04);AU.g.gain.setTargetAtTime(clamp(level,0,1)*.11,t,.05);}catch(e){}}
+        var f2=ac.createBiquadFilter();f2.type='peaking';f2.frequency.value=2600;f2.gain.value=6;var g=ac.createGain();g.gain.value=0;n.connect(f);f.connect(f2);f2.connect(g);g.connect(out);n.start();A.keep(n);AU={ac:ac,n:n,f:f,g:g,out:out};}
+      var t=AU.ac.currentTime;AU.f.frequency.setTargetAtTime(420+clamp(speed,0,4)*520,t,.04);auLevel(clamp(level,0,1)*.11);}catch(e){}}
 
   // ------------------------------------------------------------------ input on the bed (relative horizontal drag)
   var drag=null;
@@ -11006,7 +11625,7 @@ EH.special('silkscreen',function(host,room,api){
     var lbl=TOTAL>0?T.more:T.sq;if(sqBtn.querySelector('span').textContent!==lbl)sqBtn.querySelector('span').textContent=lbl;}
   counter();pressWork();raf=requestAnimationFrame(tick);
   function dispose(){if(dead)return;dead=true;cancelAnimationFrame(raf);
-    try{if(AU){AU.g.gain.setTargetAtTime(0,AU.ac.currentTime,.03);var ac=AU.ac;setTimeout(function(){try{ac.close();}catch(_){}},300);}}catch(_){}
+    try{if(AU){var au=AU,t=au.ac.currentTime;AU=null;au.g.gain.cancelScheduledValues(t);au.g.gain.setTargetAtTime(0,t,.03);au.n.stop(t+.25);setTimeout(function(){try{au.out.disconnect();}catch(_){}},400);}}catch(_){}
     [wallCv,ov,fly].forEach(function(el){if(el&&el.parentNode)el.parentNode.removeChild(el);});
     if(flying){flying=null;}
     if(cw){cw.style.touchAction=cwTouch;cw.style.cursor=cwCursor;}
@@ -11027,8 +11646,11 @@ EH.special('silkscreen',function(host,room,api){
      Boxes not on the wall lie in two piles on the floor to the right. Drag the lamp (top right of the work) and the shadows move (directional key
      light + weak fill, projected onto the wall and the floor). Lower the ceiling: boxes that no longer fit (one gap of clearance) come down.
    2 一句话的作品 — an instruction card (our sentences in LeWitt's manner, room.special.instruction.cards). Its underlined numbers/words cycle on click;
-     the browser paints the wall over with a roller and draws the sentence again, line by line, on the room's own wall around the hung work (wide
-     screens) or on a wall in the panel (narrow). 照着再画一遍: same sentence, different drawing.
+     the browser paints the wall over with a roller and draws the sentence again, line by line. Wide screens: two tabs; in this tab the hung photo fades
+     out under our own cover layer (.ss-room, above the frame) and the sentence is executed on the whole free wall left of the reading panel (the art
+     rect included; white wall = the room's own wall incl. the core's wash, seamless; black wall = the same area painted black, edges on the page grid).
+     Back to 堆叠 / panel closed: the cover fades out and everything drawn is cleared. Narrow: both toys in the panel, the drawing on a wall in the
+     panel. 照着再画一遍: same sentence, different drawing.
    Geometry: main.webp px (1600 × 2000); world cm (X along the wall, Y up, Z out of the wall). Textures: rooms/minimal/s_tex.webp (rectified faces,
    _wip/s-stack/tex.py). */
 (function(){
@@ -11068,7 +11690,8 @@ function lampDir(h){return norm([(h[0]-LAMPC[0])/LAMPS,(LAMPC[1]-h[1])/LAMPS,0.4
 
 function css(){if(document.getElementById('s-stack-css'))return;var s=document.createElement('style');s.id='s-stack-css';s.textContent=
   '.ss{margin-top:14px}'+
-  '.ss h4{margin:26px 0 4px;font:500 15.5px/1.6 var(--song);letter-spacing:.04em}.ss h4:first-child{margin-top:4px}'+
+  '.ss h4{margin:26px 0 4px;font:500 15.5px/1.6 var(--song);letter-spacing:.04em}.ss .ss-t1{margin-top:4px}'+
+  '.ss-tabs{margin:2px 0 6px}.ss.narrow .ss-tabs{display:none}.ss:not(.narrow) .ss-t1,.ss:not(.narrow) .ss-t2{display:none}'+
   '.ss .ss-hint{margin:0 0 8px!important}'+
   '.ss-stage,.ss-wallc{display:none;width:100%;height:auto;max-width:100%;touch-action:pan-y;box-shadow:0 18px 40px -24px rgba(0,0,0,.5)}'+
   '.ss:not(.narrow) .ss-stage,.ss:not(.narrow) .ss-wallc{display:none!important}'+
@@ -11088,9 +11711,10 @@ function css(){if(document.getElementById('s-stack-css'))return;var s=document.c
   '.ss-slot{display:inline-block;min-height:44px;min-width:44px;padding:0 3px;font:500 16.5px/44px var(--song);color:#24211d;text-align:center;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:6px;cursor:pointer;transition:transform .18s ease}'+
   '.ss-slot:hover{text-decoration-thickness:2.5px}.ss-slot.flip{transform:translateY(-3px)}'+
   '.ss-slot:focus-visible{outline:1px solid #24211d;outline-offset:1px}'+
-  '.ss-ov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:1}'+
+  '.ss-ov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:1;transition:opacity .4s ease}.ss-ov.off{opacity:0}'+
   '.ss-held{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:29}'+
-  '.ss-room{position:absolute;left:0;top:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .6s ease}.ss-room.on{opacity:1}';
+  '.room.ss-draw .frame::before{opacity:0!important;transition:opacity .4s ease}'+
+  '.ss-room{position:absolute;left:0;top:0;z-index:3;pointer-events:none;opacity:0;transition:opacity .4s ease}.ss-room.on{opacity:1;pointer-events:auto;cursor:default}';
   document.head.appendChild(s);}
 
 EH.special('stack',function(host,room,api){
@@ -11125,24 +11749,27 @@ EH.special('stack',function(host,room,api){
 
   // ================================================================ DOM
   var wrap=document.createElement('div');wrap.className='ss';
-  wrap.innerHTML='<h4 class="ss-t1"></h4><p class="small ss-hint ss-h1"></p>'+
+  wrap.innerHTML='<div class="acts ss-tabs" role="group" aria-label="两件玩具"><button type="button" class="act" data-tab="stack" aria-pressed="true"></button><button type="button" class="act" data-tab="draw" aria-pressed="false"></button></div>'+
+    '<div class="ss-pane" data-pane="stack"><h4 class="ss-t1"></h4><p class="small ss-hint ss-h1"></p>'+
     '<canvas class="ss-stage" role="img" aria-label="墙上的堆叠：盒子、地上的两摞盒子和顶灯。拖动盒子挂上墙，拖动灯看影子。"></canvas>'+
     '<div class="ss-status"><span class="ss-count"></span><span class="ss-gap"></span></div>'+
     '<p class="ss-msg" aria-live="polite"></p>'+
     '<div class="acts" role="group" aria-label="布展"><button type="button" class="act" data-a="one"></button><button type="button" class="act" data-a="down"></button><button type="button" class="act" data-a="reset"></button><button type="button" class="act" data-a="all"></button></div>'+
     '<label class="ss-rng"><span class="ss-lc"></span><input type="range" class="ss-ceil" min="0" max="1000" step="1"><output class="ss-cv"></output></label>'+
     '<label class="ss-rng"><span class="ss-ll"></span><input type="range" class="ss-lamp" min="0" max="1000" step="1"><output class="ss-lv"></output></label>'+
-    '<p class="small ss-text"></p><p class="small ss-note"></p>'+
-    '<h4 class="ss-t2"></h4><p class="small ss-hint ss-h2"></p>'+
+    '<p class="small ss-text"></p><p class="small ss-note"></p></div>'+
+    '<div class="ss-pane" data-pane="draw"><h4 class="ss-t2"></h4><p class="small ss-hint ss-h2"></p>'+
     '<div class="acts ss-cards" role="group" aria-label="指令卡"></div>'+
     '<div class="ss-card"><small></small><p aria-live="polite"></p></div>'+
     '<canvas class="ss-wallc" role="img" aria-label="照着卡片上的句子画出的墙绘"></canvas>'+
     '<p class="ss-msg ss-imsg" aria-live="polite"></p>'+
     '<div class="acts" role="group" aria-label="墙绘"><button type="button" class="act" data-i="redo"></button><button type="button" class="act" data-i="black"></button></div>'+
-    '<p class="small ss-basis"></p><p class="small ss-itext"></p><p class="small ss-inote"></p>';
+    '<p class="small ss-basis"></p><p class="small ss-itext"></p><p class="small ss-inote"></p></div>';
   host.appendChild(wrap);
   function q(s){return wrap.querySelector(s);}
   q('.ss-t1').textContent=T.t1;q('.ss-t2').textContent=T.t2;
+  var tabs=wrap.querySelectorAll('[data-tab]'),panes=wrap.querySelectorAll('.ss-pane');tabs[0].textContent=T.t1;tabs[1].textContent=T.t2;
+  var mode='stack';   // wide screens: which toy owns the wall (narrow screens show both toys in the panel)
   q('.ss-text').textContent=nb(SK.text||'');q('.ss-note').textContent=nb(T.note);q('.ss-itext').textContent=nb(SI.text||'');q('.ss-inote').textContent=nb(T.inote);
   ['.ss-text','.ss-note','.ss-itext','.ss-inote'].forEach(function(s){if(!q(s).textContent)q(s).hidden=true;});
   var btn={};Array.prototype.forEach.call(wrap.querySelectorAll('[data-a]'),function(b){btn[b.getAttribute('data-a')]=b;b.textContent=T[b.getAttribute('data-a')];});
@@ -11293,7 +11920,9 @@ EH.special('stack',function(host,room,api){
   function DPR(){return Math.min(devicePixelRatio||1,2);}
   function pristine(){if(S.ceil<CEIL0-.5||Math.abs(S.lamp[0]-LAMP0[0])>1||Math.abs(S.lamp[1]-LAMP0[1])>1)return false;
     for(var i=0;i<U.length;i++){var u=U[i];if(u.st!=='wall'||u.slot!==NU-1-i)return false;}return true;}
-  function drawWall(){if(!ov)return;var r=artRect(),d=DPR();
+  function isNarrow(){return wrap.classList.contains('narrow');}
+  function drawMode(){return mode==='draw'&&!isNarrow();}   // the instruction drawing owns the room's wall (the photo is covered)
+  function drawWall(){if(!ov||drawMode())return;var r=artRect(),d=DPR();
     if(!wallVisible(r)){if(!drawWall.clear){og.setTransform(1,0,0,1,0,0);og.clearRect(0,0,ov.width,ov.height);drawWall.clear=true;}return;}
     var w=Math.round(r.width*d),h=Math.round(r.height*d);if(ov.width!==w||ov.height!==h){ov.width=w;ov.height=h;}
     og.setTransform(1,0,0,1,0,0);og.clearRect(0,0,w,h);drawWall.clear=false;
@@ -11393,16 +12022,16 @@ EH.special('stack',function(host,room,api){
   function setLamp(h){S.lamp=h;S.L=lampDir(h);S.pristine=false;dirty=true;lampIn.value=String(Math.round((h[0]-LX0)/(LX1-LX0)*1000));syncLamp();}
 
   // wall (wide): capture phase on the frame so the work's own click (open the viewer) does not fire after a drag
-  function wallDown(e){suppress=false;if(!ov||!wallVisible())return;if(e.button!=null&&e.button!==0&&e.pointerType==='mouse')return;
+  function wallDown(e){suppress=false;if(!ov||!wallVisible()||drawMode())return;if(e.button!=null&&e.button!==0&&e.pointerType==='mouse')return;
     if(begin(e,'wall')){e.stopPropagation();e.preventDefault();suppress=true;try{frameEl.setPointerCapture(e.pointerId);}catch(_){}}}
   function wallMove(e){if(drag&&drag.where==='wall'){move(e);e.stopPropagation();return;}
-    if(!cw||e.pointerType!=='mouse'||!wallVisible())return;var h=pick(toImg(e.clientX,e.clientY,'wall'),'wall');cw.style.cursor=h?(h.kind==='lamp'?'move':'grab'):cwCursor;}
+    if(!cw||e.pointerType!=='mouse'||!wallVisible())return;if(drawMode()){cw.style.cursor=cwCursor;return;}var h=pick(toImg(e.clientX,e.clientY,'wall'),'wall');cw.style.cursor=h?(h.kind==='lamp'?'move':'grab'):cwCursor;}
   function wallUp(e){if(drag&&drag.where==='wall'){end(e,e.type==='pointercancel');e.stopPropagation();}}
   function wallClick(e){if(suppress){suppress=false;e.stopPropagation();e.preventDefault();}}
   if(frameEl){frameEl.addEventListener('pointerdown',wallDown,true);frameEl.addEventListener('pointermove',wallMove,true);frameEl.addEventListener('pointerup',wallUp,true);
     frameEl.addEventListener('pointercancel',wallUp,true);frameEl.addEventListener('click',wallClick,true);}
   if(cw)cw.style.touchAction='pan-y';
-  function cwTouchStart(e){if(!wallVisible()||e.touches.length!==1)return;var t=e.touches[0],h=pick(toImg(t.clientX,t.clientY,'wall'),'wall');if(h)e.preventDefault();}
+  function cwTouchStart(e){if(!wallVisible()||drawMode()||e.touches.length!==1)return;var t=e.touches[0],h=pick(toImg(t.clientX,t.clientY,'wall'),'wall');if(h)e.preventDefault();}
   if(cw)cw.addEventListener('touchstart',cwTouchStart,{passive:false});
   // stage (narrow): the page keeps scrolling unless the finger starts on a box or the lamp
   stage.addEventListener('touchstart',function(e){if(e.touches.length!==1)return;var t=e.touches[0];if(pick(toImg(t.clientX,t.clientY,'stage'),'stage'))e.preventDefault();},{passive:false});
@@ -11484,11 +12113,17 @@ EH.special('stack',function(host,room,api){
   var roomC=document.createElement('canvas');roomC.className='ss-room';roomC.setAttribute('aria-hidden','true');var rg=roomC.getContext('2d');
   var roomEl=document.getElementById('room');if(roomEl&&frameEl)roomEl.insertBefore(roomC,frameEl);
   var wallc=q('.ss-wallc'),wg=wallc.getContext('2d');
-  function regionNow(){   // where the drawing goes: the room's wall left of the reading panel (wide) or the wall in the panel (narrow)
-    if(wrap.classList.contains('narrow')){var w=wallc.clientWidth;if(!w)return null;return{kind:'panel',x:0,y:0,w:w,h:Math.round(w*3/4)};}
-    var rd=document.getElementById('read'),rr=rd?rd.getBoundingClientRect():null,foot=document.querySelector('.foot'),ft=foot?foot.getBoundingClientRect().top:innerHeight-90;
-    var right=rr&&rr.width?rr.left-8:innerWidth-24,x=24,y=58,w=right-x,h=ft-14-y;if(w<200||h<160)return null;return{kind:'room',x:x,y:y,w:Math.round(w),h:Math.round(h)};}
-  function redraw(wipe){D.seed=(Math.random()*1e9)|0;D.runs++;D.started=true;D.gen=true;D.t=0;D.drawnTo=0;D.done=false;
+  function cover(on){roomC.classList.toggle('on',on);if(roomEl)roomEl.classList.toggle('ss-draw',on);}   // our layer over the photo (+ its frame shadow)
+  function regionNow(){   // where the drawing goes: the wall in the panel (narrow) or, in the drawing tab, the whole free wall of the room (wide)
+    if(isNarrow()){var w=wallc.clientWidth;if(!w)return null;return{kind:'panel',x:0,y:0,w:w,h:Math.round(w*3/4)};}
+    if(mode!=='draw')return null;
+    // on the page grid: left = the wordmark / timeline edge; top and bottom = the reading panel's; right = the panel's edge (its text keeps its own
+    // 40 px padding). The hung work (and its shadow) always lies inside: the whole wall, the art rect included, is the drawing.
+    var rd=document.getElementById('read'),rr=rd?rd.getBoundingClientRect():null,mk=document.querySelector('.mark'),ml=mk?mk.getBoundingClientRect().left:36;
+    if(!rr||!rr.width)return null;var x=Math.max(8,Math.round(ml)),y=Math.round(rr.top),x1=Math.floor(rr.left),y1=Math.round(rr.bottom),a=artRect();
+    if(a&&a.width>40){x=Math.min(x,Math.floor(a.left));y=Math.min(y,Math.floor(a.top));y1=Math.max(y1,Math.ceil(a.bottom));}
+    x=Math.max(0,x);y=Math.max(0,y);y1=Math.min(innerHeight,y1);var w=x1-x,h=y1-y;if(w<200||h<160)return null;return{kind:'room',x:x,y:y,w:w,h:h};}
+  function redraw(wipe){D.seed=(Math.random()*1e9)|0;D.runs++;D.started=true;D.gen=true;D.t=0;D.drawnTo=0;D.done=false;D.hold=0;
     if(wipe&&D.hasInk&&!reduce){D.wipe=0;snd('roller',.6,function(){api.sfx.whoosh(.04,.7);});}else{D.wipe=-1;clearDraw();}
     imsgEl.textContent=nb(T.drawing);imsgEl.classList.add('on');}
   function sizeDraw(reg){var d=DPR(),w=Math.round(reg.w*d),h=Math.round(reg.h*d);if(drawC.width!==w||drawC.height!==h){drawC.width=w;drawC.height=h;return true;}return false;}
@@ -11504,7 +12139,7 @@ EH.special('stack',function(host,room,api){
     if(sizeDraw(reg)){D.drawnTo=0;D.hasInk=false;if(D.done){D.done=false;D.t=D.dur;}}
     var d=DPR(),W=reg.w*d,k=d;
     if(D.wipe>=0){D.wipe+=dt/.55;var x=clamp(D.wipe,0,1)*drawC.width;dg.setTransform(1,0,0,1,0,0);dg.clearRect(0,0,x+2,drawC.height);if(D.wipe>=1){D.wipe=-1;clearDraw();D.t=0;D.drawnTo=0;}return;}
-    if(D.done)return;D.t+=dt;var n=D.n,ld=Math.min(.55,D.dur*.3),span=Math.max(.001,D.dur-ld),grow=n<=400;
+    if(D.done)return;if(D.hold>0){D.hold-=dt;return;}D.t+=dt;var n=D.n,ld=Math.min(.55,D.dur*.3),span=Math.max(.001,D.dur-ld),grow=n<=400;
     dg.setTransform(1,0,0,1,0,0);inkStyle(dg,k);D.tips=[];
     if(grow){   // redraw the lines still growing on top (they only get longer: overdraw is invisible at this alpha? no — draw the full line once, at its end)
       for(var i=0;i<n;i++){var st=i/n*span,e=(D.t-st)/ld;if(e<=0)break;if(i<D.drawnTo)continue;if(e>=1){strokeLine(dg,D.lines[i],W,0,k,1);D.drawnTo=i+1;D.hasInk=true;}else D.tips.push([i,e]);}}
@@ -11513,34 +12148,64 @@ EH.special('stack',function(host,room,api){
     if(now-lastScratch>(grow?110:70)&&D.tips.length){lastScratch=now;snd('pencil',.35,function(){api.sfx.puff(.006+Math.random()*.008,.05+Math.random()*.05);});}
     if(D.drawnTo>=n){D.done=true;D.tips=[];D.dirty=true;imsgEl.textContent=nb(D.again?T.again:fmt(T.drawn,{n:n}));D.again=false;}}
   function renderWall(){if(!D.started||!D.region)return;var reg=D.region,d=DPR(),g,c;
-    if(reg.kind==='room'){c=roomC;g=rg;roomC.style.left=reg.x+'px';roomC.style.top=reg.y+'px';roomC.style.width=reg.w+'px';roomC.style.height=reg.h+'px';roomC.classList.add('on');}
-    else{c=wallc;g=wg;roomC.classList.remove('on');}
+    if(reg.kind==='room'){c=roomC;g=rg;roomC.style.left=reg.x+'px';roomC.style.top=reg.y+'px';roomC.style.width=reg.w+'px';roomC.style.height=reg.h+'px';cover(true);}
+    else{c=wallc;g=wg;cover(false);}
     var w=Math.round(reg.w*d),h=Math.round(reg.h*d);if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
     g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,w,h);
-    if(D.black){g.fillStyle='#1d1c1a';g.fillRect(0,0,w,h);}else if(reg.kind==='panel'){g.fillStyle=COL.wall||'#F3F3F2';g.fillRect(0,0,w,h);}
+    if(D.black){g.fillStyle='#1d1c1a';g.fillRect(0,0,w,h);}else if(reg.kind==='panel'){g.fillStyle=COL.wall||'#F3F3F2';g.fillRect(0,0,w,h);}else{var ds=document.documentElement.style,wk=[reg.x,reg.y,w,h,ds.getPropertyValue('--sx'),ds.getPropertyValue('--sy'),roomEl&&roomEl.className].join(',');if(wallK.k!==wk){wallK.k=wk;wallK.c.width=w;wallK.c.height=h;paintWall(wallK.c.getContext('2d'),reg,d,w,h);}g.drawImage(wallK.c,0,0);}
     g.drawImage(drawC,0,0);
     // lines growing right now, with the pencil at their tips
     if(D.tips&&D.tips.length){var W=reg.w*d;inkStyle(g,d);D.tips.slice(0,40).forEach(function(t){var e=strokeLine(g,D.lines[t[0]],W,0,d,t[1]);g.setLineDash([]);g.fillStyle=D.black?'#fff':'#24211d';g.beginPath();g.arc(e[0],e[1],1.8*d,0,7);g.fill();});}
     if(D.wipe>=0){var x=clamp(D.wipe,0,1)*w;g.fillStyle=D.black?'rgba(40,38,36,.9)':'rgba(255,255,255,.85)';g.fillRect(x-8*d,0,16*d,h);g.fillStyle='rgba(0,0,0,.12)';g.fillRect(x+8*d,0,2*d,h);}
     // points of the first card, lightly (the assistant marks them first)
     if(D.points&&D.points.length&&D.points.length<=100&&(CARDS[card].id==='points')){g.fillStyle=D.black?'rgba(255,255,255,.9)':'rgba(30,28,26,.85)';D.points.forEach(function(p){g.beginPath();g.arc(p[0]*reg.w*d,p[1]*reg.w*d,1.3*d,0,7);g.fill();});}}
+  // the room's own wall under the cover: its colour plus the core's soft wash (.wash), so the white wall has no edge and the photo is simply gone
+  var wallK={k:'',c:document.createElement('canvas')};   // painted once per region (the wash is static while the panel is open)
+  function paintWall(g,reg,d,w,h){var rb=roomEl?roomEl.getBoundingClientRect():{left:0,top:0,width:innerWidth,height:innerHeight};
+    g.fillStyle=roomEl?getComputedStyle(roomEl).backgroundColor:(COL.wall||'#F3F3F2');g.fillRect(0,0,w,h);
+    var cs=getComputedStyle(document.documentElement),sx=parseFloat(cs.getPropertyValue('--sx')),sy=parseFloat(cs.getPropertyValue('--sy'));if(!isFinite(sx))sx=55;if(!isFinite(sy))sy=45;
+    var light=!!(roomEl&&roomEl.classList.contains('light')),c0=light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)',c1=light?'rgba(255,255,255,0)':'rgba(255,244,225,0)';
+    var cx=rb.left+rb.width*sx/100,cy=rb.top+rb.height*sy/100,rx=rb.width*.7,ry=rb.height*.6;
+    g.save();g.setTransform(rx*d,0,0,ry*d,(cx-reg.x)*d,(cy-reg.y)*d);var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,c0);gr.addColorStop(.7,c1);gr.addColorStop(1,c1);
+    g.fillStyle=gr;g.fillRect(-4,-4,8,8);g.restore();}
   redoBtn.addEventListener('click',function(){redraw(true);imsgEl.textContent=nb(T.again);D.again=true;});
   blackBtn.addEventListener('click',function(){D.black=!D.black;blackBtn.textContent=D.black?T.wallWhite:T.wallBlack;
     clearDraw();D.drawnTo=0;D.t=0;D.done=false;D.wipe=-1;D.dirty=true;if(!D.started)redraw(false);api.sfx.tick(.03);});
   // start drawing when the card comes into view
-  var io=null;if('IntersectionObserver' in window){io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!D.started)redraw(false);});},{threshold:.6});io.observe(q('.ss-card'));}
-  else redraw(false);
+  // narrow: start drawing when the card comes into view; wide: when the visitor opens the drawing tab
+  var io=null;if('IntersectionObserver' in window){io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!D.started&&(isNarrow()||mode==='draw'))redraw(false);});},{threshold:.6});io.observe(q('.ss-card'));}
+  function reobserve(){if(io){var c=q('.ss-card');io.unobserve(c);io.observe(c);}else if(!D.started&&isNarrow())redraw(false);}
+
+  // ================================================================ tabs (wide): 堆叠 ↔ 一句话的作品
+  var fadeTok=0;
+  function panesNow(){var nar=isNarrow();Array.prototype.forEach.call(panes,function(p){p.hidden=!nar&&p.getAttribute('data-pane')!==mode;});
+    if(ov)ov.classList.toggle('off',drawMode());}
+  var muteTool=false;
+  function toolsOff(){var b=document.querySelector('#read .act[data-tool][aria-pressed="true"]');if(b){muteTool=true;try{b.click();}finally{muteTool=false;}}}   // lens / era compare live on the photo
+  function leaveDraw(){D.started=false;D.done=true;D.tips=[];D.wipe=-1;D.hold=0;D.region=null;lastReg='';clearDraw();imsgEl.textContent='';imsgEl.classList.remove('on');
+    cover(false);var tok=++fadeTok;setTimeout(function(){if(tok!==fadeTok||dead)return;rg.setTransform(1,0,0,1,0,0);rg.clearRect(0,0,roomC.width,roomC.height);},450);}
+  function setMode(m){if(m===mode||(m!=='stack'&&m!=='draw'))return;mode=m;
+    Array.prototype.forEach.call(tabs,function(b){b.setAttribute('aria-pressed',b.getAttribute('data-tab')===m?'true':'false');});
+    if(m==='draw'){fadeTok++;toolsOff();if(cw)cw.style.cursor=cwCursor;if(!isNarrow()){D.started=false;lastReg='';redraw(false);D.hold=reduce?0:.42;}else if(!D.started)reobserve();}
+    else if(!isNarrow())leaveDraw();
+    panesNow();dirty=true;api.sfx.tick(.025);}
+  Array.prototype.forEach.call(tabs,function(b){b.addEventListener('click',function(){setMode(b.getAttribute('data-tab'));});});
+  // a tool that works on the photo (放大镜, 与…对比) brings the photo back
+  function toolClick(e){if(muteTool)return;var t=e.target&&e.target.closest&&e.target.closest('#read .act[data-tool]');if(!t)return;var k=t.getAttribute('data-tool');if((k==='lens'||k==='era')&&drawMode())setMode('stack');}
+  document.addEventListener('click',toolClick,true);
+  panesNow();
 
   // ================================================================ loop
   var raf=0,last=0,lastStatus='',lastReg='';
   function tick(now){if(dead)return;raf=requestAnimationFrame(tick);if(!host.isConnected){dispose();return;}
     var dt=last?Math.min((now-last)/1000,.05):0;last=now;
-    var r=artRect(),wv=wallVisible(r);wrap.classList.toggle('narrow',!wv);
+    var r=artRect(),wv=wallVisible(r),wasN=isNarrow();wrap.classList.toggle('narrow',!wv);
+    if(wasN!==!wv||tick.m!==mode){tick.m=mode;panesNow();if(!wv&&!D.started)reobserve();}
     var active=false;
     U.forEach(function(u){if(u.st==='held'){stepHeld(u,dt);active=true;}else if(u.st==='tween'){stepTween(u,dt);active=true;}else if(u.st==='fall'){stepFall(u,dt);active=true;}
       else if(u.st==='hang'){active=true;if(u.wait>0){u.wait-=dt;if(u.wait<=0&&u.after){var f=u.after;u.after=null;f();}}}});
     if(!S.pristine&&!active&&!drag&&pristine())S.pristine=true;
-    var key=[r.left,r.top,r.width,stage.clientWidth,wv?1:0].map(function(v){return Math.round(v);}).join(',');if(key!==tick.k){tick.k=key;dirty=true;}
+    var key=[r.left,r.top,r.width,stage.clientWidth,wv?1:0,mode==='draw'?1:0].map(function(v){return Math.round(v);}).join(',');if(key!==tick.k){tick.k=key;dirty=true;}
     if(active||dirty||drag){drawWall();drawStage();drawHeld();dirty=false;}
     // status
     var n=nHung(),mx=maxSlots(),st=fmt(T.count,{n:n,max:mx})+'|'+(gapNow!=null?fmt(T.gap,{g:gapNow<0?'—':gapNow.toFixed(1)}):n>=2?fmt(T.gap,{g:GAP.toFixed(1)}):'');
@@ -11551,18 +12216,21 @@ EH.special('stack',function(host,room,api){
     // toy 2
     var reg=regionNow(),rk=reg?[reg.kind,reg.x,reg.y,reg.w,reg.h].join(','):'';
     if(D.started&&(rk!==lastReg||D.gen)){lastReg=rk;D.region=reg;D.dirty=true;
-      if(reg){var av=null;if(reg.kind==='room'&&wv){var m2=14;av=[(r.left-m2-reg.x)/reg.w,(r.top-m2-reg.y)/reg.w,(r.right+m2-reg.x)/reg.w,(r.bottom+m2-reg.y)/reg.w];}
-        var g2=genLines(CARDS[card],vals[card],reg.h/reg.w,D.seed,av);D.lines=g2.lines;D.points=g2.points;D.n=D.lines.length;D.dur=reduce?.01:clamp(1.2+Math.sqrt(D.n)*.22,1.6,7);
+      if(reg){var g2=genLines(CARDS[card],vals[card],reg.h/reg.w,D.seed,null);D.lines=g2.lines;D.points=g2.points;D.n=D.lines.length;D.dur=reduce?.01:clamp(1.2+Math.sqrt(D.n)*.22,1.6,7);
         if(D.gen){D.gen=false;if(D.wipe<0)clearDraw();D.t=0;D.drawnTo=0;D.done=false;}
         else{var was=D.done;clearDraw();D.wipe=-1;D.drawnTo=0;D.done=false;D.t=was?D.dur:D.t;}}
-      else roomC.classList.remove('on');}
+      else cover(false);}
     var busyD=D.started&&D.region&&(!D.done||D.wipe>=0);stepDraw(dt,now);if(busyD||D.dirty){renderWall();D.dirty=false;}}
   q('.ss-h2').textContent=nb(touchUI()?T.h2T:T.h2);syncCeil();syncLamp();
   raf=requestAnimationFrame(tick);
   addEventListener('resize',onResize);function onResize(){dirty=true;}
 
   function dispose(){if(dead)return;dead=true;cancelAnimationFrame(raf);clearTimeout(pollT);if(io)io.disconnect();
-    if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);if(heldC.parentNode)heldC.parentNode.removeChild(heldC);if(roomC.parentNode)roomC.parentNode.removeChild(roomC);
+    if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);if(heldC.parentNode)heldC.parentNode.removeChild(heldC);document.removeEventListener('click',toolClick,true);
+    function rmRoom(){if(roomC.parentNode)roomC.parentNode.removeChild(roomC);}
+    if(roomC.classList.contains('on')){cover(false);setTimeout(rmRoom,450);
+      requestAnimationFrame(function(){if(frameEl&&frameEl.classList.contains('hidden'))rmRoom();});}   // another room is entered: no fade over it
+    else rmRoom();
     if(cw){cw.style.touchAction=cwTouch;cw.style.cursor=cwCursor;cw.removeEventListener('touchstart',cwTouchStart);}removeEventListener('resize',onResize);
     if(frameEl){frameEl.removeEventListener('pointerdown',wallDown,true);frameEl.removeEventListener('pointermove',wallMove,true);frameEl.removeEventListener('pointerup',wallUp,true);
       frameEl.removeEventListener('pointercancel',wallUp,true);frameEl.removeEventListener('click',wallClick,true);}}
@@ -11572,7 +12240,7 @@ EH.special('stack',function(host,room,api){
     toScreen:function(p,where){if(where==='stage'){var rc=stage.getBoundingClientRect(),z=rc.width/(CROP[2]-CROP[0]);return[rc.left+(p[0]-CROP[0])*z,rc.top+(p[1]-CROP[1])*z];}
       var r=artRect(),k=r.width/IW;return[r.left+p[0]*k,r.top+p[1]*k];},
     slotImg:function(j){var P=corners({X:SLOT[j][0],Y:SLOT[j][1],Z:0,th:0}),c=proj(P[6][0]+BW/2,P[6][1]-BH/2,BD);return c;},
-    reset:function(){btn.reset.click();},lamp:setLamp,redraw:redraw,card:function(i){cardsEl.children[i].click();},maxSlots:maxSlots};
+    reset:function(){btn.reset.click();},lamp:setLamp,redraw:redraw,mode:setMode,card:function(i){cardsEl.children[i].click();},maxSlots:maxSlots};
 });
 })();
 
@@ -12064,6 +12732,7 @@ function Synth(api){
     var cap=null;try{api.sfx.env({connect:function(g){cap=g;}},api.sfx.now(),.02,1,36000);}catch(e){cap=null;}
     if(!cap||!cap.context)return false;
     link=cap;A=cap.context;
+    try{link.gain.cancelScheduledValues(0);link.gain.setValueAtTime(1,A.currentTime);}catch(e){}   // env() would fade the link out over its 36000 s release
     out=A.createGain();out.gain.value=.9;
     var comp=A.createDynamicsCompressor();comp.threshold.value=-16;comp.knee.value=12;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.25;
     loud=A.createGain();loud.gain.value=1;
@@ -12126,7 +12795,7 @@ function Synth(api){
       att=.004;rel=1.2;lvl=.6;vib={r:3,d:0,delay:0};}
     else return null;
     var base=lvl*vel*(o.gain==null?1:o.gain);
-    amp.gain.setValueAtTime(0,t);amp.gain.linearRampToValueAtTime(base,t+att);
+    amp.gain.setValueAtTime(0,t);if(!o.swell)amp.gain.linearRampToValueAtTime(base,t+att);   // swell: stays at 0 until set() raises it
     if(!sus)amp.gain.setTargetAtTime(base*.9,t+att,2);
     lfoG.gain.setValueAtTime(0,t);if(vib.d)lfoG.gain.setTargetAtTime(vib.d,t+vib.delay,.25);
     srcs.forEach(function(s){s.start(t);});lfo.start(t);
@@ -12253,12 +12922,14 @@ EH.special('synesthesia',function(host,room,api){
     nowEl.innerHTML='<i style="background:'+hx+'"></i><b></b><br><span></span>';nowEl.querySelector('b').textContent=nb(d.zh+' · '+d.ins);nowEl.querySelector('span').textContent=nb(d.say);}
   var flash={white:0,black:0};
   var soundNote=sp.soundOff||'（声音现在是关着的：打开页面底部的“声音”，才能听见。）';
+  function soundOffNote(){if(syn.ready()||nowEl.querySelector('.syn-off'))return;var sn=document.createElement('span');sn.className='syn-off';sn.textContent=nb(soundNote);
+    if(nowEl.textContent)nowEl.appendChild(document.createElement('br'));nowEl.appendChild(sn);}
   function press(f,id,vel){var now=performance.now();f.glow=1;
     // a strike: the form swells, then rings on its spring
     f.vs+=reduce?.25:.9*vel;
     if(id!=null)f.held={id:id,dx:0,dy:0};
     tell(f);var d=FAM[f.fam];
-    if(!syn.ready()&&d.lo){var sn=document.createElement('span');sn.textContent=nb(soundNote);nowEl.appendChild(document.createElement('br'));nowEl.appendChild(sn);}
+    if(d.lo)soundOffNote();
     if(d.v==='silence'){syn.hush(false);flash.white=1;stopAll(f,.5);return;}
     if(d.v==='stop'){syn.hush(true);flash.black=1;stopAll(f,.06);return;}
     if(d.v==='mute'){syn.thud(.18);return;}
@@ -12422,26 +13093,31 @@ EH.special('synesthesia',function(host,room,api){
         f.voice.set(Math.min(5,disp*5)+(f.held?0:clamp(f.ox/R,-1,1)*.9),clamp(f.s*2.4+vel*.25,-.5,.5),1+side.k*.6);}}});}
 
   // ---------- the painting's chord while it lies on its side
-  var drone=[];
-  function stepDrone(){var k=side.k;syn.setLoud(k);
-    if(k>.04&&!drone.length&&syn.ready()){
+  // DRONE_GAIN puts the full chord at about one held form's loudness (measured). set()'s third argument multiplies the voice's base gain,
+  // so the voices must be made at their real level (they used to be made at .0001, which left the chord ~80 dB down — inaudible)
+  var drone=[],droneLv=0,DRONE_GAIN=.2;
+  function stepDrone(dt){var k=side.k,deg=side.th/D2R;syn.setLoud(k);
+    droneLv+=(Math.pow(clamp((deg-12)/78,0,1),1.3)-droneLv)*Math.min(1,dt*5);   // swells from ~15°, full on its side; smoothed (~0.2 s)
+    if(deg>12.5&&!drone.length&&syn.ready()){
       var fams={};G.forms.forEach(function(f){if(FAM[f.fam].lo&&FAM[f.fam].v!=='bell')fams[f.fam]=(fams[f.fam]||0)+f.area;});
       Object.keys(fams).sort(function(a,b){return fams[b]-fams[a];}).slice(0,5).forEach(function(fam,i){var d=FAM[fam],m=chordNote(d.lo,d.hi,.3+.1*i);
-        var v=syn.voice(d.v,m,{vel:.5,gain:.0001,pan:(i%2?-.4:.4),wet:1.6});if(v)drone.push({v:v,ph:i*1.7});});}
-    if(drone.length){var t=performance.now()/1000;drone.forEach(function(o,i){o.v.set(0,.25*Math.sin(t*(.4+.13*i)+o.ph),Math.pow(k,1.6)*.33+1e-4);});
-      if(k<.02){drone.forEach(function(o){o.v.release(1.2);});drone=[];}}}
+        var v=syn.voice(d.v,m,{vel:.5,gain:DRONE_GAIN,pan:(i%2?-.4:.4),wet:1.6,swell:true});if(v)drone.push({v:v,ph:i*1.7});});}
+    if(drone.length){var t=performance.now()/1000;drone.forEach(function(o,i){o.v.set(0,.25*Math.sin(t*(.4+.13*i)+o.ph),droneLv);});
+      if(deg<10&&droneLv<.002){drone.forEach(function(o){o.v.release(.6);});drone=[];}}}
 
   // ---------- loop
-  var raf=0,last=0,lastHint='',lastDeg='',lastSide=false;
+  var raf=0,last=0,lastHint='',lastDeg='',lastSide=false,offTold=false;
   function tick(now){if(dead)return;raf=requestAnimationFrame(tick);if(!host.isConnected){dispose();return;}
     var dt=last?Math.min((now-last)/1000,.05):0;last=now;
     var r=api.artRect(),wv=wallVisible(r);wrap.classList.toggle('narrow',!wv);
-    stepSide(dt);stepForms(dt);stepDrone();flash.white=Math.max(0,flash.white-dt/1.4);flash.black=Math.max(0,flash.black-dt/1.1);
+    stepSide(dt);stepForms(dt);stepDrone(dt);flash.white=Math.max(0,flash.white-dt/1.4);flash.black=Math.max(0,flash.black-dt/1.1);
     drawWall(r,wv);if(!wv)drawStage();placeGrip(r,wv);
     // knob
     var deg=side.th/D2R;knobRot.setAttribute('transform','rotate('+deg.toFixed(2)+')');
     var a1=clamp(deg,0,90)*D2R;knobArc.setAttribute('d',a1>.01?'M0 -40 A40 40 0 0 1 '+(Math.sin(a1)*40).toFixed(2)+' '+(-Math.cos(a1)*40).toFixed(2):'');
     var ds=Math.round(clamp(deg,0,90))+'°';if(ds!==lastDeg){lastDeg=ds;degEl.textContent=ds;knob.setAttribute('aria-valuenow',String(Math.round(clamp(deg,0,90))));knob.setAttribute('aria-valuetext',ds);}
+    if(side.th>2*D2R){if(!offTold){offTold=true;soundOffNote();}}else if(side.th<.5*D2R&&!side.held)offTold=false;   // turning with the sound off: say so once per turn
+    var offEl=nowEl.querySelector('.syn-off');if(offEl&&api.sfx.on()){var br=offEl.previousSibling;if(br&&br.nodeName==='BR')br.remove();offEl.remove();}   // sound came on: drop the note
     var onSide=side.k>.85;if(onSide!==lastSide){lastSide=onSide;sideEl.hidden=!onSide;}
     var tch=touchUI(),hv=wv?T.hintWall:(tch?T.hintTouch:T.hint);if(hv!==lastHint){lastHint=hv;hintEl.textContent=nb(hv);wrap.querySelector('.tt').textContent=nb(tch?T.turnTouch:T.turn);}}
   sideEl.textContent=nb(T.side);
@@ -12605,18 +13281,20 @@ EH.special('wanderer',function(host,room,api){
   var R_=window.EH_ROMANTICISM=window.EH_ROMANTICISM||{};R_.eyes='';
 
   // ---------------------------------------------------------------- breath
-  var AC2=null;function breathCtx(){if(AC2)return AC2;try{AC2=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC2=null;}return AC2;}
+  // synth breath (only when no recorded breath is listed) runs on the core's audio context and effects bus (EH.audio): the 声音 toggle and
+  // hush apply, and the core stops it with the panel / room
+  var BO=null,BSRC=[];function breathCtx(){var A=EH.audio,ac=A&&A.ctx&&A.ctx();if(!ac)return null;if(!BO)BO=A.out();return BO?ac:null;}
   var recBreath=(function(){var S=(window.EH_AUDIO&&EH_AUDIO.sfx)||{},pick=sp.breath&&S[sp.breath]?sp.breath:null;
     if(!pick)Object.keys(S).some(function(k){if((S[k].room==='romanticism'||/^rom/.test(k))&&/breath|呼吸/i.test(k)){pick=k;return true;}return false;});return pick;})();
   var breathLoop=null,breathT=0,breathN=0;
-  function soundOn(){var b=$('sound');return !(b&&b.getAttribute('aria-pressed')==='true');}
-  function synthBreath(inhale,v){var A=breathCtx();if(!A||!soundOn())return;if(A.state==='suspended')A.resume();var t=A.currentTime+.02,d=inhale?1.7:2.3;
+  function soundOn(){return !!(EH.audio&&EH.audio.on());}
+  function synthBreath(inhale,v){if(dead||!soundOn())return;var A=breathCtx();if(!A)return;var t=A.currentTime+.02,d=inhale?1.7:2.3;
     var n=Math.ceil(A.sampleRate*(d+.2)),b=A.createBuffer(1,n,A.sampleRate),x=b.getChannelData(0),l=0;for(var i=0;i<n;i++){var w=Math.random()*2-1;l=(l+.05*w)/1.05;x[i]=w*.35+l*2.2;}
     var s=A.createBufferSource();s.buffer=b;var bp=A.createBiquadFilter();bp.type='bandpass';bp.Q.value=.7;
     if(inhale){bp.frequency.setValueAtTime(700,t);bp.frequency.exponentialRampToValueAtTime(1500,t+d*.8);}else{bp.frequency.setValueAtTime(1100,t);bp.frequency.exponentialRampToValueAtTime(520,t+d);}
     var lp=A.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2600;var g=A.createGain();g.gain.setValueAtTime(.0001,t);
     if(inhale){g.gain.exponentialRampToValueAtTime(v,t+d*.7);g.gain.exponentialRampToValueAtTime(.0001,t+d);}else{g.gain.exponentialRampToValueAtTime(v,t+.28);g.gain.exponentialRampToValueAtTime(.0001,t+d);}
-    s.connect(bp);bp.connect(lp);lp.connect(g);g.connect(A.destination);s.start(t);s.stop(t+d+.1);}
+    s.connect(bp);bp.connect(lp);lp.connect(g);g.connect(BO);s.start(t);s.stop(t+d+.1);EH.audio.keep(s);BSRC.push(s);s.onended=function(){var k=BSRC.indexOf(s);if(k>=0)BSRC.splice(k,1);};}
   function breathStart(){breathT=.25;breathN=0;
     if(recBreath){try{breathLoop=api.sfx.loop?api.sfx.loop(recBreath,{v:1,fade:.6}):null;}catch(e){breathLoop=null;}if(!breathLoop&&EH.sfx&&EH.sfx.loop)try{breathLoop=EH.sfx.loop(recBreath,{v:1,fade:.6});}catch(e){}}}
   function breathTick(dt){if(breathLoop)return;breathT-=dt;if(breathT<=0){var inh=breathN%2===0;synthBreath(inh,inh?.05:.042);breathT=inh?2.0:2.9;breathN++;}}
@@ -12780,7 +13458,7 @@ EH.special('wanderer',function(host,room,api){
     if(cwEl){cwEl.style.webkitTouchCallout=cwCallout;cwEl.style.userSelect=cwSel;cwEl.style.webkitUserSelect=cwSel;}
     if(frameEl){frameEl.removeEventListener('pointerdown',wallDown,true);frameEl.removeEventListener('pointermove',wallMove,true);frameEl.removeEventListener('pointerup',wallUp,true);
       frameEl.removeEventListener('pointercancel',wallUp,true);frameEl.removeEventListener('click',wallClick,true);frameEl.removeEventListener('contextmenu',wallMenu,true);}
-    if(AC2&&AC2.close)try{AC2.close();}catch(e){}}
+    BSRC.forEach(function(s){try{s.stop();}catch(e){}});BSRC=[];if(BO){var bo=BO;BO=null;try{var ac=EH.audio.ctx(),t=ac.currentTime;bo.gain.cancelScheduledValues(t);bo.gain.setTargetAtTime(0,t,.03);}catch(e){}setTimeout(function(){try{bo.disconnect();}catch(e){}},300);}}
   host._dispose=dispose;
   // test hooks
   if(EH.debug)EH.debug.wanderer={close:function(){closeEyes('test');},open:openEyes,state:function(){return{s:E.s,t:E.t,black:E.black,R:E.R,own:E.own,q:{l:eQ.style.left,t:eQ.style.top,w:eQ.offsetWidth,h:eQ.offsetHeight}};},

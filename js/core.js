@@ -6,9 +6,9 @@
 'use strict';
 var EH=window.EH=window.EH||{};
 var $=function(id){return document.getElementById(id);};
-var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism','avantgarde','dada','abex','pop','minimal','contemporary'];
-var ERAS=['史前','古希腊罗马','中世纪','文艺复兴','巴洛克','洛可可','新古典','浪漫主义','现实主义','印象派','后印象派','现代先锋','达达与超现实','抽象表现主义','波普','极简与观念','当代'];
-var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10,avantgarde:11,dada:12,abex:13,pop:14,minimal:15,contemporary:16};
+var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism','avantgarde','dada','abex','pop','minimal','contemporary','epilogue'];
+var ERAS=['史前','古希腊罗马','中世纪','文艺复兴','巴洛克','洛可可','新古典','浪漫主义','现实主义','印象派','后印象派','现代先锋','达达与超现实','抽象表现主义','波普','极简与观念','当代','尾声'];
+var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10,avantgarde:11,dada:12,abex:13,pop:14,minimal:15,contemporary:16,epilogue:17};
 var FRAME_OVERRIDE={};   // per-room presentation now lives in rooms/<id>/overlay.json (merged over room.json by build.py)
 var BED={prehistory:'cave',antiquity:'sun',medieval:'church',renaissance:'chapel',baroque:'church'};   // ambient sound per room
 var HOLD=11;                                                    // seconds a room rests before the next transition
@@ -89,7 +89,7 @@ var sfx={
   puff:function(v,dur){if(!sfx.on())return;var t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf(dur||.6);var f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;f.Q.value=.6;s.connect(f);sfx.env(f,t,.02,(v||.2),(dur||.6));s.start(t);},
   tick:function(v){if(!sfx.on())return;var t=AC.currentTime,o=AC.createOscillator();o.type='triangle';o.frequency.value=2400;sfx.env(o,t,.001,(v||.06),.05);o.start(t);o.stop(t+.08);},
   whoosh:function(v,dur){if(!sfx.on())return;var t=AC.currentTime,d=dur||1.2,s=AC.createBufferSource();s.buffer=noiseBuf(d);var f=AC.createBiquadFilter();f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(300,t);f.frequency.exponentialRampToValueAtTime(2400,t+d*.7);s.connect(f);sfx.env(f,t,d*.4,(v||.18),d*.6);s.start(t);},
-  bed:function(name){if(!AC)return;if(curBed===name)return;var t=AC.currentTime;if(curBed&&beds[curBed]){beds[curBed].g.gain.setTargetAtTime(.0001,t,.8);}curBed=name;if(!name)return;
+  bed:function(name){if(!AC)return;if(curBed===name)return;var t=AC.currentTime;if(curBed&&beds[curBed]){var ob=beds[curBed];delete beds[curBed];ob.g.gain.setTargetAtTime(.0001,t,.8);ob.src.forEach(function(s){try{s.stop(t+5);}catch(e){}});}curBed=name;if(!name)return;
     if(!beds[name])beds[name]=makeBed(name);beds[name].g.gain.setTargetAtTime(beds[name].level,t,1.2);}
 };
 // recorded sounds. audio/manifest.json (inlined by build.py as window.EH_AUDIO) lists
@@ -105,36 +105,44 @@ function loadBuf(file,cb){if(!AC){cb&&cb(null);return;}if(AUD.buf[file]){cb&&cb(
 function fileOf(f){return typeof f==='string'?f:f.sprite;}   // a manifest file is a path, or {sprite, o, d} inside a packed sprite
 function preloadRoomSounds(id){var S=man().sfx;Object.keys(S).forEach(function(k){if(S[k].room===id||S[k].room==='ui')(S[k].files||[]).forEach(function(f){loadBuf(fileOf(f));});});var m=man().music[id];if(m)loadBuf(m.file);}
 function dB(x){return Math.pow(10,(x||0)/20);}
-sfx.play=function(name,o){o=o||{};var e=man().sfx[name];if(!e||!buses()||!sfx.on())return null;var fs=e.files||[],f=fs[Math.floor(Math.random()*fs.length)];if(!f)return null;
+sfx.play=function(name,o){o=o||{};var e=man().sfx[name];if(!e||!buses()||!(sfx.on()||((o.loop||e.loop)&&AC.state==='running')))return null;var fs=e.files||[],f=fs[Math.floor(Math.random()*fs.length)];if(!f)return null;
   var b=AUD.buf[fileOf(f)];if(!b){loadBuf(fileOf(f));return null;}var seg=typeof f==='string'?null:f;
   var s=AC.createBufferSource();s.buffer=b;s.playbackRate.value=(o.rate||1)*(e.jitter?1+(Math.random()*2-1)*e.jitter:1);s.loop=!!(o.loop||e.loop);
   var g=AC.createGain();g.gain.value=dB(e.gain)*(o.v==null?1:o.v);var n=s;if(o.pan&&AC.createStereoPanner){var p=AC.createStereoPanner();p.pan.value=o.pan;s.connect(p);n=p;}n.connect(g);g.connect(sfxBus);
   var t=AC.currentTime+(o.delay||0);if(o.fade){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(dB(e.gain)*(o.v==null?1:o.v),t+o.fade);}
   if(seg&&!s.loop)s.start(t,Math.max(0,seg.o-.004),seg.d+.012);else s.start(t);
   if(o.duck)sfx.duck(o.duck,(seg?seg.d:b.duration)/s.playbackRate.value);
-  var h={src:s,gain:g,room:st.idx,stop:function(fade){try{var t2=AC.currentTime;g.gain.cancelScheduledValues(t2);g.gain.setValueAtTime(g.gain.value,t2);g.gain.linearRampToValueAtTime(0,t2+(fade||.4));s.stop(t2+(fade||.4)+.05);}catch(e){}}};
+  var h={src:s,gain:g,room:st.idx,stop:function(fade){h.dead=true;try{var t2=AC.currentTime;g.gain.cancelScheduledValues(t2);g.gain.setValueAtTime(g.gain.value,t2);g.gain.linearRampToValueAtTime(0,t2+(fade||.4));s.stop(t2+(fade||.4)+.05);}catch(e){}}};
   if(s.loop)AUD.loops.push(h);return h;};
 sfx.loop=function(name,o){o=Object.assign({},o||{});o.loop=true;if(o.fade==null)o.fade=1.2;return sfx.play(name,o);};   // copy: cue objects are reused on every visit
 // hush(true) silences everything (music, loops, effects) until hush(false) — e.g. the rococo cupid's finger on his lips
 sfx.hush=function(on){if(!AC||!master)return;var t=AC.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(on?0:(soundOn?.8:0),t+(on?.35:.8));};
 sfx.duck=function(amount,dur){if(!buses())return;var t=AC.currentTime,g=duckG.gain;g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(1-amount,t+.15);g.setTargetAtTime(1,t+.15+(dur||1)*.7,.6);};
 function stopRoomLoops(keep){AUD.loops=AUD.loops.filter(function(h){if(h.room===keep)return true;h.stop(1.2);return false;});}
+// special exhibits build their own WebAudio voices on the core's context: EH.audio.out() is a gain on the effects bus (so the 声音 toggle and
+// hush apply), EH.audio.keep(source) registers a source. Both are stopped when the reading panel closes and when another room is entered.
+var OWN=[];
+function stopOwn(){var L=OWN;OWN=[];if(!AC)return;var t=AC.currentTime;L.forEach(function(n){try{if(n.gain){n.gain.cancelScheduledValues(t);n.gain.setValueAtTime(n.gain.value,t);
+  n.gain.linearRampToValueAtTime(0,t+.15);setTimeout(function(){try{n.disconnect();}catch(e){}},260);}else n.stop(t+.2);}catch(e){}});}
+EH.audio={ctx:function(){return buses()?AC:null;},on:function(){return sfx.on();},
+  out:function(){if(!buses())return null;var g=AC.createGain();g.gain.value=1.25;g.connect(sfxBus);OWN.push(g);return g;},   // 1.25 × master .8 = the level they had on their own context
+  keep:function(src){if(!src)return src;OWN.push(src);try{src.addEventListener('ended',function(){var k=OWN.indexOf(src);if(k>=0)OWN.splice(k,1);});}catch(e){}return src;}};
 // music: one track per room, crossfaded; a transition may call ctx.music.start() itself, otherwise it fades in at module.musicAt (default .62)
-var music={start:function(id,fadeIn){id=id||ROOMS[st.idx].id;if(!buses()||AUD.musRoom===id)return;var m=man().music[id];music.stop(3);AUD.musRoom=id;if(!m)return;
+var music={start:function(id,fadeIn,xfade){id=id||ROOMS[st.idx].id;if(!buses()||AUD.musRoom===id)return;var m=man().music[id];music.stop(xfade?(fadeIn||2):3);AUD.musRoom=id;if(!m)return;
     loadBuf(m.file,function(b){if(!b||AUD.musRoom!==id)return;var s=AC.createBufferSource();s.buffer=b;s.loop=true;if(m.loopEnd){s.loopStart=m.loopStart||0;s.loopEnd=m.loopEnd;}
-      var g=AC.createGain(),t=AC.currentTime;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(dB(m.gain),t+(fadeIn||4));s.connect(g);g.connect(musicBus);s.start(t);AUD.mus={src:s,gain:g,id:id};});},
+      var g=AC.createGain(),t=AC.currentTime;g.gain.setValueAtTime(.0001,t);if(xfade)g.gain.linearRampToValueAtTime(dB(m.gain),t+(fadeIn||2));else g.gain.exponentialRampToValueAtTime(dB(m.gain),t+(fadeIn||4));s.connect(g);g.connect(musicBus);s.start(t);AUD.mus={src:s,gain:g,id:id};});},
   stop:function(fade){var h=AUD.mus;AUD.mus=null;AUD.musRoom=null;if(!h)return;try{var t=AC.currentTime;h.gain.gain.cancelScheduledValues(t);h.gain.gain.setValueAtTime(h.gain.gain.value,t);h.gain.gain.linearRampToValueAtTime(0,t+(fade||3));h.src.stop(t+(fade||3)+.1);}catch(e){}},
   duck:function(a,d){sfx.duck(a,d);},
   info:function(id){return man().music[id]||null;}};
 EH.music=music;
 EH.sfx=sfx;
-function makeBed(name){var g=AC.createGain();g.gain.value=.0001;g.connect(master);var level=.12;
-  function loopNoise(freq,q,type,amp){var s=AC.createBufferSource();s.buffer=noiseBuf(4);s.loop=true;var f=AC.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq;f.Q.value=q||.7;var a=AC.createGain();a.gain.value=amp;s.connect(f);f.connect(a);a.connect(g);s.start();return a;}
+function makeBed(name){var g=AC.createGain();g.gain.value=.0001;g.connect(master);var level=.12,src=[];
+  function loopNoise(freq,q,type,amp){var s=AC.createBufferSource();src.push(s);s.buffer=noiseBuf(4);s.loop=true;var f=AC.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq;f.Q.value=q||.7;var a=AC.createGain();a.gain.value=amp;s.connect(f);f.connect(a);a.connect(g);s.start();return a;}
   if(name==='cave'){loopNoise(180,.5,'lowpass',.6);level=.16;}
-  else if(name==='sun'){loopNoise(420,.4,'lowpass',.35);var c=loopNoise(5200,6,'bandpass',.18);var lfo=AC.createOscillator(),lg=AC.createGain();lfo.frequency.value=13;lg.gain.value=.12;lfo.connect(lg);lg.connect(c.gain);lfo.start();level=.14;}
-  else if(name==='church'){[65.4,98,130.8].forEach(function(f,i){var o=AC.createOscillator();o.type=i?'sine':'triangle';o.frequency.value=f;var a=AC.createGain();a.gain.value=.12/(i+1);o.connect(a);a.connect(g);o.start();});loopNoise(300,.5,'lowpass',.15);level=.13;}
+  else if(name==='sun'){loopNoise(420,.4,'lowpass',.35);var c=loopNoise(5200,6,'bandpass',.18);var lfo=AC.createOscillator(),lg=AC.createGain();src.push(lfo);lfo.frequency.value=13;lg.gain.value=.12;lfo.connect(lg);lg.connect(c.gain);lfo.start();level=.14;}
+  else if(name==='church'){[65.4,98,130.8].forEach(function(f,i){var o=AC.createOscillator();src.push(o);o.type=i?'sine':'triangle';o.frequency.value=f;var a=AC.createGain();a.gain.value=.12/(i+1);o.connect(a);a.connect(g);o.start();});loopNoise(300,.5,'lowpass',.15);level=.13;}
   else if(name==='chapel'){loopNoise(240,.5,'lowpass',.25);level=.1;}
-  return{g:g,level:level};}
+  return{g:g,level:level,src:src};}
 var dripTimer=0;
 function ambientTick(dt){if(curBed==='cave'&&sfx.on()){dripTimer-=dt;if(dripTimer<=0){sfx.drip(.05+Math.random()*.08);dripTimer=1.2+Math.random()*3.5;}}}
 
@@ -212,17 +220,17 @@ var ctx=null,loading=false;
 var PRE={};   // room index → ctx already built and init()ed during the previous room's rest
 function preinit(i){if(i>=ROOMS.length||PRE[i]||PRE[i]===0)return;PRE[i]=0;whenLoaded(assetsFor(i),function(){if(st.idx===i&&st.phase==='enter')return;var c=makeCtx(i),m=MODS[ROOMS[i].id];
   if(m&&m.init)try{m.init(c);}catch(e){console.error(e);}PRE[i]=c;});}
-function enter(i){st.idx=i;st.phase='enter';st.t=0;st.keepTitle=st.keepLabel=false;ctx=null;loading=true;closeRead();setTool(null);if(i>0||st.opened)UI.chrome(true);
+function enter(i,fast){st.idx=i;st.phase='enter';st.t=0;st.keepTitle=st.keepLabel=false;ctx=null;loading=true;closeRead();setTool(null);if(i>0||st.opened)UI.chrome(true);
   showLayers([ROOMS[i].id].concat(i>0?[ROOMS[i-1].id]:[]));
   if(PRE[i]){ctx=PRE[i];delete PRE[i];ctx.lastP=null;ctx.state=ctx.state||{};loading=false;}
   $('frame').classList.add('hidden');stage.classList.add('on');ROOMS.forEach(function(r,k){UI.title(k,false);UI.label(k,false);});$('hint').classList.remove('on');
   if(!loading){if(i+1<ROOMS.length)whenLoaded(assetsFor(i+1),function(){});}else whenLoaded(assetsFor(i),function(){if(st.idx!==i||st.phase!=='enter')return;ctx=makeCtx(i);var m=MODS[ROOMS[i].id];if(m&&m.init)try{m.init(ctx);}catch(e){console.error(e);}loading=false;
     if(i+1<ROOMS.length)whenLoaded(assetsFor(i+1),function(){});});
   var mi=man().music[ROOMS[i].id];sfx.bed(mi&&mi.bed===false?null:(BED[ROOMS[i].id]||null));
-  if(AC){preloadRoomSounds(ROOMS[i].id);if(i+1<ROOMS.length)preloadRoomSounds(ROOMS[i+1].id);stopRoomLoops(i);if(AUD.musRoom&&AUD.musRoom!==ROOMS[i].id)music.stop(4);}}
+  if(AC){preloadRoomSounds(ROOMS[i].id);if(i+1<ROOMS.length)preloadRoomSounds(ROOMS[i+1].id);stopRoomLoops(i);stopOwn();if(fast){music.start(ROOMS[i].id,2,true);restCues(ROOMS[i].id);}else if(AUD.musRoom&&AUD.musRoom!==ROOMS[i].id)music.stop(4);}}
 function go(i){if(i<0||i>=ROOMS.length)return;if(V.open)closeView();enter(i);st.playing=true;}
 // jump(i): open room i at rest without its transition (timeline, ←/→) and stop the tour there, so the visitor can read and try the exhibit
-function jump(i){if(i<0||i>=ROOMS.length)return;if(V.open)closeView();enter(i);st.jumping=true;setAuto(false);
+function jump(i){if(i<0||i>=ROOMS.length)return;if(V.open)closeView();enter(i,true);st.jumping=true;setAuto(false);
   var f=function(){if(st.idx!==i||st.phase!=='enter')return;if(loading){setTimeout(f,40);return;}st.t=duration(i);st.playing=true;};f();}
 function setAuto(on){st.auto=!!on;var b=$('auto');if(b){b.setAttribute('aria-pressed',st.auto?'true':'false');}
   if(st.auto&&st.phase==='rest'&&st.t>HOLD-2.5)st.t=HOLD-2.5;}
@@ -236,9 +244,12 @@ var CUELOOPS={};
 function runCues(id,a,b){if(a==null||!AC)return;var C=(man().cues||{})[id];if(!C||!C.cues)return;
   C.cues.forEach(function(c){if(!(a<c.at&&c.at<=b))return;
     if(c.sfx)sfx.play(c.sfx,c);
-    else if(c.loop){var h=sfx.loop(c.loop,c);if(h)CUELOOPS[c.id||c.loop]=h;}
+    else if(c.loop){var k=c.id||c.loop;if(live(k))return;var h=sfx.loop(c.loop,c);if(h)CUELOOPS[k]=h;}
     else if(c.stop){var h2=CUELOOPS[c.stop];if(h2){h2.stop(c.fade||1);delete CUELOOPS[c.stop];}}});}
-function restCues(id){var C=(man().cues||{})[id];if(!C||!C.rest||!AC)return;C.rest.forEach(function(c){var h=sfx.loop(c.loop,c);if(h)CUELOOPS[c.id||c.loop]=h;});}
+function live(k){var h=CUELOOPS[k];return !!(h&&!h.dead&&h.room===st.idx);}
+function restCues(id){var C=(man().cues||{})[id];if(!C||!C.rest||!AC)return;var i=st.idx;C.rest.forEach(function(c){var k=c.id||c.loop,e=man().sfx[c.loop];if(live(k)||!e)return;
+  var fs=(e.files||[]).map(fileOf),n=fs.length,start=function(){if(st.idx!==i||live(k))return;var h=sfx.loop(c.loop,c);if(h)CUELOOPS[k]=h;};
+  fs.forEach(function(f){loadBuf(f,function(){if(--n===0)start();});});});}
 function DPRset(g){g.setTransform(DPR,0,0,DPR,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';}
 function fallback(p){var r=ctx.to.rect;sg.fillStyle=ctx.to.wall;sg.fillRect(0,0,W,H);sg.globalAlpha=Math.min(1,p*1.5);sg.drawImage(ctx.to.image,r.x,r.y,r.w,r.h);sg.globalAlpha=1;
   if(ctx.from&&p<.5){sg.globalAlpha=1-p*2;sg.fillStyle=ctx.from.wall;sg.fillRect(0,0,W,H);sg.drawImage(ctx.from.image,ctx.from.rect.x,ctx.from.rect.y,ctx.from.rect.w,ctx.from.rect.h);sg.globalAlpha=1;}}
@@ -278,7 +289,7 @@ function frame(now){requestAnimationFrame(frame);var dt=last?Math.min((now-last)
     if(st.playing&&!st.reading&&!V.open){st.t+=dt;}
     UI.title(i,st.t>.2||st.keepTitle);UI.label(i,st.t>.8||st.keepLabel);var endCard=i+1>=ROOMS.length&&st.t>HOLD-1;
     var nxt=i+1<ROOMS.length?ROOMS[i+1].zh:null,left=Math.ceil(HOLD-st.t),soon=st.auto&&nxt&&left<=4&&left>0,held=!st.auto&&nxt&&st.t>1.2&&st.t<9;
-    $('hint').textContent=endCard?'展览暂到'+ROOMS[i].zh+'为止，后面的展厅还在布置。可以点时间线回到任一展厅。':
+    $('hint').textContent=endCard?(ROOMS[i].id==='epilogue'?'展览到这里结束，谢谢观看。可以点时间线回到任一展厅。':'展览暂到'+ROOMS[i].zh+'为止，后面的展厅还在布置。可以点时间线回到任一展厅。'):
       soon?left+' 秒后进入下一厅：'+nxt+'。想留在这里，关掉「自动播放」。':held?'停在本厅。看完点「自动播放」继续，或点时间线换一厅。':HINT;
     $('hint').classList.toggle('on',((st.t>2&&st.t<HOLD-1)||soon||held||endCard)&&!st.reading);$('hint').classList.toggle('end',endCard||soon||held);
     DPRset(fg);fg.clearRect(0,0,W,H);
@@ -333,7 +344,7 @@ function readHTML(i){var r=ROOMS[i],o=ROOMS[adjacent(i)],first=i<adjacent(i)?r:o
     '<p class="foot-note">图片：'+nb(esc(String(r.art.credit||'').replace(/[。.．]\s*$/,'')))+'。'+(function(){var m=man().music[r.id];var c=(man().credits||{})[r.id]||[];return (m&&m.title?'<br>本厅音乐：'+tx(esc(m.title))+(m.credit?'（'+nb(esc(String(m.credit).replace(/[。.．]\s*$/,'')))+'）':'')+'。':'')+
       (c.length?'<br>声音素材：'+c.map(function(x){return '<a href="'+esc(x.url)+'" target="_blank" rel="noopener">'+esc(x.title||'录音')+'</a>（'+esc(x.author)+'，'+esc(x.lic)+'）';}).join('；')+'；其余为公有领域录音或本展合成。':'');})()+'</p>'+src;}
 function openRead(){if(st.reading||!st.started)return;if(st.phase==='enter'){if(!loading){st.pendingRead=true;st.jumping=true;st.t=duration(st.idx);st.playing=true;}return;}setTool(null);st.reading=true;sfx.play('ui-open');var i=st.idx;$('read').innerHTML=readHTML(i);$('read').scrollTop=0;$('room').classList.add('reading');hang(i,false);wireRead(i);}
-function closeRead(){if(!st.reading)return;st.reading=false;sfx.play('ui-close');setTool(null);$('room').classList.remove('reading');hang(st.idx,false);var sp=$('special');if(sp&&sp._dispose)sp._dispose();}
+function closeRead(){if(!st.reading)return;st.reading=false;sfx.play('ui-close');setTool(null);$('room').classList.remove('reading');hang(st.idx,false);var sp=$('special');if(sp&&sp._dispose)sp._dispose();stopOwn();}
 function wireRead(i){var r=ROOMS[i];
   Array.prototype.forEach.call(document.querySelectorAll('.act'),function(b){b.addEventListener('click',function(){var t=b.getAttribute('data-tool');if(t==='view'){openCurrent();return;}setTool(activeTool===t?null:t);});});
   Array.prototype.forEach.call(document.querySelectorAll('.work'),function(b){b.addEventListener('click',function(){var w=r.works[+b.getAttribute('data-w')];openView({image:img(roomPath(r,w.img)),art:w,from:b.querySelector('img').getBoundingClientRect()});});});
