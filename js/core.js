@@ -6,9 +6,9 @@
 'use strict';
 var EH=window.EH=window.EH||{};
 var $=function(id){return document.getElementById(id);};
-var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism'];
+var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism','avantgarde','dada','abex'];
 var ERAS=['史前','古希腊罗马','中世纪','文艺复兴','巴洛克','洛可可','新古典','浪漫主义','现实主义','印象派','后印象派','现代先锋','达达与超现实','抽象表现主义','波普','极简与观念','当代'];
-var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10};
+var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10,avantgarde:11,dada:12,abex:13};
 var FRAME_OVERRIDE={};   // per-room presentation now lives in rooms/<id>/overlay.json (merged over room.json by build.py)
 var BED={prehistory:'cave',antiquity:'sun',medieval:'church',renaissance:'chapel',baroque:'church'};   // ambient sound per room
 var HOLD=11;                                                    // seconds a room rests before the next transition
@@ -65,7 +65,7 @@ function fitTitles(){var mx=Math.min(84,Math.max(60,innerWidth*.034));ROOMS.forE
   var cap=e.querySelector('.cap'),room=e.clientHeight-(cap?cap.offsetHeight:0)-40,n=Array.from(r.zh).length;
   e.style.setProperty('--tfs',Math.max(28,Math.min(mx,room/(n*1.34))).toFixed(1)+'px');});}
 function build(){
-  ROOMS=ROOM_IDS.map(function(id){var r=(window.EH_ROOMS||{})[id];if(!r)console.error('room data missing:',id);return r;}).filter(Boolean);
+  ROOMS=(window.EH_ROOM_LIST||ROOM_IDS).map(function(id){var r=(window.EH_ROOMS||{})[id];if(!r)console.error('room data missing:',id);return r;}).filter(Boolean);
   $('eras').innerHTML=ROOMS.map(function(r,i){return '<section class="era" id="era'+i+'" aria-label="展厅：'+r.zh+'"><h1>'+r.zh+'</h1><div class="cap"><p class="one">'+oneHTML(r.one)+'</p><p class="lat">'+r.lat+'</p><p class="yrs">'+nb(r.yrs)+'</p></div></section>';}).join('');
   $('labels').innerHTML=ROOMS.map(function(r,i){return '<div class="label" id="lab'+i+'">'+labelHTML(r.art)+'</div>';}).join('');
   var l=$('line');ERAS.forEach(function(e,k){var idx=ROOMS.findIndex(function(r){return ERA_OF[r.id]===k;}),t=document.createElement(idx>=0?'button':'span');
