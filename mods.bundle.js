@@ -3839,6 +3839,9 @@ function frameDeco(g,r,style,a){var fp=r.fp||0;if(!fp||a<=0||style==='none'||sty
   g.restore();}
 // the hung picture exactly as core paintArt resamples it, and where the compositor puts it (both edges snapped to device pixels)
 function snapR(r,dpr){var x=Math.round(r.x*dpr)/dpr,y=Math.round(r.y*dpr)/dpr;return{x:x,y:y,w:Math.round((r.x+r.w)*dpr)/dpr-x,h:Math.round((r.y+r.h)*dpr)/dpr-y};}
+// the hung Monet: Chrome composites the impressionism room's DOM art canvas into the device-pixel rect ENCLOSED by its CSS box
+// (as t-impressionism.js encl: at 1389×713 dpr 2 the left edge 363.53 px → one device pixel in, 2 px narrower), so the start is drawn there
+function encl(r,dpr){var x0=Math.ceil(r.x*dpr-1e-3),x1=Math.floor((r.x+r.w)*dpr+1e-3),y0=Math.ceil(r.y*dpr-1e-3),y1=Math.floor((r.y+r.h)*dpr+1e-3);return{x:x0/dpr,y:y0/dpr,w:(x1-x0)/dpr,h:(y1-y0)/dpr};}
 function artCanvas(src,natW,natH,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*natH/natW),c=cv(w,h);if(src)c.getContext('2d').drawImage(src,0,0,w,h);return c;}
 
 // ---------------------------------------------------------------- the pull-back's pace (log-zoom progress): 0.6 s ease-in, quick through the big abstract dots,
@@ -3951,8 +3954,8 @@ function drawMonet(g,ctx,S,G,t,dpr){var F=G.F,fr=ctx.from,c=monCam(G,t),C=S.C;g.
   wash(g,G.W,G.H,F,fr.ink==='dark',1);if(fr.frame!=='fade'&&C.shFr)drawShadow(g,C.shFr,C.shFr.a);frameDeco(g,F,fr.frame,1);
   var rr=window.EH_SHARED&&window.EH_SHARED.impressionismRest,ga=1-sm(seg(t,T.glowOut));if(rr&&ga>0){g.save();g.globalAlpha=ga;try{rr(g,{W:G.W,H:G.H,rect:F,dpr:dpr,t:0});}catch(e){}g.restore();}
   g.restore();}
-// the Monet as the DOM showed it (same resampling, same pixel-snapped edges), on top of the GL Monet while the push-in has barely begun
-function drawFromArt(g,S,G,t,dpr){var c=monCam(G,t),aArt=1-sm((c.a-1)/.25),C=S.C;if(aArt<=0||!C.fromArt)return;var fs=snapR(G.F,dpr);
+// the Monet as the DOM showed it (same resampling, the compositor's enclosed device-pixel rect), on top of the GL Monet while the push-in has barely begun
+function drawFromArt(g,S,G,t,dpr){var c=monCam(G,t),aArt=1-sm((c.a-1)/.25),C=S.C;if(aArt<=0||!C.fromArt)return;var fs=encl(G.F,dpr);
   g.save();g.setTransform(dpr*c.a,0,0,dpr*c.a,dpr*c.bx,dpr*c.by);g.imageSmoothingEnabled=true;g.imageSmoothingQuality='low';g.globalAlpha=aArt;g.drawImage(C.fromArt,fs.x,fs.y,fs.w,fs.h);g.restore();}
 
 // the label hangs where the core will put it (core hangLabels)
@@ -4916,6 +4919,618 @@ EH.transition('abex',{
   draw:draw,
   rest:function(ctx){}
 });
+})();
+
+;
+/* 波普 · 爆发被印成了网点 — the passage from Pollock's Autumn Rhythm (abex) into Lichtenstein's Whaam! (pop).
+   One discovery: Pollock's densest black-and-white burst (upper right of Autumn Rhythm) has the shape of Whaam!'s explosion at half its
+   size (rooms/pop/cut/layers.json match: abex = whaam·0.5 + (816, 0)). The camera eases in onto it while everything else pales into
+   newsprint; then, on the burst itself, black contour lines are drawn stroke by stroke (each stroke starts where Pollock already had
+   black paint and runs along Lichtenstein's line), every closed cell is poured flat red, yellow or white (no dots on the explosion, as
+   in the painting), and round it a regular blue Ben-Day screen prints outward across the paper — the comic sky of both panels. It is
+   Whaam!'s explosion, in place, and its sound stamps in over it letter by letter (WHAAM!). A breath; then the fighter slides into the
+   left panel, its rocket trail reaches the blast, the caption completes the page, the panels settle onto the wall; hand-over.
+   Beats (seconds of D, see T). Camera: one push (a similarity with its fixed point computed from the two rects), then still.
+   Rendering: 2D stage (walls, the Pollock under the camera, the burst cut-out, plane, trail, caption, letters) + one WebGL2 canvas over the
+   Whaam! rectangle for the moment itself: t_time.webp (per-pixel reveal time of the explosion, offline: pen strokes by Dijkstra along
+   the ink from sparse seeds on Pollock's black; cells flood from their deepest point), t_rays.webp (speed lines, revealed outward),
+   cut/plate.webp (the sky: the painting's own dot screen, re-synthesised from its measured lattice) printed by a front that runs out
+   from round the blast across both panels). Everything is a pure function of t; init work is split into tasks, draw() has 2D fallbacks until the GL canvas is ready. */
+(function(){
+'use strict';
+var D=12.8, PW=2400, PH=1015, AW=2400, AH=1223;
+var MS=0.5, MT=[816,0];                                     // match: abex px = whaam px · MS + MT
+var EXP={x:1244,y:0,w:1156,h:1015}, RAYS={x:1201,y:0,w:1199,h:1015}, CEN=[1942.9,585.5];
+var PLANE={x:0,y:0,w:1195,h:1015}, TRAIL={x:938,y:807,w:646,h:108}, TBOX={x:413,y:0,w:433,h:209};
+var LPANEL=[0,0,1196,1015];
+var BURST={x:1399,y:0,w:656,h:547};                          // t_burst.webp in abex px
+var TMAX=2.751;                                              // seconds spanned by t_time.webp (0..1)
+var LETS=[{f:'t_let0.webp',x:1260,y:0,w:196,h:240,k:0},{f:'t_let1.webp',x:1401,y:0,w:183,h:238,k:1},{f:'t_let2.webp',x:1474,y:30,w:194,h:279,k:2},
+  {f:'t_let3.webp',x:1563,y:117,w:168,h:254,k:3},{f:'t_let4.webp',x:1659,y:193,w:202,h:239,k:4},{f:'t_let5.webp',x:1829,y:382,w:60,h:61,k:5},{f:'t_let6.webp',x:1857,y:182,w:112,h:194,k:5}];
+var HEAD=[0.834,0.551];                                      // the fighter's heading (tail → nose), whaam px
+var T={push:[1.6,4.6], pale:[1.95,4.5], ex0:4.9, recede:[5.15,6.6], sky:[6.3,8.3], rays:[6.5,7.4], let0:7.4, letStep:.11, letDur:.06,
+  plane:[8.9,10.5], tbox:[10.05,10.45], trail:[10.1,10.65], shadow:[9.0,11.0], title:11.0, fin:[11.5,12.1]};
+var SKY={band:100, r0:330, rMax:2130+100};
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function eo(x){x=clamp(x);return 1-Math.pow(1-x,3);}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!im&&(im.naturalWidth||im.width)>0;}
+
+// ---------------------------------------------------------------- the DOM rest look (index.html .wash, .frame.f-none shadow, core paintArt)
+function wash(g,W,H,r,light,a){if(a<=0)return;g.save();g.translate(r.x+r.w/2,r.y+r.h/2);g.scale(.7*W,.6*H);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)');gr.addColorStop(.7,light?'rgba(255,255,255,0)':'rgba(255,244,225,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();}
+var SHADOW={none:[26,60,-26,.6],white:[22,50,-22,.45],gilt:[28,70,-24,.8],stone:[24,60,-24,.7]};
+function drawShadow(g,dpr,r,style){var sp=SHADOW[style]||SHADOW.none;if(style==='fade')return;var fp=style&&style!=='none'?(r.fp||0):0;
+  g.save();g.shadowColor='rgba(0,0,0,'+sp[3]+')';g.shadowBlur=sp[1]*dpr;g.shadowOffsetX=1e5*dpr;g.shadowOffsetY=sp[0]*dpr;g.fillStyle='#000';
+  var s=sp[2];g.fillRect(r.x-fp-s-1e5,r.y-fp-s,r.w+2*fp+2*s,r.h+2*fp+2*s);g.restore();}
+// where the DOM shows the hung canvas: its box snapped to whole CSS px (round each edge), the canvas stretched over it
+// (measured at 1389×713 @2x and 390×844 @3x, both rooms: every edge matches round(css))
+function snap(c,r){var x0=Math.round(r.x),y0=Math.round(r.y);return{x:x0,y:y0,w:Math.round(r.x+r.w)-x0,h:Math.round(r.y+r.h)-y0};}
+function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*((im&&im.naturalHeight)||1)/((im&&im.naturalWidth)||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+// a full-screen scene in device px: wall + wash + shadow (+ art)
+function scene(W,H,dpr,o){var c=cv(W*dpr,H*dpr),g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=o.wall;g.fillRect(0,0,W,H);
+  wash(g,W,H,o.rect,o.ink==='dark',1);if(o.shadow)drawShadow(g,dpr,o.rect,o.frame);if(o.art)g.drawImage(o.art,o.rect.x,o.rect.y,o.rect.w,o.rect.h);return c;}
+
+// ---------------------------------------------------------------- geometry
+function geo(ctx){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,S=ctx.state;
+  var key=[W,H,dpr,to.x,to.y,to.w,to.h,fr?[fr.x,fr.y,fr.w,fr.h].join(','):''].join('/');if(S.G&&S.G.key===key)return S.G;
+  var G={key:key,W:W,H:H,dpr:dpr,to:to};G.s=to.w/PW;
+  if(!fr)fr={x:to.x,y:to.y+to.h/2-to.w*AH/AW/2,w:to.w,h:to.w*AH/AW};G.fr=fr;G.fs=fr.w/AW;
+  // the camera: abex-screen → final screen is X1 = K·X0 + b (a similarity: the burst lands on the explosion); its fixed point
+  var K=G.s/(MS*G.fs),bx=to.x-fr.x*K-MT[0]/MS*G.s,by=to.y-fr.y*K-MT[1]/MS*G.s;G.K=K;G.fix=[Math.abs(1-K)>1e-6?bx/(1-K):0,Math.abs(1-K)>1e-6?by/(1-K):0];
+  return(S.G=G);}
+// camera at progress u: screen = fix + k·(X0 − fix), k = K^u
+function cam(G,u){var k=Math.exp(Math.log(G.K)*u);return{k:k,x:G.fix[0]*(1-k),y:G.fix[1]*(1-k)};}
+function W2S(G,x,y){return[G.to.x+x*G.s,G.to.y+y*G.s];}
+
+// ---------------------------------------------------------------- the moment: WebGL2 over the Whaam! rectangle
+var VS='#version 300 es\nin vec2 a;out vec2 vp;void main(){vp=vec2((a.x*.5+.5)*2400.,(.5-a.y*.5)*1015.);gl_Position=vec4(a,0.,1.);}';
+var FS=['#version 300 es','precision highp float;in vec2 vp;out vec4 o;',
+  'uniform sampler2D uPlate,uEx,uTm,uRays;uniform float uT,uPx;uniform vec2 uC;uniform vec4 uSky;uniform vec3 uE;uniform vec4 uR;',
+  'vec4 over(vec4 a,vec4 b){return a+b*(1.-a.a);}',
+  'void main(){vec2 p=vp;float d=length(p-uC);vec4 col=vec4(0.);',
+  // sky: a halftone front grows out of the explosion; behind the front the painting's own sky (plate)
+  '  float R=uSky.w+(uT-uSky.x)*uSky.y;float u=clamp((R-d)/uSky.z,0.,1.);',
+  '  if(u>0.){vec3 pl=texture(uPlate,p/vec2(2400.,1015.)).rgb;col=vec4(pl,1.)*u;}',
+  // speed lines, revealed outward from the blast
+  '  vec2 pr=(p-vec2(1201.,0.))/vec2(1199.,1015.);if(pr.x>=0.&&pr.x<=1.){vec4 r=texture(uRays,pr);float tr=mix(uR.x,uR.y,clamp((d-uR.z)/(uR.w-uR.z),0.,1.));col=over(r*clamp((uT-tr)/.08,0.,1.),col);}',
+  // the explosion: ink then flat cells, each pixel at its own time
+  '  vec2 pe=(p-vec2(1244.,0.))/vec2(1156.,1015.);if(pe.x>=0.&&pe.x<=1.&&pe.y>=0.&&pe.y<=1.){',
+  '    ivec2 ts=textureSize(uTm,0);vec4 tm=texelFetch(uTm,clamp(ivec2(pe*vec2(ts)),ivec2(0),ts-1),0);float T=(floor(tm.r*255.+.5)*256.+floor(tm.g*255.+.5))/65535.;',
+  '    float tt=(uT-uE.x)/uE.y;float a=clamp((tt-T)/uE.z,0.,1.);vec4 e=texture(uEx,pe);col=over(e*a,col);}',
+  '  o=col;}'].join('\n');
+function glInit(G){var c=cv(Math.round(G.to.w*G.dpr),Math.round(G.to.h*G.dpr)),gl=c.getContext('webgl2',{premultipliedAlpha:true,alpha:true,antialias:false,preserveDrawingBuffer:true});if(!gl)return null;
+  function sh(t,s){var o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(o));return null;}return o;}
+  var v=sh(gl.VERTEX_SHADER,VS),f=sh(gl.FRAGMENT_SHADER,FS);if(!v||!f)return null;var pr=gl.createProgram();gl.attachShader(pr,v);gl.attachShader(pr,f);gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){console.error(gl.getProgramInfoLog(pr));return null;}gl.useProgram(pr);
+  var b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  var al=gl.getAttribLocation(pr,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+  var U={};['uPlate','uEx','uTm','uRays','uT','uPx','uC','uSky','uE','uR'].forEach(function(n){U[n]=gl.getUniformLocation(pr,n);});
+  gl.uniform1i(U.uPlate,0);gl.uniform1i(U.uEx,1);gl.uniform1i(U.uTm,2);gl.uniform1i(U.uRays,3);
+  gl.uniform1f(U.uPx,PW/(G.to.w*G.dpr));gl.uniform2f(U.uC,CEN[0],CEN[1]);gl.uniform4f(U.uSky,T.sky[0],(SKY.rMax-SKY.r0)/(T.sky[1]-T.sky[0]),SKY.band,SKY.r0);
+  gl.uniform3f(U.uE,T.ex0,TMAX,.012);gl.uniform4f(U.uR,T.rays[0],T.rays[1],260,1150);
+  gl.viewport(0,0,c.width,c.height);gl.clearColor(0,0,0,0);
+  return{c:c,gl:gl,U:U,tex:{},last:-1};}
+function glTex(R,unit,im,opt){var gl=R.gl,t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,!opt.raw);gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,opt.raw?gl.NONE:gl.BROWSER_DEFAULT_WEBGL);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  if(opt.raw){gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);}
+  else{gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);}
+  R.tex[unit]=t;}
+function glDraw(R,t){var gl=R.gl;if(R.last===t)return;R.last=t;gl.clear(gl.COLOR_BUFFER_BIT);gl.uniform1f(R.U.uT,t);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}
+
+// ---------------------------------------------------------------- init (small tasks; draw() never waits for them)
+function build(ctx){var S=ctx.state,G=geo(ctx),dpr=G.dpr,gen=(S.gen=(S.gen||0)+1),to=ctx.to,fr=ctx.from;S.bkey=G.key;S.R=null;S.ready=false;S.F0=null;S.F0bg=null;S.F1=null;S.F1bg=null;S.art=null;
+  var W=G.W,H=G.H;
+  var jobs=[
+    function(){if(fr){S.fromArt=artCanvas(fr.image,fr.rect,dpr);S.F0bg=scene(W,H,dpr,{wall:fr.wall,ink:fr.ink,rect:fr.rect,frame:fr.frame,shadow:true});}},
+    function(){if(fr){var c=cv(W*dpr,H*dpr),g=c.getContext('2d');g.drawImage(S.F0bg,0,0);g.setTransform(dpr,0,0,dpr,0,0);var q=snap(S.fromArt,fr.rect,dpr);g.drawImage(S.fromArt,q.x,q.y,q.w,q.h);
+      var rr=window.EH_SHARED&&window.EH_SHARED.abexRest;if(rr)try{rr(g,{W:W,H:H,rect:fr.rect,dpr:dpr,t:0});}catch(e){}S.F0=c;}},
+    function(){S.F1bg=scene(W,H,dpr,{wall:to.wall,ink:to.ink,rect:G.to,frame:to.frame,shadow:false});},
+    function(){var c=cv(W*dpr,H*dpr),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,0,0);drawShadow(q,dpr,G.to,to.frame);S.shTo=c;},
+    function(){S.art=artCanvas(to.image,G.to,dpr);},
+    // the burst: Autumn Rhythm × the explosion's outline (feathered), abex px
+    function(){var m=ctx.asset('t_burst.webp');if(!fr||!ok(m))return;var c=cv(BURST.w,BURST.h),g=c.getContext('2d');g.drawImage(fr.image,BURST.x,BURST.y,BURST.w,BURST.h,0,0,BURST.w,BURST.h);
+      g.globalCompositeOperation='destination-in';g.drawImage(m,0,0);S.burst=c;},
+    function(){S.R=glInit(G);},
+    function(){if(S.R)glTex(S.R,1,ctx.asset('cut/explosion.webp'),{});},
+    function(){if(S.R)glTex(S.R,2,ctx.asset('t_time.webp'),{raw:true});},
+    function(){if(S.R)glTex(S.R,3,ctx.asset('t_rays.webp'),{});},
+    function(){if(S.R)glTex(S.R,0,ctx.asset('cut/plate.webp'),{});},
+    // first use of every path, off the frame: one draw of the GL canvas and its copy
+    function(){if(S.R){glDraw(S.R,7);var q=cv(8,8).getContext('2d');q.drawImage(S.R.c,0,0,8,8);S.R.last=-1;S.ready=true;}},
+    function(){var q=cv(8,8).getContext('2d');['cut/plane.webp','cut/trail.webp','cut/textbox.webp'].concat(LETS.map(function(l){return l.f;})).forEach(function(f){var im=ctx.asset(f);if(ok(im))q.drawImage(im,0,0,8,8);});
+      if(fr&&ok(fr.image))q.drawImage(fr.image,0,0,8,8);if(S.burst)q.drawImage(S.burst,0,0,8,8);}
+  ];
+  (function step(){if(S.gen!==gen||!jobs.length)return;var j=jobs.shift();try{j();}catch(e){console.error(e);}setTimeout(step,0);})();}
+
+// ---------------------------------------------------------------- draw
+function draw(p,ctx){var g=ctx.g,S=ctx.state,G=geo(ctx),W=G.W,H=G.H,dpr=G.dpr,t=p*D,to=G.to,fr=ctx.from;
+  if(S.bkey!==G.key)build(ctx);
+  // DOM: the new wall under the stage once the room has paled; the title comes up with the finished page
+  var wallNow=t>=T.pale[1]||!fr?ctx.to.wall:fr.wall;if(S.wallNow!==wallNow){ctx.ui.wall(wallNow);S.wallNow=wallNow;}
+  if(S.inkNow!==ctx.to.ink){ctx.ui.ink(ctx.to.ink);S.inkNow=ctx.to.ink;}
+  ctx.ui.title(ctx.to.idx,t>=T.title);
+  if(p>=1){finalFrame(g,ctx,S,G);return;}
+  g.save();g.setTransform(1,0,0,1,0,0);
+  var pale=sm(seg(t,T.pale)),u=eio(seg(t,T.push));
+  // ===== 1–2. Autumn Rhythm on its wall; the camera eases in onto the burst while everything but the burst pales into the new paper
+  if(fr&&pale<1){
+    if(u<=0&&S.F0){g.drawImage(S.F0,0,0);}
+    else{var C=cam(G,u);g.setTransform(dpr*C.k,0,0,dpr*C.k,dpr*C.x,dpr*C.y);
+      if(S.F0bg)g.drawImage(S.F0bg,0,0,W,H);else{g.fillStyle=fr.wall;g.fillRect(-W,-H,3*W,3*H);}
+      var R0=fr.rect,hi=clamp((C.k-1.02)/.3);
+      if(hi<1&&S.fromArt){var q0=snap(S.fromArt,R0,dpr);g.drawImage(S.fromArt,q0.x,q0.y,q0.w,q0.h);}
+      if(hi>0&&ok(fr.image)){g.globalAlpha=hi;g.drawImage(fr.image,R0.x,R0.y,R0.w,R0.h);g.globalAlpha=1;}}
+    g.setTransform(1,0,0,1,0,0);
+    if(pale>0){g.globalAlpha=pale;if(S.F1bg)g.drawImage(S.F1bg,0,0);else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W*dpr,H*dpr);}g.globalAlpha=1;}
+  }else{if(S.F1bg)g.drawImage(S.F1bg,0,0);else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W*dpr,H*dpr);}}
+  // the panels' shadow on the wall (they settle onto it)
+  var sh=sm(seg(t,T.shadow));if(sh>0&&S.shTo){g.globalAlpha=sh;g.drawImage(S.shTo,0,0);g.globalAlpha=1;}
+  // the burst itself never pales (it is the same paint all the way)
+  // …until the contour lines are drawn over it: then the tangle steps back behind the clean line (and the cells and the sky cover it)
+  var bA=1-.72*sm(seg(t,T.recede));
+  if(fr&&S.burst&&pale>0&&t<T.sky[1]+.2){var C2=cam(G,u),R1=fr.rect,k1=R1.w/AW;g.setTransform(dpr*C2.k,0,0,dpr*C2.k,dpr*C2.x,dpr*C2.y);g.globalAlpha=bA;
+    g.drawImage(S.burst,R1.x+BURST.x*k1,R1.y+BURST.y*k1,BURST.w*k1,BURST.h*k1);g.globalAlpha=1;g.setTransform(1,0,0,1,0,0);}
+  g.restore();
+  // ===== 3. the moment (GL over the Whaam! rectangle): contours, flat cells, speed lines, the dot screen
+  if(t>=T.ex0-.05){
+    if(S.ready&&S.R){glDraw(S.R,t);g.drawImage(S.R.c,to.x,to.y,to.w,to.h);}
+    else fallbackMoment(g,ctx,S,G,t);
+  }
+  // ===== 4. the fighter slides into the left panel, the rocket trail reaches the blast, caption and WHAAM!
+  drawPage(g,ctx,S,G,t);
+  // ===== 5. the painting itself (identical pixels to the hung work)
+  var fa=sm(seg(t,T.fin));if(fa>0&&S.art){var q=snap(S.art,to,dpr);g.globalAlpha=fa;g.drawImage(S.art,q.x,q.y,q.w,q.h);g.globalAlpha=1;}
+}
+function drawPage(g,ctx,S,G,t){var to=G.to,s=G.s;
+  var pl=seg(t,T.plane);if(pl>0){var im=ctx.asset('cut/plane.webp');if(ok(im)){var e=1-eo(pl),L=1500,dx=-HEAD[0]*L*e,dy=-HEAD[1]*L*e;
+    g.save();g.beginPath();g.rect(to.x+LPANEL[0]*s,to.y+LPANEL[1]*s,LPANEL[2]*s,LPANEL[3]*s);g.clip();
+    g.drawImage(im,to.x+(PLANE.x+dx)*s,to.y+(PLANE.y+dy)*s,PLANE.w*s,PLANE.h*s);g.restore();}}
+  var tr=eio(seg(t,T.trail));if(tr>0){var ti=ctx.asset('cut/trail.webp');if(ok(ti)){g.save();g.beginPath();g.rect(to.x+TRAIL.x*s,to.y+TRAIL.y*s,TRAIL.w*s*tr,TRAIL.h*s);g.clip();
+    g.drawImage(ti,to.x+TRAIL.x*s,to.y+TRAIL.y*s,TRAIL.w*s,TRAIL.h*s);g.restore();}}
+  var tb=sm(seg(t,T.tbox));if(tb>0){var bi=ctx.asset('cut/textbox.webp');if(ok(bi)){g.globalAlpha=tb;g.drawImage(bi,to.x+TBOX.x*s,to.y+TBOX.y*s,TBOX.w*s,TBOX.h*s);g.globalAlpha=1;}}
+  LETS.forEach(function(l){var a=clamp((t-(T.let0+l.k*T.letStep))/T.letDur);if(a<=0)return;var im=ctx.asset(l.f);if(!ok(im))return;g.globalAlpha=a;g.drawImage(im,to.x+l.x*s,to.y+l.y*s,l.w*s,l.h*s);g.globalAlpha=1;});}
+// before the GL canvas is up (a seek straight into the middle): the same layers, revealed as a whole
+function fallbackMoment(g,ctx,S,G,t){var to=G.to,s=G.s,a=sm(seg(t,[T.ex0,T.ex0+TMAX])),k=sm(seg(t,T.sky));
+  var pl=ctx.asset('cut/plate.webp');if(k>0&&ok(pl)){g.globalAlpha=k;g.drawImage(pl,to.x,to.y,to.w,to.h);}
+  var ry=ctx.asset('t_rays.webp');if(ok(ry)){g.globalAlpha=sm(seg(t,T.rays));g.drawImage(ry,to.x+RAYS.x*s,to.y+RAYS.y*s,RAYS.w*s,RAYS.h*s);}
+  var ex=ctx.asset('cut/explosion.webp');if(a>0&&ok(ex)){g.globalAlpha=a;g.drawImage(ex,to.x+EXP.x*s,to.y+EXP.y*s,EXP.w*s,EXP.h*s);}g.globalAlpha=1;}
+function finalFrame(g,ctx,S,G){var to=G.to,dpr=G.dpr;g.save();g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=ctx.to.wall;g.fillRect(0,0,G.W,G.H);wash(g,G.W,G.H,to,ctx.to.ink==='dark',1);
+  if(S.shTo){g.setTransform(1,0,0,1,0,0);g.drawImage(S.shTo,0,0);g.setTransform(dpr,0,0,dpr,0,0);}else drawShadow(g,dpr,to,ctx.to.frame);
+  var a=S.art||artCanvas(ctx.to.image,to,dpr),q=snap(a,to,dpr);g.drawImage(a,q.x,q.y,q.w,q.h);g.restore();}
+
+window.EH_SHARED=window.EH_SHARED||{};
+// the pop rest has no extras (the diptych alone on its wall): the next room's p = 0 needs nothing from here
+window.EH_SHARED.popRest=function(g,o){};
+
+EH.transition('pop',{
+  duration:D,
+  assets:['t_burst.webp','t_time.webp','t_rays.webp','cut/explosion.webp','cut/plate.webp','cut/plane.webp','cut/trail.webp','cut/textbox.webp'].concat(LETS.map(function(l){return l.f;})),
+  init:function(ctx){build(ctx);},
+  draw:draw,
+  rest:function(ctx){}
+});
+})();
+
+;
+/* 极简与观念 · 画上的东西凸了出来 — the passage from Lichtenstein's Whaam! (pop) into Judd's Untitled (Stack), 1967.
+   One discovery: take the picture away layer by layer and what is left are a few flat blocks of paint; they gather into a column at
+   Judd's interval (gap = unit height), the gallery light comes on, and the flat blocks come out of the wall — depth, galvanised sides,
+   shadows — and are Judd's twelve real units.
+   Beats (seconds of D, see T): Whaam! hangs as it rested · the words go, then the plane, then the explosion with its trail and rays,
+   then the Ben-Day sky and the canvas itself — twelve flat rectangles of its paint stay on the wall where they were (rooms/minimal/cut
+   layers.json "match": the largest Judd-proportioned rectangles inside Whaam!'s flat fields) · they glide into one column, stacked at
+   equal intervals, flat on the wall · THE MOMENT: the light comes down from the ceiling; the rectangles are extruded out of the wall in
+   true perspective (the pinhole camera fitted to MoMA's photograph), their bottoms/tops and left sides appear, their shadows grow on
+   the wall, the paint turns into green lacquer on galvanised iron; the eye drifts a few degrees to the left, to where the photographer
+   stood · the photograph's own surfaces, the floor and the ceiling come up; hand-over.
+   Everything is one pure function of t. Pre-rendered in init (split into tasks): Whaam!'s layer groups at the hung resolution, the
+   twelve front faces of the photograph. */
+(function(){
+'use strict';
+/*DATA*/var DATA={"PW":1600,"PH":2000,"cam":{"f":2298.26,"cx":647.38,"cy":1143.71,"R":[[0.96337,-0.008859,0.26803],[0.000479,-0.999396,-0.034753],[0.268176,0.033609,-0.962783]],"t":[-4.691,-335.739,854.56],"C":[-224.5,-364.3,812.3]},"order":["unit01","unit02","unit03","unit04","unit05","unit12","unit06","unit11","unit07","unit10","unit08","unit09"],"units":[{"id":"unit01","box":[634,143,341,163],"Y":[0.4,-22.4],"faces":{"front":[[695.8,143.7],[973.2,177.7],[974.1,241.8],[696.4,210.0]],"left":[[634.7,239.7],[695.8,143.7],[696.4,210.0],[635.3,300.3]],"bottom":[[696.4,210.0],[974.1,241.8],[891.0,326.5],[635.3,300.3]]},"col":{"front":[38,91,99],"left":[127,144,148],"bottom":[80,83,83]}},{"id":"unit02","box":[636,277,341,154],"Y":[-45.5,-68.3],"faces":{"front":[[697.1,277.5],[975.0,307.0],[975.9,371.3],[697.8,344.1]],"left":[[635.9,361.8],[697.1,277.5],[697.8,344.1],[636.4,422.5]],"bottom":[[697.8,344.1],[975.9,371.3],[892.5,445.0],[636.4,422.5]]},"col":{"front":[15,175,139],"left":[128,159,158],"bottom":[105,109,109]}},{"id":"unit03","box":[637,411,342,149],"Y":[-91.5,-114.3],"faces":{"front":[[698.3,411.7],[976.7,436.7],[977.6,501.3],[699.0,478.6]],"left":[[636.8,484.2],[698.3,411.7],[699.0,478.6],[637.4,545.2]],"bottom":[[699.0,478.6],[977.6,501.3],[893.9,563.9],[637.4,545.2]]},"col":{"front":[5,163,137],"left":[134,150,157],"bottom":[128,132,133]}},{"id":"unit04","box":[638,544,343,138],"Y":[-136.6,-159.4],"faces":{"front":[[699.7,544.1],[978.6,564.6],[979.5,629.4],[700.4,611.2]],"left":[[638.0,604.9],[699.7,544.1],[700.4,611.2],[638.6,666.1]],"bottom":[[700.4,611.2],[979.5,629.4],[895.5,681.1],[638.6,666.1]]},"col":{"front":[6,143,135],"left":[136,155,164],"bottom":[130,133,132]}},{"id":"unit05","box":[639,678,344,123],"Y":[-181.9,-204.7],"faces":{"front":[[701.2,677.8],[980.6,693.8],[981.5,758.9],[701.8,745.2]],"left":[[639.2,726.8],[701.2,677.8],[701.8,745.2],[639.8,788.2]],"bottom":[[701.8,745.2],[981.5,758.9],[897.1,799.4],[639.8,788.2]]},"col":{"front":[6,148,137],"left":[135,160,169],"bottom":[127,129,129]}},{"id":"unit06","box":[641,812,344,108],"Y":[-227.5,-250.3],"faces":{"front":[[703.4,812.6],[983.2,824.1],[984.1,889.4],[704.0,880.3]],"left":[[641.1,849.7],[703.4,812.6],[704.0,880.3],[641.7,911.3]],"bottom":[[704.0,880.3],[984.1,889.4],[899.4,918.7],[641.7,911.3]]},"col":{"front":[12,145,137],"left":[130,152,163],"bottom":[115,116,116]}},{"id":"unit07","box":[640,950,345,91],"Y":[-273.7,-296.5],"faces":{"front":[[702.6,949.8],[983.1,956.6],[984.0,1022.2],[703.3,1017.8]],"left":[[640.3,974.7],[702.6,949.8],[703.3,1017.8],[640.9,1036.5]],"bottom":[[703.3,1017.8],[984.0,1022.2],[899.1,1040.0],[640.9,1036.5]]},"col":{"front":[53,92,90],"left":[125,145,155],"bottom":[132,132,132]}},{"id":"unit08","box":[642,1085,346,76],"Y":[-319.1,-341.9],"faces":{"front":[[705.0,1085.1],[985.9,1087.2],[986.8,1153.1],[705.7,1153.3]],"left":[[642.4,1097.8],[705.0,1085.1],[705.7,1153.3],[642.9,1159.9]],"bottom":[[705.7,1153.3],[986.8,1153.1],[901.5,1159.5],[642.9,1159.9]]},"col":{"front":[31,113,104],"left":[127,145,153],"bottom":[138,140,140]}},{"id":"unit09","box":[644,1219,347,72],"Y":[-364.7,-387.5],"faces":{"front":[[707.2,1221.7],[988.5,1219.1],[989.4,1285.2],[707.9,1290.1]],"left":[[644.3,1222.1],[707.2,1221.7],[707.9,1290.1],[644.8,1284.4]],"top":[[644.3,1222.1],[903.0,1219.8],[988.5,1219.1],[707.2,1221.7]]},"col":{"front":[12,122,108],"left":[126,145,154],"top":[132,145,151]}},{"id":"unit10","box":[644,1342,347,89],"Y":[-411.0,-433.8],"faces":{"front":[[706.9,1360.7],[988.8,1353.4],[989.7,1419.8],[707.5,1429.5]],"left":[[643.8,1348.7],[706.9,1360.7],[707.5,1429.5],[644.4,1411.2]],"top":[[643.8,1348.7],[903.1,1342.3],[988.8,1353.4],[706.9,1360.7]]},"col":{"front":[17,85,84],"left":[125,147,155],"top":[113,114,114]}},{"id":"unit11","box":[645,1463,348,106],"Y":[-456.6,-479.4],"faces":{"front":[[708.4,1498.5],[990.8,1486.4],[991.8,1553.0],[709.1,1567.5]],"left":[[645.1,1473.9],[708.4,1498.5],[709.1,1567.5],[645.7,1536.7]],"top":[[645.1,1473.9],[904.9,1463.7],[990.8,1486.4],[708.4,1498.5]]},"col":{"front":[30,72,75],"left":[123,142,148],"top":[114,114,114]}},{"id":"unit12","box":[646,1584,349,122],"Y":[-502.0,-524.8],"faces":{"front":[[710.2,1635.9],[993.1,1619.1],[994.0,1686.0],[710.8,1705.2]],"left":[[646.6,1598.9],[710.2,1635.9],[710.8,1705.2],[647.2,1661.9]],"top":[[646.6,1598.9],[906.7,1584.7],[993.1,1619.1],[710.2,1635.9]]},"col":{"front":[20,119,99],"left":[123,149,152],"top":[115,115,115]}}],"shadows":[{"id":"shadow01","x":477,"y":92,"w":630,"h":267,"unit":1},{"id":"shadow02","x":480,"y":359,"w":608,"h":123,"unit":2},{"id":"shadow03","x":477,"y":482,"w":620,"h":120,"unit":3},{"id":"shadow04","x":492,"y":602,"w":556,"h":122,"unit":4},{"id":"shadow05","x":496,"y":724,"w":584,"h":123,"unit":5},{"id":"shadow06","x":488,"y":847,"w":588,"h":125,"unit":6},{"id":"shadow07","x":496,"y":972,"w":584,"h":123,"unit":7},{"id":"shadow08","x":500,"y":1095,"w":560,"h":125,"unit":8},{"id":"shadow09","x":477,"y":1220,"w":623,"h":138,"unit":9},{"id":"shadow10","x":477,"y":1358,"w":622,"h":138,"unit":10},{"id":"shadow11","x":488,"y":1496,"w":592,"h":137,"unit":11},{"id":"shadow12","x":492,"y":1633,"w":616,"h":100,"unit":12},{"id":"shadow_floor","x":472,"y":1733,"w":636,"h":267,"unit":null}],"match":[{"unit":"unit01","src":[669,90,97,23],"rgb":[232,218,67],"dst":[38,91,98],"cls":"yellow"},{"unit":"unit02","src":[1438,95,105,25],"rgb":[230,215,69],"dst":[14,174,139],"cls":"yellow"},{"unit":"unit03","src":[1284,105,88,21],"rgb":[239,225,78],"dst":[4,162,136],"cls":"yellow"},{"unit":"unit04","src":[109,109,84,20],"rgb":[51,51,51],"dst":[6,143,135],"cls":"black"},{"unit":"unit05","src":[1922,453,147,35],"rgb":[146,30,40],"dst":[6,147,137],"cls":"red"},{"unit":"unit06","src":[137,500,110,26],"rgb":[234,231,227],"dst":[11,145,136],"cls":"white"},{"unit":"unit07","src":[352,570,105,25],"rgb":[49,48,52],"dst":[52,92,89],"cls":"black"},{"unit":"unit08","src":[1949,579,118,28],"rgb":[231,214,78],"dst":[31,113,104],"cls":"yellow"},{"unit":"unit09","src":[2111,605,118,28],"rgb":[152,35,45],"dst":[12,122,108],"cls":"red"},{"unit":"unit10","src":[1561,734,97,23],"rgb":[151,31,45],"dst":[17,85,84],"cls":"red"},{"unit":"unit11","src":[483,744,97,23],"rgb":[47,46,49],"dst":[29,72,75],"cls":"black"},{"unit":"unit12","src":[1954,932,202,48],"rgb":[142,36,40],"dst":[20,119,98],"cls":"red"}]};/*/DATA*/
+var D=13;
+var T={hold:1.2, words:[1.2,2.1], plane:[2.0,2.9], boom:[2.8,3.7], sky:[3.6,4.7], wall:[3.6,4.7],
+  glide:[5.0,7.4], dim:[5.2,7.4], light:[7.55,8.75], ext:[7.8,10.7], stag:0.035, orbit:[7.7,11.3], lac:[8.8,10.6],
+  real:[10.9,11.9], room:[11.0,12.4], fin:[12.35,12.85]};
+var PW=1600, PH=2000, QW=2400, QH=1015, UW=101.6, TH0=10*Math.PI/180, PIV=[50.8,-262,39];
+var GROUPS=[['plate'],['rays','trail','explosion'],['plane'],['textbox','lettering']];
+var POPBOX={plate:[0,0,2400,1015],rays:[1201,0,1199,1015],trail:[938,807,646,108],explosion:[1244,0,1156,1015],plane:[0,0,1195,1015],textbox:[413,0,433,209],lettering:[1260,0,709,443]};
+var SH=window.EH_SHARED=window.EH_SHARED||{};
+
+function cl(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return cl((t-a[0])/(a[1]-a[0]));}
+function sm(x){x=cl(x);return x*x*(3-2*x);}
+function eio(x){x=cl(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function ss(x){x=cl(x);return x*x*x*(x*(x*6-15)+10);}
+function lerp(a,b,u){return a+(b-a)*u;}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!im&&(im.naturalWidth||im.width)>0;}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[240,240,240];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function mixc(a,b,u){return 'rgb('+Math.round(lerp(a[0],b[0],u))+','+Math.round(lerp(a[1],b[1],u))+','+Math.round(lerp(a[2],b[2],u))+')';}
+
+// ---------------------------------------------------------------- the DOM rest look (index.html): .wash, the frame 'none' drop shadow, paintArt's resampling
+function wash(g,W,H,r,a){if(a<=0)return;var sx=+((r.x+r.w/2)/W*100).toFixed(1)/100*W,sy=+((r.y+r.h/2)/H*100).toFixed(1)/100*H;
+  g.save();g.translate(sx,sy);g.scale(.7*W,.6*H);var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,'rgba(255,255,255,.35)');gr.addColorStop(.7,'rgba(255,255,255,0)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-sx/(.7*W)-1,-sy/(.6*H)-1,W/(.7*W)+2,H/(.6*H)+2);g.restore();}
+// clipped to outside the work: under a half-faded canvas the shadow must not show through
+function dropShadow(g,dpr,r,a){if(a<=0)return;g.save();g.beginPath();g.rect(-1e4,-1e4,3e4,3e4);g.rect(r.x,r.y,r.w,r.h);g.clip('evenodd');g.globalAlpha=a;g.shadowColor='rgba(0,0,0,.6)';g.shadowBlur=60*dpr;g.shadowOffsetX=1e5*dpr;g.shadowOffsetY=26*dpr;g.fillStyle='#000';
+  g.fillRect(r.x+26-1e5,r.y+26,r.w-52,r.h-52);g.restore();}
+function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*((im&&im.naturalHeight)||1)/((im&&im.naturalWidth)||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+function restLook(g,o){var a=o.a==null?1:o.a;g.save();g.globalAlpha=a;g.fillStyle=o.wall;g.fillRect(0,0,o.W,o.H);g.restore();wash(g,o.W,o.H,o.rect,a);dropShadow(g,o.dpr,o.rect,a);
+  if(o.art){g.save();g.globalAlpha=a;g.drawImage(o.art,o.rect.x,o.rect.y,o.rect.w,o.rect.h);g.restore();}}
+
+// ---------------------------------------------------------------- the camera of MoMA's photograph (layers.json camera), orbited about the stack
+// x_img = K (R (X - C)); orbit θ about the vertical axis through PIV keeps PIV where it is on screen
+function camAt(th){var c=DATA.cam,R=c.R,C=c.C,co=Math.cos(th),si=Math.sin(th);
+  var d=[C[0]-PIV[0],C[1]-PIV[1],C[2]-PIV[2]],Cn=[PIV[0]+co*d[0]+si*d[2],PIV[1]+d[1],PIV[2]-si*d[0]+co*d[2]];
+  // R' = R · Ry(θ)^T, Ry = [[c,0,s],[0,1,0],[-s,0,c]]
+  var Rn=R.map(function(r){return[r[0]*co+r[2]*si,r[1],-r[0]*si+r[2]*co];});
+  return{R:Rn,C:Cn,f:c.f,cx:c.cx,cy:c.cy};}
+function proj(cam,X,Y,Z){var R=cam.R,x=X-cam.C[0],y=Y-cam.C[1],z=Z-cam.C[2];
+  var a=R[0][0]*x+R[0][1]*y+R[0][2]*z,b=R[1][0]*x+R[1][1]*y+R[1][2]*z,c=R[2][0]*x+R[2][1]*y+R[2][2]*z;return[cam.f*a/c+cam.cx,cam.f*b/c+cam.cy];}
+// affine [a,b,c,d,e,f] (canvas transform order) taking p0,p1,p2 to q0,q1,q2
+function aff(p0,p1,p2,q0,q1,q2){var ux=p1[0]-p0[0],uy=p1[1]-p0[1],vx=p2[0]-p0[0],vy=p2[1]-p0[1],det=ux*vy-uy*vx;if(Math.abs(det)<1e-9)return null;
+  var i00=vy/det,i01=-vx/det,i10=-uy/det,i11=ux/det,Ux=q1[0]-q0[0],Uy=q1[1]-q0[1],Vx=q2[0]-q0[0],Vy=q2[1]-q0[1];
+  var a=Ux*i00+Vx*i10,c=Ux*i01+Vx*i11,b=Uy*i00+Vy*i10,d=Uy*i01+Vy*i11;return[a,b,c,d,q0[0]-a*p0[0]-c*p0[1],q0[1]-b*p0[0]-d*p0[1]];}
+// the wall plane seen from the orbited camera, as an affine of photo px (exact at θ = 0)
+function wallAff(cam){var c0=camAt(0),P=[[-150,60],[260,60],[-150,-600]];
+  var p=P.map(function(q){return proj(c0,q[0],q[1],0);}),q=P.map(function(v){return proj(cam,v[0],v[1],0);});return aff(p[0],p[1],p[2],q[0],q[1],q[2]);}
+
+// ---------------------------------------------------------------- geometry of the frame (cached per size)
+function geo(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,R1=ctx.to.rect,R0=ctx.from?ctx.from.rect:null;
+  var key=[W,H,dpr,R1.x,R1.y,R1.w,R1.h,R0?[R0.x,R0.y,R0.w,R0.h].join(','):''].join('/');if(S.G&&S.G.key===key)return S.G;
+  var G={key:key,W:W,H:H,dpr:dpr,R1:R1,k1:R1.w/PW,R0:R0||{x:R1.x-R1.w*.8,y:R1.y+R1.h*.3,w:R1.w*2.6,h:R1.w*2.6*QH/QW},cam0:camAt(TH0)};G.k0=G.R0.w/QW;
+  G.P0=function(x,y){return[G.R0.x+x*G.k0,G.R0.y+y*G.k0];};G.P1=function(q){return[R1.x+q[0]*G.k1,R1.y+q[1]*G.k1];};
+  // each unit: the Whaam! rectangle on screen (source) and its flat place on the wall (the back face, seen from the first camera)
+  G.U=DATA.units.map(function(u,i){var m=DATA.match[i],s=m.src,Y0=u.Y[0],Y1=u.Y[1];
+    var src=[G.P0(s[0],s[1]),G.P0(s[0]+s[2],s[1]),G.P0(s[0]+s[2],s[1]+s[3]),G.P0(s[0],s[1]+s[3])];
+    var flat=[[0,Y0],[UW,Y0],[UW,Y1],[0,Y1]].map(function(q){return G.P1(proj(G.cam0,q[0],q[1],0));});
+    return{u:u,m:m,i:i,src:src,flat:flat};});
+  S.G=G;S.fromC=null;S.toC=null;S.gk=null;return G;}
+
+// ---------------------------------------------------------------- pre-rendering (split into tasks; draw never waits for it)
+function prepare(ctx){var S=ctx.state,G=geo(ctx);if(S.prepKey===G.key)return;S.prepKey=G.key;var gen=S.gen=(S.gen||0)+1,jobs=[];
+  S.grp=[null,null,null,null];
+  if(ctx.from){var w=Math.min(Math.round(G.R0.w*G.dpr),2600),h=Math.round(w*QH/QW),q=w/QW;
+    GROUPS.forEach(function(gp,gi){jobs.push(function(){var c=cv(w,h),g=c.getContext('2d');gp.forEach(function(n){var im=S.pop[n],b=POPBOX[n];if(ok(im))g.drawImage(im,b[0]*q,b[1]*q,b[2]*q,b[3]*q);});S.grp[gi]=c;});});}
+  if(!S.front){jobs.push(function(){S.front=DATA.units.map(function(u,i){var im=S.unit[i],f=u.faces.front,b=u.box;
+      var x0=Math.floor(Math.min(f[0][0],f[3][0]))-2,y0=Math.floor(Math.min(f[0][1],f[1][1]))-2,x1=Math.ceil(Math.max(f[1][0],f[2][0]))+2,y1=Math.ceil(Math.max(f[2][1],f[3][1]))+2,c=cv(x1-x0,y1-y0),g=c.getContext('2d');
+      g.beginPath();f.forEach(function(p,k){if(k)g.lineTo(p[0]-x0,p[1]-y0);else g.moveTo(p[0]-x0,p[1]-y0);});g.closePath();
+      g.fillStyle='rgb('+u.col.front.join(',')+')';g.fill();g.save();g.clip();if(ok(im))g.drawImage(im,b[0]-x0,b[1]-y0);g.restore();c.o=[x0,y0];return c;});});}
+  (function run(){if(S.gen!==gen)return;var t0=performance.now();while(jobs.length&&performance.now()-t0<12)jobs.shift()();if(jobs.length)setTimeout(run,0);})();}
+function fromArt(ctx,S,G){if(!S.fromC&&ctx.from)S.fromC=artCanvas(ctx.from.image,G.R0,G.dpr);return S.fromC;}
+function toArt(ctx,S,G){if(!S.toC)S.toC=artCanvas(ctx.to.image,G.R1,G.dpr);return S.toC;}
+
+// ---------------------------------------------------------------- drawing helpers
+function path(g,Q){g.beginPath();g.moveTo(Q[0][0],Q[0][1]);for(var i=1;i<Q.length;i++)g.lineTo(Q[i][0],Q[i][1]);g.closePath();}
+// image region (sx,sy,sw,sh) onto quad Q (TL,TR,BR,BL) with the affine of three corners, clipped to Q
+function quadImg(g,im,sx,sy,sw,sh,Q,a){if(a<=0||!im)return;var M=aff([sx,sy],[sx+sw,sy],[sx,sy+sh],Q[0],Q[1],Q[3]);if(!M)return;
+  g.save();path(g,Q);g.clip();g.globalAlpha=a;g.transform(M[0],M[1],M[2],M[3],M[4],M[5]);g.drawImage(im,sx,sy,sw,sh,sx,sy,sw,sh);g.restore();}
+// the photograph's own pixels (plate, shadows, units) — photo px → screen, through the wall affine of the moving camera
+function photoXf(g,G,A){g.translate(G.R1.x,G.R1.y);g.scale(G.k1,G.k1);if(A)g.transform(A[0],A[1],A[2],A[3],A[4],A[5]);}
+
+// ---------------------------------------------------------------- one frame
+function draw(p,ctx){var g=ctx.g,S=ctx.state,G=geo(ctx),t=p*D,W=G.W,H=G.H,F=ctx.from,to=ctx.to;
+  if(S.prepKey!==G.key)prepare(ctx);
+  if(p>=1){restLook(g,{W:W,H:H,dpr:G.dpr,wall:to.wall,rect:G.R1,art:toArt(ctx,S,G)});return;}
+  var wF=hex(F?F.wall:to.wall),wT=hex(to.wall);
+  // ① Whaam! as it rested
+  if(t<=T.hold&&F){restLook(g,{W:W,H:H,dpr:G.dpr,wall:F.wall,rect:G.R0,art:fromArt(ctx,S,G)});popRest(g,ctx,G,1);return;}
+  // the wall: Whaam!'s, then the (almost identical) white of the Judd room
+  var wl=sm(seg(t,T.wall));g.fillStyle=mixc(wF,wT,wl);g.fillRect(0,0,W,H);
+  if(F)wash(g,W,H,G.R0,1-wl);wash(g,W,H,G.R1,wl);
+  // ② the picture is taken away: words, plane, explosion, then the dotted sky and the canvas itself
+  var ga=[1-sm(seg(t,T.sky)),1-sm(seg(t,T.boom)),1-sm(seg(t,T.plane)),1-sm(seg(t,T.words))];
+  if(F&&ga[0]>0){dropShadow(g,G.dpr,G.R0,ga[0]);if(ga[0]>=1&&ga[1]>=1&&ga[2]>=1&&ga[3]>=1)g.drawImage(fromArt(ctx,S,G),G.R0.x,G.R0.y,G.R0.w,G.R0.h);
+    else for(var gi=0;gi<4;gi++){if(ga[gi]<=0)continue;g.globalAlpha=Math.min(ga[gi],ga[0]);
+      if(S.grp&&S.grp[gi])g.drawImage(S.grp[gi],G.R0.x,G.R0.y,G.R0.w,G.R0.h);
+      else GROUPS[gi].forEach(function(n){var im=S.pop[n],b=POPBOX[n];if(ok(im))g.drawImage(im,G.R0.x+b[0]*G.k0,G.R0.y+b[1]*G.k0,b[2]*G.k0,b[3]*G.k0);});}
+    g.globalAlpha=1;popRest(g,ctx,G,ga[0]);}
+  // the photograph's room (floor, ceiling, its own wall) comes up at the end, under everything else
+  var rm=sm(seg(t,T.room)),th=TH0*(1-eio(seg(t,T.orbit))),cam=th===0?camAt(0):camAt(th),A=th===0?null:wallAff(cam);
+  if(rm>0){dropShadow(g,G.dpr,G.R1,rm);g.save();g.beginPath();g.rect(G.R1.x,G.R1.y,G.R1.w,G.R1.h);g.clip();g.globalAlpha=rm;photoXf(g,G,A);if(ok(S.plate))g.drawImage(S.plate,0,0,PW,PH);g.restore();}
+  // the light: the room dims a little while the blocks gather, then the light comes down from the ceiling
+  var dim=0.055*sm(seg(t,T.dim)),ly=seg(t,T.light);
+  if(dim>0&&ly<1){var edge=lerp(-0.35*H,H*1.05,ss(ly)),fe=0.35*H;g.save();g.globalAlpha=1;
+    var gr=g.createLinearGradient(0,edge,0,edge+fe);gr.addColorStop(0,'rgba(20,22,24,0)');gr.addColorStop(1,'rgba(20,22,24,'+dim.toFixed(4)+')');g.fillStyle=gr;g.fillRect(0,Math.max(0,edge),W,H);g.restore();}
+  // ③ the units: flat paint → glide into the column → out of the wall
+  drawUnits(g,ctx,S,G,t,cam,A,ga,rm);   // the floor shadow waits for the floor
+  // hand-over: the hung photograph
+  var fa=sm(seg(t,T.fin));if(fa>0)restLook(g,{W:W,H:H,dpr:G.dpr,wall:to.wall,rect:G.R1,art:toArt(ctx,S,G),a:fa});}
+function popRest(g,ctx,G,a){var f=SH.popRest;if(typeof f!=='function'||a<=0)return;g.save();g.globalAlpha=a;try{f(g,{W:G.W,H:G.H,rect:G.R0,dpr:G.dpr,t:0,alpha:a});}catch(e){console.error(e);}g.restore();}
+
+function unitDepth(i,t){var a=T.ext[0]+T.stag*i;return 78.7*eio((t-a)/(T.ext[1]-T.ext[0]-T.stag*11));}
+function drawUnits(g,ctx,S,G,t,cam,A,ga,rm){var gl=eio(seg(t,T.glide)),lac=sm(seg(t,T.lac)),real=sm(seg(t,T.real)),C=cam.C;
+  // the shadows on the wall and floor grow with the depth of their unit
+  if(t>=T.ext[0]){g.save();photoXf(g,G,A);DATA.shadows.forEach(function(s,k){var ui=s.unit?s.unit-1:11,e=unitDepth(ui,t)/78.7,a=Math.pow(e,1.35)*(s.unit?1:rm);var im=S.shadow[k];
+      if(a>0.002&&ok(im)){g.globalAlpha=a;g.drawImage(im,s.x,s.y,s.w,s.h);}});g.restore();}
+  var order=DATA.order.map(function(id){return +id.slice(4)-1;});
+  // before the moment the flat blocks are drawn top to bottom (they don't overlap)
+  if(t<T.ext[0])order=order.slice().sort(function(a,b){return a-b;});
+  order.forEach(function(i){var U=G.U[i],u=U.u,z=unitDepth(i,t),Y0=u.Y[0],Y1=u.Y[1],m=U.m,s=m.src,im=S.popMain;
+    var P=function(X,Y,Z){return G.P1(proj(cam,X,Y,Z));};
+    var BTL=P(0,Y0,0),BTR=P(UW,Y0,0),BDR=P(UW,Y1,0),BDL=P(0,Y1,0);
+    if(z<=0.001){// flat on the wall: Whaam!'s paint, from where it was to its place in the column
+      var FL=[BTL,BTR,BDR,BDL],Q=U.src.map(function(q,k){return[lerp(q[0],FL[k][0],gl),lerp(q[1],FL[k][1],gl)];});
+      quadImg(g,im,s[0],s[1],s[2],s[3],Q,1);return;}
+    // the box at depth z, seen from the camera
+    var FTL=P(0,Y0,z),FTR=P(UW,Y0,z),FDR=P(UW,Y1,z),FDL=P(0,Y1,z);
+    var col=u.col,sd=Math.min(1,z/6);
+    function face(Q,c){g.fillStyle='rgb('+c.join(',')+')';g.strokeStyle=g.fillStyle;g.lineWidth=0.8;g.lineJoin='round';path(g,Q);g.fill();g.stroke();}
+    if(sd>0){g.save();g.globalAlpha=sd;
+      if(C[1]<Y1&&col.bottom)face([FDL,FDR,BDR,BDL],col.bottom);
+      if(C[1]>Y0&&col.top)face([BTL,BTR,FTR,FTL],col.top);
+      if(C[0]<0)face([BTL,FTL,FDL,BDL],col.left);
+      if(C[0]>UW)face([FTR,BTR,BDR,FDR],col.left);
+      g.restore();}
+    var FQ=[FTL,FTR,FDR,FDL];
+    // the front: green lacquer on galvanised iron (the photograph's face), under the last of Whaam!'s paint
+    if(lac>0&&S.front){var fc=S.front[i],f=u.faces.front,o=fc.o;var M=aff([f[0][0]-o[0],f[0][1]-o[1]],[f[1][0]-o[0],f[1][1]-o[1]],[f[3][0]-o[0],f[3][1]-o[1]],FTL,FTR,FDL);
+      if(M){g.save();path(g,FQ);g.clip();g.transform(M[0],M[1],M[2],M[3],M[4],M[5]);g.drawImage(fc,0,0);g.restore();}}
+    else if(lac>0){face(FQ,col.front);}
+    if(lac<1)quadImg(g,im,s[0],s[1],s[2],s[3],FQ,1-lac);
+    // the photograph's own pixels of this unit take over once it is all the way out
+    if(real>0&&ok(S.unit[i])){var b=u.box;g.save();photoXf(g,G,A);g.globalAlpha=real;g.drawImage(S.unit[i],b[0],b[1],b[2],b[3]);g.restore();}});}
+
+// ---------------------------------------------------------------- the module
+SH.minimalRest=function(g,o){};   // the Judd rest has no extras: the photograph alone on its wall
+
+EH.transition('minimal',{
+  duration:D,
+  assets:['cut/plate.webp'].concat(DATA.units.map(function(u){return 'cut/'+u.id+'.webp';}),DATA.shadows.map(function(s){return 'cut/'+s.id+'.webp';})),
+  fromAssets:['cut/plate.webp','cut/rays.webp','cut/trail.webp','cut/explosion.webp','cut/plane.webp','cut/textbox.webp','cut/lettering.webp'],
+  init:function(ctx){var S=ctx.state;
+    S.plate=ctx.asset('cut/plate.webp');S.unit=DATA.units.map(function(u){return ctx.asset('cut/'+u.id+'.webp');});S.shadow=DATA.shadows.map(function(s){return ctx.asset('cut/'+s.id+'.webp');});
+    S.pop={};['plate','rays','trail','explosion','plane','textbox','lettering'].forEach(function(n){S.pop[n]=ctx.fromAsset('cut/'+n+'.webp');});
+    S.popMain=ctx.from?ctx.from.image:null;
+    prepare(ctx);},
+  draw:draw,
+  rest:function(ctx){}
+});
+})();
+
+;
+/* 当代 · 重复，一直重复到无限 — the passage from Judd's Untitled (Stack) (minimal) into Kusama's Infinity Mirrored Room — The Souls of
+   Millions of Light Years Away (contemporary). One discovery: Judd's repeated boxes, once their fronts are mirrors, repeat without end —
+   and one light is enough to fill that endlessness: Kusama's room.
+   Beats (seconds of D, see T): the stack on the white wall · the gallery lights go out (a dimmer, the camera drifts in to eye level);
+   the lacquered fronts hold a faint sheen the longest · the fronts turn to dark glass, the floor and ceiling to mirror: the column of
+   fronts goes on through them, above and below, without end · darkness; one small warm light comes on in front of the stack, between
+   the 7th and 8th box — its first reflection lands in the box front below it, then its images light up one after another, deeper and
+   deeper, in every mirror of a closed mirror box (true image lattice: side walls, ceiling, water floor, facing/back wall; harmonic
+   depth spacing), converging on the eye-level gap of the stack, which is the horizon of Kusama's room · the other lamps come on one
+   after another (the photograph's own lamps, real pixels, in growing groups), the boxes' dark bodies dissolve into the reflections, the
+   photograph's reflections fill the depth · the room settles into the photograph on the wall · hand-over.
+   Geometry: minimal px → Kusama px by the similarity in rooms/minimal/cut/layers.json "match.align" (Judd's eye-level gap on Kusama's
+   horizon, one box front = one mirror panel); the Judd camera (fitted pinhole) projects the unit boxes and their floor/ceiling images.
+   Layers: rooms/contemporary/cut/ plate_empty, haze, far, mid, near (plate+haze+far+mid+near == main.webp). No sound calls. */
+(function(){
+'use strict';
+var D=14, KW=2048, KH=1536, MW=1600, MH=2000;
+var T={dim:[1.3,4.1], cam:[1.9,11.0], ink:3.2, gloss:[3.7,5.1], column:[4.2,5.6], door:[5.5,6.3],
+  lamp:[5.9,6.45], cas0:6.35, warm:[5.9,6.6],
+  lamps0:8.1, dissolve:[6.9,8.8], glassOut:[7.8,9.6], mid:[8.7,10.4], far:[9.1,11.0], haze:[8.9,10.8], plate:[9.0,10.8],
+  latOut:[9.6,11.6], art:[11.3,12.8], title:11.6, label:[12.1,12.1], wash:[11.0,12.6], edge:[10.2,11.8], l0real:[9.2,10.6]};
+var DARK=[10,15,21];
+// Judd (rooms/minimal/cut/layers.json): fitted camera, unit boxes (cm), floor / ceiling heights at the stack (back-projected wall lines)
+var CAM={f:2298.26,cx:647.38,cy:1143.71,R:[[0.96337,-0.008859,0.26803],[0.000479,-0.999396,-0.034753],[0.268176,0.033609,-0.962783]],t:[-4.691,-335.739,854.56]};
+var UNIT={w:101.6,h:22.8,d:78.7,step:45.6,top:0.4}, FLOOR=-550.0, CEIL=53.4;
+// minimal px → Kusama px (match.align): xk = 824 + 1.21 (xm − 705), yk = 750 + 1.21 (ym − 1187)
+var AL={k:1.21,x:824-1.21*705,y:750-1.21*1187};
+// Kusama (rooms/contemporary/cut/layers.json): vanishing point, facing wall (5 mirror panels, seams), ceiling / water edges at the wall
+var VP=[1000,750], MB={A:865,C:604,Cw:574,F:1,B:0.25};
+// the first light: a real lamp of the photograph (lamps.list), hanging in front of the stack between the 7th and 8th box
+var L0={x:876,y:595,d:39.4,col:[255,237,230],box:[826,537,104,116],z:0.62};
+var LAMPS=[[1998,363,68.4,[1941,307,107,114]],[1863,592,51.6,[1815,523,97,141]],[712,46,51.1,[658,0,111,100]],[1906,1464,39.5,[1857,1421,100,89]],[85,596,42.7,[43,548,89,97]],[371,434,34.8,[327,394,89,84]],[982,289,32.7,[941,246,84,87]],[1433,459,31.9,[1394,420,80,80]],[2021,461,32.7,[1987,421,61,82]],[1512,984,33.3,[1474,949,78,73]],[1509,248,30.4,[1467,205,87,88]],[1348,582,32.2,[1316,550,65,66]],[1135,113,29.1,[1094,68,83,89]],[1692,613,32.1,[1659,575,67,78]],[1115,243,28.7,[1077,203,78,81]],[256,315,27.9,[220,279,74,74]],[263,612,29.5,[233,582,62,62]],[1952,563,28.8,[1920,529,65,73]],[1042,557,28.3,[1009,523,68,71]],[168,589,27.8,[136,557,65,65]],[358,1434,23.5,[320,1399,79,73]],[1715,479,24.3,[1683,449,66,62]],[1628,356,22.4,[1594,324,70,66]],[1828,348,22.9,[1794,316,70,67]],[1534,561,23.9,[1504,530,62,63]],[485,268,20.4,[450,235,74,69]],[2032,562,21.1,[2014,529,34,67]],[1499,420,19.4,[1468,389,64,63]],[543,420,18.5,[510,389,68,64]],[1092,1018,19.6,[1053,978,79,77]],[866,287,15.2,[837,257,61,61]],[14,398,10.8,[0,366,34,65]],[1990,1132,5.0,[1948,1100,80,64]]];
+var T0=[257,324,23,1118,251,22,1831,345,18,1625,354,18,1630,359,18,1825,353,18,1107,246,24,256,321,24,1141,110,22,1137,121,23,1118,239,25,260,319,24,1120,244,25,1109,251,24,252,315,24,1136,128,23,1125,117,23,1925,1462,18,1419,465,20,1102,244,24,360,1430,16,366,428,24,1896,1458,21,540,420,13,1498,236,15,984,286,26,544,420,13,988,292,26,357,1433,17,981,297,26,374,442,25,1133,118,24,1917,1461,26,866,286,11,1719,481,16,1425,461,22,484,268,13,1910,1467,31,1510,259,14,1500,416,11,1919,1466,27,898,567,13,1040,557,14,388,429,22,1949,560,13,1510,980,19,1044,557,15,1148,116,25,1821,343,20,720,35,31,381,435,27,369,1428,19,1849,559,17,171,588,16,263,612,14,1858,561,17,1509,985,20,360,420,24,1537,560,13,1840,563,18,1349,579,14,381,424,27,1519,258,16,996,295,27,721,39,34,1859,614,11,912,594,12,858,615,14,75,579,12,1690,605,12,1056,533,10,863,616,14,82,601,13,1878,635,12,1854,604,12,714,55,34,1869,633,12,721,50,39,703,32,25,101,612,11,706,53,29,1965,577,10,1869,595,10,1528,572,15,703,43,37,839,594,8,17,388,6,721,45,41,117,599,8,1876,629,9,2037,456,17,1797,341,5,2003,491,6,1150,122,25,251,632,8,733,45,19,65,595,9,731,34,30,1662,361,5,513,285,5,255,632,8,1875,1456,5,1736,501,6,1987,364,32,1882,1456,22,1423,441,20,1862,550,8,880,643,7,722,59,16,1888,605,9,1989,360,39,1992,353,36,14,394,7,1450,442,6,1445,470,25,88,631,8,1739,487,6,1317,577,9,1707,625,7,97,643,8,728,55,13,856,293,16,1547,248,5,1991,367,44,1408,469,22,1487,397,5,1886,611,9,1998,381,26,1981,354,22,81,632,8,838,616,6,2040,475,9,1337,604,7,1893,602,9,943,302,5,862,260,4,1998,349,32,738,50,13,1356,556,5,1868,638,7,2044,456,18,1698,641,12,1893,588,7,2029,346,13,1974,373,10,1946,569,16,1408,449,22,2047,562,8,2016,464,6,1097,1006,22,1987,467,4,1507,969,22,1953,383,5,1441,442,22,1689,643,8,1356,607,6,1526,424,4,1449,455,5,2008,378,32,2009,352,41,2026,353,21,1094,1002,20,2004,351,41,96,634,10,1800,362,4,1485,411,4,1487,392,7,19,402,4,1984,401,6,89,565,6,233,301,7,347,419,8,1491,423,15,2012,363,43,733,70,6,1451,473,4,1968,534,6,1891,633,7,1101,1015,22,2021,346,17,2027,364,27,1337,564,5,347,426,5,1706,650,7,1108,146,4,2025,461,7,259,600,20,261,638,6,2012,477,6,1319,570,11,1395,452,4,51,565,5,1897,637,7,859,296,18,390,462,4,1983,330,5,1680,643,7,1365,570,5,388,448,5,886,612,5,1880,609,11,385,398,4,1102,1021,21,895,555,19,2031,544,5,847,626,5,1999,440,4,1839,581,5,827,604,8,1711,620,10,1930,581,5,1534,998,6,242,333,4,1106,1022,21,1405,482,4,1331,609,10,1526,1005,5,1997,316,4,1529,995,6,1530,257,4,1508,281,4,1477,982,7,2001,1140,11,713,65,6,1453,489,4,1488,961,7,1547,576,5,1026,540,4,187,567,5,1110,1016,5,1997,456,4,1425,447,5,1113,128,4,1511,580,16,886,569,4,1098,986,4,1978,390,10,1085,1000,22,1973,386,8,1694,622,6,395,460,7,184,611,5,1553,557,4,1983,393,10,1115,1027,4,339,1454,8,1688,477,9,17,419,4,1887,563,4,106,576,4,2022,556,6,1113,1013,5,1124,1001,5,2015,491,4,1598,373,4,1092,227,4,1085,983,16,2036,498,4,1883,602,12,383,452,4,1048,592,4,1949,543,4,1348,598,5,1886,1448,6,2023,547,5,871,577,4,514,408,6,1479,964,4,1823,574,4,1989,1137,15,364,1446,5,1927,572,5,2020,403,4,1708,466,4,397,430,5,685,54,6,1966,595,6,496,263,7,330,441,4,1984,555,7,1854,588,7,1978,547,4,104,566,4,2015,561,6,2019,560,6,2037,363,7,1016,283,14,1697,584,4,54,575,6,2019,569,4,1847,605,6,905,556,20,2047,587,3,53,572,6,926,578,4,384,1457,3,2025,544,5,1495,959,4,2008,367,46,1705,589,5,2033,537,4,1833,600,4,1869,654,6,1491,414,16,1615,343,4,1350,551,6,1947,588,4,1852,371,5,1883,556,4,573,434,4,1843,588,4,2025,327,5,277,591,4,691,27,9,1853,591,7,1020,543,4,166,614,3,1534,970,4,1880,584,4,1840,537,4,112,640,4,1819,567,4,19,413,4,1861,1474,4,250,607,4,1886,545,4,1890,617,4,1059,571,4,237,611,5,0,395,6,1348,557,4,221,319,3,1854,578,8,149,599,4,387,456,8,1324,568,6,1371,591,4,1507,1020,12,1999,418,4,141,580,6,1552,566,4,1817,571,4,1975,559,10,163,574,4,1854,583,8,1693,592,5,1329,568,6,1710,591,6,389,1431,3,1870,659,6,1997,411,4,1696,594,5,1066,550,3,1685,482,10,361,402,4,1520,443,4,278,637,6,1531,579,4,1501,266,24,517,401,3,169,568,4,280,627,4,280,633,6,1946,597,4,1878,653,4,1887,626,4,1092,1039,10,1363,596,5,54,599,4,1536,993,4,2029,437,4,851,621,7,2022,438,3,147,589,4,1511,243,4,1822,552,4,2043,554,4,1097,980,7,1976,1135,15,1052,584,4,1654,336,4,1902,1443,5,1835,593,4,1694,486,4,258,595,3,1816,319,4,287,608,4,2001,357,48,2036,565,4,1425,492,4,1953,534,4,287,623,3,469,280,3,1123,130,4,1474,252,3,141,584,7,1893,1422,4,1484,217,3,1378,593,5,44,573,10,113,632,3,2045,541,3,886,555,3,1561,566,3,1458,434,3,1699,616,5,979,272,7,1068,539,3,1122,1014,4,1887,541,4,2036,426,3,1507,268,4,1890,640,5,1139,96,3,59,570,10,84,562,9,1876,557,5,2024,452,6,1519,1009,3,530,424,4,1721,605,3,874,609,5,1819,375,3,281,292,3,1518,961,4,2026,483,6,1510,431,3,378,1425,4,339,436,3,1967,589,5,1091,1047,11,161,608,3,1897,631,4,1869,619,3,1080,982,8,1836,553,6,155,581,4,1835,568,4,1889,558,9,1546,1002,3,1857,1458,6,65,607,4,334,431,3,1137,102,3,877,611,5,1932,1459,4,1953,552,4,493,278,4,1941,579,4,1438,449,4,1371,599,3,1947,1460,4,1117,1006,3,242,603,4,1854,627,8,1126,1009,7,1840,614,4,1494,991,4,1434,488,5,857,281,4,2032,311,4,1882,1484,3,230,308,10,1091,993,4,66,574,4,874,631,5,2038,580,4,1543,544,3,491,296,3,874,618,4,70,629,4,2046,579,3,469,248,3,1923,1452,5,1925,1507,3,1921,568,3,1854,641,12,278,598,4,1718,600,3,1564,558,3,1122,1030,6,388,1427,3,971,317,4,1494,1004,4,692,35,5,1055,580,6,1158,78,3,372,1413,3,1334,583,6,1495,284,3,1355,565,3,93,554,3,1660,603,3,1113,989,3,1324,586,6,126,617,4,265,341,4,1841,598,3,1538,574,4,2018,427,3,111,622,3,1908,626,3,1862,644,3,1682,616,4,1533,1006,3,1962,533,3,354,431,4,1498,262,4,1918,1449,7,1897,620,4,1664,620,3,838,637,4,1553,549,4,68,626,4,1704,599,4,51,591,4,1148,242,3,128,625,4,171,602,4,62,621,4,363,468,3,1854,633,6,847,636,4,875,550,4,123,622,3,864,639,3,185,577,3,1911,1444,4,540,396,3,2042,572,3,156,567,3,1854,648,10,1521,965,3,1987,315,3,1845,640,3,65,617,3,88,575,3,154,592,6,267,595,3,1525,955,5,411,444,8,904,546,4,1540,965,3,477,278,4,2040,539,6,247,299,3,1712,610,3,1847,376,4,2043,428,3,2041,586,3,1854,528,10,340,451,3,1329,585,5,1832,378,4,411,439,9,2026,579,3,1364,585,3,1053,556,3,1525,265,9,1837,604,6,1519,406,4,1148,146,3,1480,977,3,853,638,3,1632,334,3,886,604,4,1334,572,3,2028,496,3,1516,281,17,1080,991,9,1736,468,6,1450,485,4,1740,473,6,1865,568,3,1682,580,3,1380,578,3,1948,357,4,849,632,3,256,591,3,1988,386,5,1054,566,3,1055,588,3,2044,323,3,274,631,3,342,1425,3,2019,336,5,1520,956,3,338,417,3,1506,1010,20,562,439,4,1858,652,4,175,619,3,2029,501,3,1895,624,3,1863,650,3,2019,544,3,1882,619,7,1978,413,3,1933,1484,5,1343,613,3,1834,539,3,885,626,3,2000,1126,19,1891,646,3,29,393,3,2046,594,3,1492,1014,3,878,552,4,267,634,4,2036,376,7,1505,439,25,1745,481,3,1967,585,3,1890,653,3,1457,456,3,1164,103,4,2030,557,3,1692,496,3,877,591,5,1077,243,3,1514,216,6,157,603,3,886,595,3,1856,545,4,1464,474,3,2047,548,2,105,585,3,383,410,4,1897,612,3,1017,315,4,1830,382,6,859,604,4,1683,623,3,1952,348,3,506,288,3,1415,489,3,287,602,4,1492,978,3,107,596,3,510,248,3,887,621,3,1551,539,3,1519,401,4,1801,352,3,716,75,4,479,290,3,871,586,3,237,619,3,2014,1142,9,1669,635,5,286,613,4,1517,569,3,179,570,9,1487,977,3,1930,559,3,1472,445,3,841,642,7,1378,570,3,393,441,2,2035,394,4,1824,579,3,697,69,6,2035,388,2,1469,465,4,1061,561,4,1377,584,3,859,593,4,1422,432,4,1973,406,5,839,288,3,128,609,7,399,442,3,1416,480,4,879,567,4,1974,410,5,185,600,4,866,572,3,251,592,3,1958,1130,15,1956,335,14,918,548,4,1908,1484,4,483,297,15,1435,432,3,1487,985,3,1712,586,3,1136,92,7,1728,451,5,1976,317,3,1706,607,3,1926,555,4,1930,546,2,1948,391,3,1699,629,4,881,591,3,1853,540,6,274,626,2,1100,103,3,1511,1014,3,1116,1040,8,108,569,3,462,250,8,1490,1001,5,195,602,3,1480,228,3,1952,1124,22,1533,957,3,1023,564,4,1110,1036,8,268,349,8,732,86,3,1527,584,2,835,604,4,66,553,4,1370,605,3,1663,592,4,1645,370,3,1834,371,2,1082,244,3,2045,371,2,1701,602,3,192,593,2,2028,425,3,524,411,3,516,426,4,988,322,5,1684,630,3,1460,478,3,1817,369,8,1609,352,3,872,648,4,1350,611,3,1052,549,2,2018,497,3,322,1426,3,386,468,2,170,608,3,893,292,3,1152,236,3,177,611,3,1442,424,3,1862,656,2,1840,332,3,2014,453,3,1527,236,3,232,330,2,120,633,3,9,367,4,1679,589,6,1428,487,3,82,639,2,1003,259,11,1129,133,3,1523,575,3,1646,362,3,529,405,3,1748,474,3,353,1405,5,2031,320,3,1872,648,3,1705,633,3,1811,322,3,1118,1020,4,520,426,3,1513,402,9,1615,370,3,1093,1029,9,1084,1028,9,1879,538,2,1682,592,6,1524,972,4,1885,593,2,1996,475,4,350,400,3,1079,1048,13,2047,533,3,90,584,3,858,584,6,1656,362,3,120,617,2,1024,552,4,12,414,2,1468,461,3,2037,483,2,1025,567,5,849,645,3,1686,591,6,1902,645,3,985,251,3,510,424,3,1490,436,3,355,454,3,1483,968,3,1814,373,3,1712,497,2,1536,588,3,1812,349,2,401,463,2,842,602,3,1481,403,2,1102,992,3,896,594,2,854,267,2,854,609,3,1525,587,3,1406,488,3,1331,576,3,484,239,9,1088,1026,10,1934,544,5,1501,969,2,1486,445,3,855,590,3,1858,1447,10,849,641,3,682,41,4,336,1413,3,1068,574,3,2008,413,3,1428,434,2,2020,576,6,1960,373,3,1324,602,3,1863,620,2,1604,349,2,1494,215,3,887,636,3,1528,275,3,1480,426,3,840,633,3,1006,313,3,1064,1023,13,497,299,5,1953,402,3,1683,634,3,166,606,2,1868,581,2,556,435,3,1645,375,3,1501,997,3,1501,218,4,1127,253,3,1451,428,3,153,562,2,1026,576,4,1051,573,2,970,255,15,859,636,3,881,601,2,69,622,3,865,632,2,1640,376,3,177,567,2,1085,1019,10,1496,430,3,1003,271,4,379,472,2,1847,619,3,1885,661,3,1473,412,3,1938,572,2,886,543,3,1483,442,3,6,386,2,1672,592,7,1960,394,3,1403,466,2,557,447,2,1880,545,2,2000,311,2,876,557,9,333,1429,2,498,296,4,1061,1021,16,1839,370,3,173,562,3,1606,336,2,1516,583,2,95,580,2,200,592,2,1877,658,2,341,1464,4,1443,485,2,1494,279,2,1061,580,2,1065,1028,6,1503,430,3,1085,1051,6,1742,498,2,1859,585,3,1138,246,2,1940,590,2,1501,448,2,552,391,2,889,587,10,100,579,2,1080,1000,4,1060,1027,6,830,631,2,183,590,3,1484,428,3,537,402,2,2025,560,2,1874,662,2,68,562,4,1846,363,10,1535,263,2,1162,144,3,2027,395,2,2015,431,2,534,429,3,1846,327,9,1510,962,3,1989,395,9,1881,641,2,1890,549,2,1821,332,2,1369,574,2,1481,438,3,1870,573,3,830,619,2,719,87,4,1538,548,2,1724,507,3,1834,585,3,1669,607,2,365,1403,3,961,254,3,1485,995,3,1719,502,2,1005,321,3,1079,1019,6,355,411,2,1934,566,2,1126,223,3,2014,326,3,1874,613,3,172,575,2,1931,1432,3,1075,548,3,2043,336,2,1092,1052,5,966,264,2,342,408,2,80,619,2,1628,382,3,1531,272,2,1106,267,3,2041,494,2,501,298,3,1337,613,2,475,255,2,542,451,3,1492,970,3,746,42,2,192,583,3,76,619,2,1400,463,3,1669,617,3,997,261,4,1525,1017,2,187,583,4,1671,631,3,154,618,2,1965,386,2,1124,150,2,1904,638,2,1410,440,2,1145,90,2,1677,609,3,1998,451,2,1147,224,3,222,306,3,1160,110,2,1079,1029,3,1136,258,2,276,344,3,980,251,3,143,608,2,2019,395,2,1976,1124,6,1663,609,3,362,454,3,1607,376,2,1526,538,3,1958,407,2,1492,965,3,348,411,2,1613,329,2,1500,992,2,1469,449,6,733,62,37,1140,87,2,261,345,2,2024,389,2,488,246,2,50,583,2,2021,309,3,114,609,2,1849,525,3,2028,489,2,283,617,2,1067,1015,6,553,396,2,76,557,4,394,402,3,1853,341,5,397,456,2,1711,597,2,1947,375,3,1983,574,2,236,343,2,519,407,3,1853,336,6,1648,345,5,1049,541,2,915,561,3,1061,1037,4,1704,503,2,100,630,2,1993,448,2,69,601,2,403,440,2,1877,563,2,1477,245,4,1068,1020,5,72,610,3,476,241,2,81,568,2,562,408,2,1142,219,2,1072,551,2,1321,596,2,1027,584,2,1943,1454,3,1828,318,3,2028,571,3,1140,143,4,1493,973,2,1013,557,2,1516,285,3,279,609,2,1517,429,2,540,445,2,45,583,2,909,586,2,2025,433,3,343,1446,2,1827,376,2,96,601,2,550,447,2,1868,542,2,1525,418,2,689,16,2,1116,207,11,1478,232,2,1480,986,3,178,605,2,165,562,2,1119,996,2,247,598,2,1821,364,2,1701,506,2,1326,561,3,1116,148,6,1512,567,2,868,566,3,1080,260,2,1464,457,2,903,585,2,1112,122,2,925,554,2,919,554,3,229,335,2,1118,143,7,1116,83,4,881,586,2,1881,646,2,389,475,2,1945,533,2,1825,557,2,1092,1024,30,0,401,3,876,603,2,1536,583,2,0,414,2,1678,634,2,1135,72,7,1960,387,2,411,424,3,506,254,2,1142,253,2,1708,457,3,1846,354,8,1102,1002,2,1494,402,2,955,311,3,1630,328,2,2002,1111,9,1433,441,2,1846,336,9,1528,228,6,478,247,2,1869,532,2,331,1442,4,551,434,2,550,440,2,1089,255,2,1109,208,4,1108,227,2,1597,358,2,0,370,2,538,438,2,2039,323,2,2032,587,2,851,595,2,1059,542,2,288,301,3,338,1407,3,545,440,2,1355,599,55,1465,447,3,1058,1008,4,1948,575,55,1678,613,55,1835,324,2,1465,451,3,106,602,55,1053,543,2,1366,578,2,1142,132,55,910,548,2,1974,571,55,689,20,2,2030,476,51,1846,578,55,1651,364,2,244,292,2,1844,543,2,1713,635,55,1830,578,55,1097,1052,3,857,643,55,1939,1457,4,1958,591,55,1963,381,55,909,541,2,1963,550,2,102,626,2,271,589,55,1424,480,55,1733,476,2,1643,382,2,1063,1004,5,1829,561,55,1342,553,55,1832,559,55,1111,83,3,1502,1013,55,1701,490,55,1526,550,55,861,645,2,1827,540,2,1458,470,55,2003,477,2,1963,542,55,1956,391,2,1903,629,2,1859,536,55,1970,401,55,1500,438,55,1487,972,2,1847,536,55,1638,342,55,1116,211,11,1610,366,55,1880,551,2,1849,632,2,1847,595,2,2031,406,2,1403,474,55,1675,579,55,1940,544,2,1368,565,2,1033,585,2,54,608,55,1144,138,55,1515,561,55,962,312,55,2015,1111,5,1926,1439,2,1550,984,3,552,408,55,194,588,55,404,456,2,1478,995,2,1807,353,55,1880,577,2,1976,325,55,1111,264,55,1914,1429,2,1071,996,55,1941,536,2,1004,277,2,1138,150,2,1116,135,55,2009,321,55,2010,446,55,561,417,55,371,410,55,1523,433,55,1950,1475,3,2047,347,40,274,304,55,498,288,55,1517,545,55,1080,1037,2,1480,432,55,847,283,55,1938,533,2,1874,1444,55,491,256,3,1971,324,55,356,460,55,354,464,55,1933,1446,55,1596,348,2,257,290,55,75,625,2,919,564,2,1086,222,8,255,344,55,1810,363,55,142,596,2,1801,330,55,1070,991,55,262,292,55,255,286,55,1480,421,2,1935,1450,55,24,381,55,1871,1472,55,927,565,2,1808,334,55,1466,442,55,1071,1029,3,961,270,55,1862,345,2,1908,1433,55,1873,541,2,1972,1141,55,1492,209,3,2040,433,45,2014,1119,4,62,579,1,1529,241,6,1605,367,2,1688,576,3,543,403,2,2006,404,2,154,610,2,2038,591,46,251,585,2,1027,590,2,1475,433,2,1037,540,2,1897,1429,3,838,626,2,102,635,2,524,435,2,10,377,47,920,582,2,179,578,1,1071,1036,2,888,305,2,1141,265,2,1108,1047,2,1720,615,2,1472,416,2,238,317,2,1961,359,2,351,408,2,2031,401,2,331,1456,2,154,571,1,1862,633,1,1066,1043,3,379,458,2,253,337,2,371,404,2,1070,1002,13,1622,326,2,708,74,2,332,414,2,1987,1124,3,396,470,2,256,352,2,1826,564,2,461,272,3,1453,464,1,1540,580,1,1031,550,2,460,288,5,1127,1025,2,1038,532,1,1950,1455,2,1609,371,2,1877,533,2,1331,595,2,194,571,2,1485,1002,2,1115,93,12,1860,525,2,467,296,2,149,610,2,1017,562,2,1933,1498,2,1720,631,2,1964,409,2,1071,569,2,1846,530,2,1068,1009,2,1019,297,2,1067,1005,2,1836,328,1,2043,380,2,1058,1013,2,1724,491,1,346,455,2,1846,343,2,405,436,1,1354,592,1,1447,493,2,919,572,2,896,542,2,1865,1439,3,1884,569,2,506,259,2,398,420,2,1959,1120,2,1110,1001,1,959,294,1,2027,567,1,1104,1052,1,2047,332,1,1497,1009,1,865,592,2,23,377,2,1625,376,2,1471,422,2,6,408,2,198,583,2,1837,545,1,1700,500,1,6,372,2,898,586,2,1446,435,1,1670,602,1,240,347,1,1528,431,1,1106,1041,2,2015,414,2,64,587,1,1620,381,1,1988,1119,2,1882,589,1,2013,437,1,1689,631,1,1620,388,2,1102,1047,1,1348,563,1,1609,362,1,1619,347,1,1550,979,2,2015,310,1];   // lights.json tier 0 (near) points [x,y,size] by depthRank
+// the other lamps come on in growing groups (lamps first, biggest first, then the remaining near points by depth)
+var GROUPS=[2,3,5,9,14,40,120,300,1e9], GT=[8.1,8.45,8.75,9.0,9.2,9.4,9.6,9.8,10.0], GF=.5, BQ=.5;   // BQ: bucket canvas scale (Kusama px)
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function eo(x){x=clamp(x);return 1-Math.pow(1-x,3);}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[0,0,0];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function rgb(c){return 'rgb('+c.map(Math.round).join(',')+')';}
+function mixa(a,b,u){return[0,1,2].map(function(i){return lerp(a[i],b[i],u);});}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return im&&(im.naturalWidth||im.width)>0;}
+
+// ---------------------------------------------------------------- the rest of either room: wall, wash, shadow (frame none), the work
+function wash(g,W,H,r,light,a){if(a<=0)return;g.save();g.translate(r.x+r.w/2,r.y+r.h/2);g.scale(.7*W,.6*H);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)');gr.addColorStop(.7,light?'rgba(255,255,255,0)':'rgba(255,244,225,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();}
+function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy+4),X0=r.x-spread-M,Y0=r.y-spread-M,X1=r.x+r.w+spread+M,Y1=r.y+r.h+spread+M;
+  var dx=Math.floor(X0*dpr),dy=Math.floor(Y0*dpr),c=cv(Math.ceil(X1*dpr)-dx,Math.ceil(Y1*dpr)-dy),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,-dx,-dy);
+  q.shadowColor='#000';q.shadowBlur=blur*dpr;q.shadowOffsetX=1e5*dpr;q.shadowOffsetY=oy*dpr;q.fillStyle='#000';q.fillRect(r.x-spread-1e5,r.y-spread,r.w+2*spread,r.h+2*spread);
+  return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr,r:{x:r.x,y:r.y,w:r.w,h:r.h}};}
+// the shadow follows the moving photograph: its cache is placed relative to the rect it was made for
+function drawShadow(g,sh,a,r){if(!sh||a<=0)return;g.save();g.globalAlpha=a;if(r){var k=r.w/sh.r.w;g.drawImage(sh.c,r.x+(sh.x-sh.r.x)*k,r.y+(sh.y-sh.r.y)*k,sh.w*k,sh.h*k);}else g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
+// the hung work 1:1 on device pixels (the DOM canvas is round(w·dpr) px wide and lands on whole device pixels): no resampling blur
+function artAt(g,C,r,dpr,a){g.save();g.globalAlpha=a;g.setTransform(1,0,0,1,0,0);g.drawImage(C.art,Math.round(r.x*dpr),Math.round(r.y*dpr));g.restore();}
+function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*(im.naturalHeight||1)/(im.naturalWidth||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+
+// ---------------------------------------------------------------- Judd's camera: world (cm) → minimal px
+function proj(X){var R=CAM.R,t=CAM.t,x=R[0][0]*X[0]+R[0][1]*X[1]+R[0][2]*X[2]+t[0],y=R[1][0]*X[0]+R[1][1]*X[1]+R[1][2]*X[2]+t[1],z=R[2][0]*X[0]+R[2][1]*X[1]+R[2][2]*X[2]+t[2];
+  return[CAM.f*x/z+CAM.cx,CAM.f*y/z+CAM.cy];}
+// the image of height Y in copy n of the floor/ceiling mirror pair (n = 0: the real stack; odd n flip it)
+function mirY(Y,n){var P=2*(CEIL-FLOOR);if(n===0)return Y;if(n%2===0)return Y+n/2*P;return n>0?2*CEIL-Y+(n-1)/2*P:2*FLOOR-Y+(n+1)/2*P;}
+function hull(P){P=P.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1];});function cr(o,a,b){return(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+  var lo=[],up=[];P.forEach(function(p){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);});
+  for(var i=P.length-1;i>=0;i--){var p=P[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}up.pop();lo.pop();return lo.concat(up);}
+// every box of the stack and of its images in the floor and ceiling: front quad (top edge first) and body outline, in Kusama px
+function buildBoxes(){var out=[];for(var n=-3;n<=3;n++)for(var k=1;k<=12;k++){var y1=UNIT.top-(k-1)*UNIT.step,y0=y1-UNIT.h,c=[];
+    [0,UNIT.w].forEach(function(x){[y0,y1].forEach(function(y){[0,UNIT.d].forEach(function(z){c.push(proj([x,mirY(y,n),z]));});});});
+    var a=mirY(y1,n),b=mirY(y0,n),top=Math.max(a,b),bot=Math.min(a,b),fz=UNIT.d;
+    var f=[proj([0,top,fz]),proj([UNIT.w,top,fz]),proj([UNIT.w,bot,fz]),proj([0,bot,fz])];
+    function K(p){return[AL.k*p[0]+AL.x,AL.k*p[1]+AL.y];}
+    out.push({n:n,k:k,front:f.map(K),body:hull(c).map(K)});}
+  return out;}
+
+// ---------------------------------------------------------------- the mirror box: every image of the first lamp (Kusama px), with its on-time
+// walls x = ±A, ceiling y = +C, water y = −Cw, facing wall z = F, back wall z = −B (camera at the origin; 1 unit = 1 Kusama px at z = F)
+function lattice(){var X0=(L0.x-VP[0])*L0.z,Y0=(VP[1]-L0.y)*L0.z,A=MB.A,C=MB.C,Cw=MB.Cw,F=MB.F,B=MB.B,out=[];
+  function ix(i){return i%2===0?X0+2*i*A:-X0+2*i*A;}
+  function iy(j){var P=2*(C+Cw);if(j%2===0)return Y0+j/2*P;return j>0?2*C-Y0+(j-1)/2*P:-2*Cw-Y0+(j+1)/2*P;}
+  function iz(k){var P=2*(F+B);if(k%2===0)return L0.z+k/2*P;return k>0?2*F-L0.z+(k-1)/2*P:-2*B-L0.z+(k+1)/2*P;}
+  for(var k=-3;k<=44;k++){var Z=iz(k);if(Z<.3)continue;
+    for(var i=-6;i<=6;i++)for(var j=-5;j<=5;j++){if(!i&&!j&&!k)continue;var x=VP[0]+ix(i)/Z,y=VP[1]-iy(j)/Z;
+      if(x<-1500||x>3550||y<-1000||y>2550)continue;var a=Math.pow(.915,Math.abs(i)+Math.abs(k))*Math.pow(j<0?.74:.82,Math.abs(j));if(a<.04)continue;
+      var r=L0.d*.5*2.4*L0.z/Z;if(r<.5)continue;
+      out.push({x:x,y:y,r:r,a:a,c:Z>2.4?1:0,t:T.cas0+.36*Math.log(Z/L0.z)/Math.LN2+.05*(Math.abs(i)+Math.abs(j))});}}
+  out.sort(function(p,q){return p.t-q.t;});return out;}
+function orbSprite(){var c=cv(96,96),g=c.getContext('2d'),gr=g.createRadialGradient(48,48,0,48,48,48);
+  gr.addColorStop(0,'rgba(255,253,248,1)');gr.addColorStop(.2,'rgba(255,246,232,1)');gr.addColorStop(.25,'rgba(255,226,196,.55)');gr.addColorStop(.5,'rgba(255,214,176,.14)');gr.addColorStop(1,'rgba(255,214,176,0)');g.fillStyle=gr;g.fillRect(0,0,96,96);
+  g.globalCompositeOperation='lighter';[[1,0],[0,1]].forEach(function(d){var l=g.createLinearGradient(48-46*d[0],48-46*d[1],48+46*d[0],48+46*d[1]);l.addColorStop(0,'rgba(255,236,210,0)');l.addColorStop(.5,'rgba(255,240,220,.55)');l.addColorStop(1,'rgba(255,236,210,0)');g.fillStyle=l;
+    if(d[0])g.fillRect(2,47,92,2);else g.fillRect(47,2,2,92);});return c;}
+function glowSprite(col){var c=cv(64,64),g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,252,246,1)');gr.addColorStop(.16,'rgba(255,248,240,.95)');gr.addColorStop(.3,'rgba('+col.join(',')+',.45)');gr.addColorStop(.6,'rgba('+col.join(',')+',.10)');gr.addColorStop(1,'rgba('+col.join(',')+',0)');
+  g.fillStyle=gr;g.fillRect(0,0,64,64);return c;}
+
+// ---------------------------------------------------------------- camera: Kusama px → screen, [s, ox, oy] at time t
+function camAt(ctx,t,S){var to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null;
+  var s1=to.w/KW,o1=[to.x,to.y],s0,o0;
+  if(fr){var fs=fr.w/MW;s0=fs/AL.k;o0=[fr.x+fs*705-s0*824,fr.y+fs*1187-s0*750];}else{s0=s1;o0=o1;}
+  var u=eio(seg(t,T.cam)),s=Math.exp(lerp(Math.log(s0),Math.log(s1),u)),v0=[o0[0]+s0*VP[0],o0[1]+s0*VP[1]],v1=[o1[0]+s1*VP[0],o1[1]+s1*VP[1]];
+  var v=[lerp(v0[0],v1[0],u),lerp(v0[1],v1[1],u)];return[s,v[0]-s*VP[0],v[1]-s*VP[1]];}
+
+// ---------------------------------------------------------------- the other lamps: near.webp split into groups (real pixels; the groups add up to near.webp)
+function bucketJob(S){var near=S.near,w=Math.round(KW*BQ),h=Math.round(KH*BQ),taken=cv(w,h),tq=taken.getContext('2d'),order=[],B=[];
+  // group members: lamps (bbox ellipses) then near points (circles); the first lamp is drawn on its own
+  LAMPS.forEach(function(l){if(l[0]===L0.x&&l[1]===L0.y)return;order.push({x:l[3][0]+l[3][2]/2,y:l[3][1]+l[3][3]/2,rx:l[3][2]/2+3,ry:l[3][3]/2+3});});
+  for(var i=0;i<T0.length;i+=3)order.push({x:T0[i],y:T0[i+1],rx:Math.max(5,T0[i+2]*.9)+3,ry:Math.max(5,T0[i+2]*.9)+3});
+  var steps=[],pos=0;
+  // step 0: the first lamp's box is taken first (it lives in its own layer)
+  steps.push(function(){tq.setTransform(BQ,0,0,BQ,0,0);tq.fillStyle='#000';tq.fillRect(L0.box[0],L0.box[1],L0.box[2],L0.box[3]);});
+  GROUPS.forEach(function(n,gi){var mem=order.slice(pos,pos+n);pos+=mem.length;
+    steps.push(function(){var c=cv(w,h),q=c.getContext('2d');q.drawImage(near,0,0,KW*BQ,1521*BQ);
+      if(gi<GROUPS.length-1){q.globalCompositeOperation='destination-in';q.setTransform(BQ,0,0,BQ,0,0);q.beginPath();
+        mem.forEach(function(m){q.moveTo(m.x+m.rx,m.y);q.ellipse(m.x,m.y,m.rx,m.ry,0,0,Math.PI*2);});q.fillStyle='#000';q.fill();q.setTransform(1,0,0,1,0,0);}
+      q.globalCompositeOperation='destination-out';q.drawImage(taken,0,0);
+      tq.setTransform(BQ,0,0,BQ,0,0);tq.beginPath();mem.forEach(function(m){tq.moveTo(m.x+m.rx,m.y);tq.ellipse(m.x,m.y,m.rx,m.ry,0,0,Math.PI*2);});tq.fillStyle='#000';tq.fill();
+      B[gi]=c;});});
+  steps.push(function(){S.buckets=B;});
+  (function run(){if(!steps.length)return;var f=steps.shift();try{f();}catch(e){}setTimeout(run,16);})();}
+
+// ---------------------------------------------------------------- caches (rebuilt only if the size changes)
+function ensure(ctx,S){var dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,k=[ctx.W,ctx.H,dpr,to.x,to.y,to.w,to.h,fr?[fr.x,fr.y,fr.w,fr.h].join(','):''].join('/');
+  if(S.C&&S.C.key===k)return S.C;var C={key:k};
+  C.art=artCanvas(ctx.to.image,to,dpr);C.shTo=shadowCache(dpr,to);
+  if(fr){C.shFr=shadowCache(dpr,fr);}
+  S.C=C;return C;}
+
+// the photograph's light layers at time t in one canvas (Kusama px × q); null while nothing of it shows
+function photo(ctx,S,t,s){var pa=sm(seg(t,T.plate)),ha=sm(seg(t,T.haze)),fa=sm(seg(t,T.far)),mi=sm(seg(t,T.mid)),bo=t>=GT[0];if(!(pa||ha||fa||mi||bo))return null;
+  var q=Math.min(.66,Math.max(.3,ctx.to.rect.w*(ctx.dpr||1)/KW));if(!S.pc||S.pcq!==q){S.pc=cv(KW*q,KH*q);S.pcg=S.pc.getContext('2d');S.pcq=q;}
+  var c=S.pc,g=S.pcg;g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.clearRect(0,0,c.width,c.height);g.setTransform(q,0,0,q,0,0);
+  if(pa>0&&ok(S.plate)){g.globalAlpha=pa;g.drawImage(S.plate,0,0,KW,KH);}
+  if(ha>0&&ok(S.haze)){g.globalAlpha=ha;g.drawImage(S.haze,0,0,KW,KH);}
+  if(fa>0&&ok(S.far)){g.globalAlpha=fa;g.drawImage(S.far,0,0,KW,KH);}
+  if(mi>0&&ok(S.mid)){g.globalAlpha=mi;g.drawImage(S.mid,0,8,KW,1528);}
+  if(bo){if(S.buckets){for(var bi=0;bi<S.buckets.length;bi++){var ba=eo((t-GT[bi])/GF);if(ba<=0)break;var bc=S.buckets[bi];if(!bc)continue;g.globalAlpha=ba;g.drawImage(bc,0,0,KW,KH);}}
+    else if(ok(S.near)){g.globalAlpha=eo((t-GT[0])/(GT[GT.length-1]-GT[0]+GF));g.drawImage(S.near,0,0,KW,1521);}}
+  g.globalAlpha=1;return c;}
+// the composed photograph with feathered edges (mask made once per composite size)
+function softPhoto(S,PH){var w=PH.width,h=PH.height;if(!S.fm||S.fm.width!==w){S.fm=cv(w,h);var q=S.fm.getContext('2d'),f=Math.round(w*.16);q.fillStyle='#000';q.fillRect(0,0,w,h);
+    q.globalCompositeOperation='destination-out';[[0,0,f,0,0,0,f,h],[w,0,w-f,0,w-f,0,f,h],[0,0,0,f,0,0,w,f],[0,h,0,h-f,0,h-f,w,f]].forEach(function(e){var gr=q.createLinearGradient(e[0],e[1],e[2],e[3]);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(1,'rgba(0,0,0,0)');q.fillStyle=gr;q.fillRect(e[4],e[5],e[6],e[7]);});
+    S.pc2=cv(w,h);S.pc2g=S.pc2.getContext('2d');}
+  var g=S.pc2g;g.globalCompositeOperation='source-over';g.clearRect(0,0,w,h);g.drawImage(PH,0,0);g.globalCompositeOperation='destination-in';g.drawImage(S.fm,0,0);g.globalCompositeOperation='source-over';return S.pc2;}
+function path(g,pts,m){g.moveTo(pts[0][0]*m[0]+m[1],pts[0][1]*m[0]+m[2]);for(var i=1;i<pts.length;i++)g.lineTo(pts[i][0]*m[0]+m[1],pts[i][1]*m[0]+m[2]);g.closePath();}
+
+var MOD={
+  duration:D,
+  assets:['cut/plate_empty.webp','cut/haze.webp','cut/far.webp','cut/mid.webp','cut/near.webp'],
+  fromAssets:[],
+  init:function(ctx){var S=ctx.state;S.plate=ctx.asset('cut/plate_empty.webp');S.haze=ctx.asset('cut/haze.webp');S.far=ctx.asset('cut/far.webp');S.mid=ctx.asset('cut/mid.webp');S.near=ctx.asset('cut/near.webp');
+    S.boxes=buildBoxes();S.lat=lattice();S.spr=glowSprite(L0.col);S.sprC=glowSprite([196,236,226]);S.orb=orbSprite();S.buckets=null;
+    // the first lamp at full resolution, from near.webp
+    var b=L0.box;S.l0=cv(b[2],b[3]);if(ok(S.near))S.l0.getContext('2d').drawImage(S.near,b[0],b[1],b[2],b[3],0,0,b[2],b[3]);
+    ensure(ctx,S);if(ok(S.near))bucketJob(S);warmUp(ctx,S);},
+  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,C=ensure(ctx,S),dpr=ctx.dpr||1;
+    if(!S.warm){var ink=t<T.ink&&ctx.from?ctx.from.ink:ctx.to.ink;if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}
+      var wallCss=t<T.ink&&ctx.from?ctx.from.wall:ctx.to.wall;if(S.wallNow!==wallCss){ctx.ui.wall(wallCss);S.wallNow=wallCss;}
+      ctx.ui.title(ctx.to.idx,t>=T.title);var labOn=t>=T.label[0];ctx.ui.label(ctx.to.idx,labOn);if(labOn)placeLabel(ctx);}
+    if(t>=D-1e-6){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,to,ctx.to.ink==='dark',1);if(ctx.to.frame==='none')drawShadow(g,C.shTo,.6);artAt(g,C,to,dpr,1);return;}
+    var cam=camAt(ctx,t,S),s=cam[0],m=[s,cam[1],cam[2]];     // Kusama px → screen
+    var fromWall=ctx.from?hex(ctx.from.wall):DARK,toWall=hex(ctx.to.wall);
+    // ===== 1. Judd's gallery, going dark
+    var lv=1-eio(seg(t,T.dim));lv=lv*lv;                     // the dimmer: light level 1 → 0
+    var dark=1-lv;
+    if(fr&&t<T.gloss[1]){var ms=s*AL.k,mx=cam[1]+s*AL.x,my=cam[2]+s*AL.y,jr={x:mx,y:my,w:MW*ms,h:MH*ms};
+      g.fillStyle=ctx.from.wall;g.fillRect(0,0,W,H);wash(g,W,H,fr,ctx.from.ink==='dark',1);if(ctx.from.frame==='none')drawShadow(g,C.shFr,.6,jr);
+      g.drawImage(ctx.from.image,jr.x,jr.y,jr.w,jr.h);
+      var mr=window.EH_SHARED&&window.EH_SHARED.minimalRest;if(mr){try{mr(g,{W:W,H:H,rect:jr,dpr:dpr,t:0});}catch(e){}}
+      g.fillStyle=rgb(DARK);g.globalAlpha=dark;g.fillRect(0,0,W,H);g.globalAlpha=1;
+      // the lacquered fronts keep a faint sheen the longest
+      var gl=Math.max(lv,.2)*(1-sm(seg(t,T.gloss))),x=dark>0?clamp(1-(1-gl)/dark):1;
+      if(x>0){g.save();g.beginPath();S.boxes.forEach(function(b){if(b.n===0)path(g,b.front,m);});g.clip();g.globalAlpha=x;g.drawImage(ctx.from.image,jr.x,jr.y,jr.w,jr.h);g.restore();}
+    }else{g.fillStyle=rgb(DARK);g.fillRect(0,0,W,H);}
+    // ===== 2. the photograph's room (plate, room glow, deep and first reflections, its lamps in growing groups), composed in Kusama px;
+    //          the mirror walls around it repeat it (mirror images across its edges) until the room settles into the photograph
+    var R={x:cam[1],y:cam[2],w:KW*s,h:KH*s},PH=photo(ctx,S,t,s);
+    // the room's light first fades out towards the edges of the photograph (the lamp's own reflections go on beyond); the edges harden as it settles
+    if(PH){var hd=sm(seg(t,T.edge)),sf=softPhoto(S,PH);if(hd<1&&sf){g.globalAlpha=1-hd;g.drawImage(sf,0,0,sf.width,sf.height,R.x,R.y,R.w,R.h);}if(hd>0){g.globalAlpha=hd;g.drawImage(PH,0,0,PH.width,PH.height,R.x,R.y,R.w,R.h);}g.globalAlpha=1;}
+    // ===== 3. the first lamp's images in the mirrors (behind the boxes)
+    var lo=1-sm(seg(t,T.latOut));
+    if(t>T.cas0&&lo>0){var L=S.lat,sp=S.spr,inR=1-sm(seg(t,[T.latOut[0]-.4,T.latOut[1]-.6]));
+      g.globalCompositeOperation='lighter';
+      for(var i=0;i<L.length;i++){var q=L[i];if(q.t>t)break;var a=q.a*eo((t-q.t)/.32);var x=q.x*s+m[1],y=q.y*s+m[2],r=q.r*s;
+        if(x<-r||x>W+r||y<-r||y>H+r)continue;
+        // outside the photograph the reflections go out first; inside, the photograph's own reflections take over
+        var inside=q.x>=0&&q.x<=KW&&q.y>=0&&q.y<=KH;a*=inside?lo:inR*lo;if(a<.01)continue;
+        var spq=q.c?S.sprC:sp;if(r<1.8){g.globalAlpha=Math.min(1,a*1.5);g.drawImage(spq,x-1.8,y-1.8,3.6,3.6);}else{g.globalAlpha=a;g.drawImage(spq,x-r,y-r,2*r,2*r);}}
+      g.globalAlpha=1;g.globalCompositeOperation='source-over';}
+    // ===== 4. the boxes: dark bodies, glass fronts; their images in the floor and the ceiling
+    var dis=sm(seg(t,T.dissolve)),col=sm(seg(t,T.column)),glass=sm(seg(t,T.gloss)),door=1-.7*sm(seg(t,T.door));
+    if(t>=T.gloss[0]&&t<T.glassOut[1]){
+      // bodies: occlude the reflections behind them (fronts are mirrors, so they stay open)
+      g.save();g.beginPath();S.boxes.forEach(function(b){if(b.n!==0&&col<=0)return;path(g,b.body,m);path(g,b.front,m);});g.fillStyle=rgb(DARK);
+      g.globalAlpha=(1-dis);if(dis<1)g.fill('evenodd');g.restore();
+      // glass: a cool sheen from the doorway behind the visitor, a thin lit top edge; each image in the floor/ceiling a little darker
+      S.boxes.forEach(function(b){var ca=b.n===0?1:col*Math.pow(.62,Math.abs(b.n))*sm(seg(t,[T.column[0]+.28*(Math.abs(b.n)-1),T.column[1]+.28*(Math.abs(b.n)-1)]));
+        var A=glass*ca*door*(1-sm(seg(t,T.glassOut)));if(A<=.004)return;var f=b.front,x0=f[0][0]*s+m[1],y0=Math.min(f[0][1],f[1][1])*s+m[2],y1=Math.max(f[2][1],f[3][1])*s+m[2];
+        var gr=g.createLinearGradient(0,y0,0,y1);gr.addColorStop(0,'rgba(150,188,196,'+(.2*A).toFixed(3)+')');gr.addColorStop(.35,'rgba(70,104,112,'+(.1*A).toFixed(3)+')');gr.addColorStop(1,'rgba(20,36,42,'+(.05*A).toFixed(3)+')');
+        g.beginPath();path(g,f,m);g.fillStyle=gr;g.fill();
+        g.beginPath();g.moveTo(f[0][0]*s+m[1],f[0][1]*s+m[2]);g.lineTo(f[1][0]*s+m[1],f[1][1]*s+m[2]);g.strokeStyle='rgba(205,228,232,'+(.42*A).toFixed(3)+')';g.lineWidth=1;g.stroke();});
+      // the lamp's warm light on the glass
+      var wa=sm(seg(t,T.warm))*(1-sm(seg(t,T.glassOut)));if(wa>0){var lx=L0.x*s+m[1],ly=L0.y*s+m[2],rr=Math.max(W,H)*.2;g.save();g.beginPath();S.boxes.forEach(function(b){if(Math.abs(b.n)<=1)path(g,b.front,m);});g.clip();
+        var wg=g.createRadialGradient(lx,ly,0,lx,ly,rr);wg.addColorStop(0,'rgba(255,214,176,'+(.16*wa).toFixed(3)+')');wg.addColorStop(.35,'rgba(255,214,176,'+(.04*wa).toFixed(3)+')');wg.addColorStop(1,'rgba(255,214,176,0)');g.fillStyle=wg;g.fillRect(0,0,W,H);g.restore();}
+    }
+    // ===== 5. the first lamp (in front of everything)
+    var la=sm(seg(t,T.lamp));if(la>0){var b=L0.box,hx=L0.x*s+m[1],hy=L0.y*s+m[2],hr=Math.max(26,L0.d*s*2.6);g.globalAlpha=la*.55*(1-.6*sm(seg(t,T.haze)));g.drawImage(S.spr,hx-hr,hy-hr,2*hr,2*hr);var lr=sm(seg(t,T.l0real)),orr=Math.max(5,L0.d*s*.62);g.globalAlpha=la*(1-lr);g.drawImage(S.orb,hx-orr*2.2,hy-orr*2.2,orr*4.4,orr*4.4);g.globalAlpha=la*lr;g.drawImage(S.l0,R.x+b[0]*s,R.y+b[1]*s,b[2]*s,b[3]*s);g.globalAlpha=1;}
+    // ===== 6. the photograph settles on the wall: the hung work (same pixels as the core's), the wall's wash and shadow
+    var aa=sm(seg(t,T.art));if(aa>0)artAt(g,C,to,dpr,aa);
+    var wa2=sm(seg(t,T.wash));if(wa2>0){g.save();g.beginPath();g.rect(0,0,W,H);g.rect(to.x,to.y,to.w,to.h);g.clip('evenodd');wash(g,W,H,to,ctx.to.ink==='dark',wa2);if(ctx.to.frame==='none')drawShadow(g,C.shTo,.6*wa2);g.restore();}
+  },
+  done:function(ctx){},
+  rest:function(ctx){}
+};
+EH.transition('contemporary',MOD);
+window.EH_SHARED=window.EH_SHARED||{};
+// the contemporary rest has no extras on the wall (the next room can start from wall + work alone)
+window.EH_SHARED.contemporaryRest=function(g,o){};
+// every draw path is run once on a scratch canvas, one phase per task, so no frame of the passage pays a first-use cost
+function warmUp(ctx,S){var dpr=ctx.dpr||1,c=cv(ctx.W*dpr,ctx.H*dpr),q=c.getContext('2d'),w=Object.assign({},ctx,{g:q}),P=[.02,.2,.3,.4,.47,.55,.62,.68,.72,.78,.85,.92,.99];
+  (function step(){if(!P.length){S.warm=null;return;}var p=P.shift();S.warm={g:q};try{q.setTransform(dpr,0,0,dpr,0,0);MOD.draw(p,w);}catch(e){}S.warm=null;setTimeout(step,24);})();}
+// the label hangs where the core will put it (core hangLabels): right of the frame on wide screens, else under it
+function placeLabel(ctx){var l=document.getElementById('lab'+ctx.to.idx);if(!l)return;var r=ctx.to.rect,fp=r.fp||0,f={left:r.x-fp,right:r.x+r.w+fp,bottom:r.y+r.h+fp};
+  var W=innerWidth,Hh=innerHeight,wide=W>1180,h=l.offsetHeight,w=l.offsetWidth,g=W<=560?16:36,ft=document.querySelector('.foot'),footTop=ft?ft.getBoundingClientRect().top:Hh-80;
+  var land=W<=980&&Hh<520&&W>Hh,x,y;
+  if(wide){x=Math.round(f.right+34);y=Math.round(Math.max(64,Math.min(f.bottom-h,footTop-24-h)));}
+  else if(land){var eb=document.getElementById('era'+ctx.to.idx);eb=eb?eb.getBoundingClientRect():null;x=Math.round(W*.58+24);y=Math.round((eb?eb.bottom:40)+14);}
+  else{x=Math.round(Math.min(Math.max(f.left,g),W-g-w));y=Math.round(f.bottom+16);}
+  var xs=x+'px',ys=y+'px';if(l.style.left!==xs)l.style.left=xs;if(l.style.top!==ys)l.style.top=ys;}
 })();
 
 ;
@@ -8779,7 +9394,8 @@ EH.special('obliteration',function(host,room,api){
     rMore:'按住不放，圆点会变大；拖得快一些再松手，会甩出一把。',
     count:LR.count||'已经贴了 {n} 个圆点',white:LR.white||'白色还剩 {p}%',
     pick:LR.pick||'圆点的颜色',size:LR.size||'圆点的大小',reset:LR.reset||'重新刷白',
-    done:LR.done||'白色快找不到了，房间消失在圆点里。',mix:LR.mix||'随机',
+    done:LR.done||'白色快找不到了，房间消失在圆点里。',crowd:LR.crowd||'快进：请几千位观众来贴',crowdStop:LR.crowdStop||'停下',
+    crowdWhy:SR.crowdNote||'真正的房间不是一个人贴满的：每位观众只领一小张贴纸，一场展期下来，白色才被成千上万个圆点吞没。',mix:LR.mix||'随机',
     sizes:LR.sizes||['小','中','大','混合'],cNote:SR.colorsNote||'',
     mTitle:SM.title||'镜屋',mText:SM.text||'',
     mHint:SM.hint||'拖动那盏灯：两面镜子互相照，一盏灯变成一排，越远越小、越暗。换个位置，整排都跟着动。',
@@ -8799,7 +9415,8 @@ EH.special('obliteration',function(host,room,api){
       '<p class="ob-done" aria-live="polite"></p>'+
       '<div class="ob-row"><span class="ob-lab ob-lpick"></span><div class="ob-sw" role="group"></div></div>'+
       '<div class="ob-row"><span class="ob-lab ob-lsize"></span><div class="acts ob-sizes" role="group"></div></div>'+
-      '<div class="acts" style="margin-top:4px"><button type="button" class="act ob-reset"></button></div>'+
+      '<div class="acts" style="margin-top:4px"><button type="button" class="act ob-crowd" aria-pressed="false"></button><button type="button" class="act ob-reset"></button></div>'+
+      '<p class="small ob-cwhy"></p>'+
       '<p class="small ob-cnote"></p></section>'+
     '<section class="ob-sec" aria-label="'+T.mTitle+'"><h4></h4><p class="ob-mtext"></p><p class="ob-hint small ob-mhint"></p>'+
       '<div class="ob-photo"><canvas role="img" aria-label="镜屋照片与一盏可以拖动的灯"></canvas></div>'+
@@ -8811,7 +9428,7 @@ EH.special('obliteration',function(host,room,api){
   var secs=root.querySelectorAll('.ob-sec');secs[0].querySelector('h4').textContent=nb(T.rTitle);secs[1].querySelector('h4').textContent=nb(T.mTitle);
   q('.ob-rtext').textContent=nb(T.rText);if(!T.rText)q('.ob-rtext').remove();
   q('.ob-mtext').textContent=nb(T.mText);if(!T.mText)q('.ob-mtext').remove();
-  q('.ob-lpick').textContent=nb(T.pick);q('.ob-lsize').textContent=nb(T.size);q('.ob-reset').textContent=nb(T.reset);
+  q('.ob-lpick').textContent=nb(T.pick);q('.ob-lsize').textContent=nb(T.size);q('.ob-reset').textContent=nb(T.reset);q('.ob-crowd').textContent=nb(T.crowd);q('.ob-cwhy').textContent=nb(T.crowdWhy);
   q('.ob-cnote').textContent=nb(T.cNote);if(!T.cNote)q('.ob-cnote').remove();
   q('.ob-plancap').textContent=nb(T.plan);q('.ob-real').textContent=nb(T.real);
   var cv=q('.ob-cv'),cg=cv.getContext('2d'),hintEl=q('.ob-hint'),countEl=q('.ob-count'),whiteEl=q('.ob-white'),doneEl=q('.ob-done');
@@ -8960,7 +9577,10 @@ EH.special('obliteration',function(host,room,api){
   cv.addEventListener('pointerup',upRoom);cv.addEventListener('pointercancel',upRoom);cv.addEventListener('lostpointercapture',function(e){if(P0&&P0.id===e.pointerId)upRoom(e);});
   cv.addEventListener('contextmenu',function(e){e.preventDefault();});
   cv.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();e.stopPropagation();randomDot();}});
-  q('.ob-reset').addEventListener('click',function(){if(!DOTS.length&&!LIVE.length)return;wipe={t:0};snd('roll',.7,function(){api.sfx.puff(.07,.9);});dirty=true;});
+  var crowd=null,crowdBtn=q('.ob-crowd');
+  function setCrowd(on){crowd=on?{acc:0,t:0}:null;crowdBtn.setAttribute('aria-pressed',on?'true':'false');crowdBtn.textContent=nb(on?T.crowdStop:T.crowd);dirty=true;}
+  crowdBtn.addEventListener('click',function(){if(wipe)return;setCrowd(!crowd);api.sfx.tick(.025);});
+  q('.ob-reset').addEventListener('click',function(){if(crowd)setCrowd(false);if(!DOTS.length&&!LIVE.length)return;wipe={t:0};snd('roll',.7,function(){api.sfx.puff(.07,.9);});dirty=true;});
 
   // ---------- white room: per-frame update + draw
   function stepRoom(dt){var busy=false;
@@ -8968,6 +9588,9 @@ EH.special('obliteration',function(host,room,api){
     for(var i=LIVE.length-1;i>=0;i--){var L=LIVE[i];L.t+=dt;if(!L.hit&&L.t>=L.dur*.45){L.hit=true;slap(L.big);}if(L.t>=L.dur){LIVE.splice(i,1);if(L.D)commit(L.D);}busy=true;}
     for(var j=FLY.length-1;j>=0;j--){var f=FLY[j];f.t+=dt;var k=Math.exp(-dt*5.5);f.vx*=k;f.vy*=k;f.x+=f.vx*dt;f.y+=f.vy*dt;f.rot+=f.va*dt;
       if(f.t>=f.T){FLY.splice(j,1);var D=makeDot(f.x,f.y,f.r,f.col);if(D)drop(D,.12,.3);}busy=true;}
+    if(crowd){crowd.t+=dt;crowd.acc+=dt*Math.min(360,12+crowd.t*crowd.t*12);var guard=0;   // many hands: a few at first, then a crowd
+      while(crowd.acc>=1&&guard++<16){crowd.acc-=1;var D=makeDot(Math.random()*W,Math.random()*H,pickR());if(D)LIVE.push({D:D,t:0,dur:.18,hit:Math.random()<.8,big:.05});}
+      if(covered>.9)setCrowd(false);busy=true;}
     if(wipe){wipe.t+=dt/(reduce?.4:.75);if(wipe.t>=1){wipe=null;DOTS.length=0;LIVE.length=0;FLY.length=0;dg.setTransform(1,0,0,1,0,0);dg.clearRect(0,0,IW,IH);covered=0;covT=0;doneShown=false;doneEl.textContent='';}busy=true;}
     return busy;}
   function liveScale(L){var u=L.t/L.dur;if(u<.45){var s=u/.45;return[1.3-.36*s*s,1-s*s];}if(u<.75)return[.94+.1*sm((u-.45)/.3),0];return[1.04-.04*sm((u-.75)/.25),0];}
@@ -9012,8 +9635,8 @@ EH.special('obliteration',function(host,room,api){
     g.save();if(ok(dark)){g.globalAlpha=a*.95;g.drawImage(dark,0,0,MW,MH);}g.globalAlpha=a*.3;g.fillStyle='#000';g.fillRect(0,0,MW,MH);g.restore();
     var L=lampPos(),col=LAMPCOL[M.col],spr=sprite(col),rate=reduce?40:15,front=M.tOn*rate;
     g.save();g.globalCompositeOperation='lighter';
-    M.count=images(L[0],L[1],L[2],function(x,y,sc,b,n){var vis=clamp((front-n)/1.5+1,0,1)*M.on;if(vis<=0)return;var r=RL*sc,sz=Math.max(unit*5,r*7.5);
-      g.globalAlpha=clamp(b*vis*a,0,1);g.drawImage(spr,x-sz/2,y-sz/2,sz,sz);
+    M.count=images(L[0],L[1],L[2],function(x,y,sc,b,n){var vis=clamp((front-n)/1.5+1,0,1)*M.on;if(vis<=0)return;var r=RL*sc,sz=Math.max(unit*6.5,r*7.5);
+      g.globalAlpha=clamp(Math.pow(b,.75)*vis*a*1.2,0,1);g.drawImage(spr,x-sz/2,y-sz/2,sz,sz);
       if(r>unit*3.2){g.globalAlpha=clamp(b*vis*a*.55,0,1);g.strokeStyle=col;g.lineWidth=Math.max(unit*.8,r*.12);var fl=r*6;g.beginPath();
         for(var q2=0;q2<3;q2++){var an=q2*Math.PI/3+.26;g.moveTo(x-Math.cos(an)*fl,y-Math.sin(an)*fl);g.lineTo(x+Math.cos(an)*fl,y+Math.sin(an)*fl);}g.stroke();}});
     g.restore();
@@ -9122,6 +9745,7 @@ EH.special('obliteration',function(host,room,api){
 
   // ================================================================ loop
   var dead=false,raf=0,last=0,lastTxt={};
+  function cat(a,b){a=String(a||'');return /[。！？）”]$/.test(a)?a+b:a+' '+b;}
   function setTxt(el,key,v){if(lastTxt[key]!==v){lastTxt[key]=v;el.textContent=nb(v);}}
   function visible(el){var r=el.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight&&r.width>0;}
   function tick(now){if(dead)return;raf=requestAnimationFrame(tick);if(!host.isConnected){dispose();return;}
@@ -9130,16 +9754,16 @@ EH.special('obliteration',function(host,room,api){
     // white room
     if(layout()){var busy=stepRoom(dt);if((busy||dirty)&&visible(cv)){drawRoom();dirty=busy;}
       covT-=dt;if(covT<=0){covT=.3;measure();}}
-    var tch=touchUI();setTxt(hintEl,'rh',(tch?T.rHintT:T.rHint)+' '+T.rMore);
+    var tch=touchUI();setTxt(hintEl,'rh',cat(tch?T.rHintT:T.rHint,T.rMore));
     setTxt(countEl,'rc',T.count.replace('{n}',DOTS.length+LIVE.length));setTxt(whiteEl,'rw',T.white.replace('{p}',Math.max(0,Math.round(100-covered*100))));
-    if(covered>.88&&!doneShown){doneShown=true;doneEl.textContent=nb(T.done);[0,1,2].forEach(function(i){setTimeout(function(){if(!dead)api.sfx.bell(392*Math.pow(1.5,i),.03);},i*160);});}
+    if(covered>.8&&!doneShown){doneShown=true;doneEl.textContent=nb(T.done);[0,1,2].forEach(function(i){setTimeout(function(){if(!dead)api.sfx.bell(392*Math.pow(1.5,i),.03);},i*160);});}
     // mirror room
     stepLamp(dt,now);
     drawWall();if(visible(photoW)||narrow)drawPhoto();if(visible(plan))drawPlan(now);
     placeLamp(lampWall,r,wv&&!narrow);placeLamp(lampPhoto,pc.getBoundingClientRect(),narrow);
     if(M.on<.01&&M.dim<.01&&!M.held)M.count=images(lampPos()[0],lampPos()[1],lampPos()[2],null);
     setTxt(nEl,'mn',T.n.replace('{n}',M.count));
-    setTxt(mhintEl,'mh',(tch?T.mHintT:T.mHint)+' '+(narrow?T.mNarrow:T.mWall));}
+    setTxt(mhintEl,'mh',cat(tch?T.mHintT:T.mHint,narrow?T.mNarrow:T.mWall));}
   raf=requestAnimationFrame(tick);
   [hung,dark].forEach(function(im){if(im&&im.addEventListener&&!ok(im))im.addEventListener('load',function(){M.dirty=true;},{once:true});});
   addEventListener('resize',onResize);function onResize(){dirty=true;}
@@ -10024,7 +10648,7 @@ EH.special('silkscreen',function(host,room,api){
     misreg:PL.misreg||'套色错开了一点。丝网印常常这样，沃霍尔也没有去改',shift:PL.shift||'纸放得偏了一点，像也跟着歪了',
     count:PL.count||'已印 {n} 张',thirty:PL.thirty||'印满 30 张了。沃霍尔 1963 年的那幅，题目就叫《三十个比一个好》。',
     clear:PL.clear||'撤下重印',more:PL.more||'再印一张',color:PL.color||'加一块色版',
-    swap:PL.swap||'色版印好了。黑版已经换上，再刮一遍',ready:PL.ready||'刮板在丝网一头，墨条在它前面',
+    swap:PL.swap||'色版印好了。黑版已经换上，再刮一遍',ready:PL.ready||'刮板在丝网一头，墨条在它前面',colorFirst:PL.colorFirst||'这一张先印色版，再换黑版',colorNext:PL.colorNext||'下一张起先印色版，再换黑版',
     lHint:LN.hint||'把放大镜移到《Whaam!》上，看天空里的蓝点；再换成前面展厅的画，看同一处被“印”成网点的样子。',
     lHintT:LN.hintTouch||LN.hint||'用手指拖着放大镜在《Whaam!》上走，看天空里的蓝点。',
     whaam:LL.whaam||'《Whaam!》原作：网点是用手做出来的',printed:LL.printed||'{title}：按印刷网点模拟',pick:LL.pick||'换一幅画',zoom:LL.zoom||'放大',
@@ -10101,7 +10725,7 @@ EH.special('silkscreen',function(host,room,api){
 
   // ------------------------------------------------------------------ bed geometry (CSS px)
   var BG=null;
-  function bedGeom(){var w=bed.clientWidth||1,h=clamp(Math.round(w*.64),250,380);var pad=16,top=34;
+  function bedGeom(){var w=bed.clientWidth||1,h=clamp(Math.round(w*.66),260,390);var pad=14,top=50;
     var ph=h-top-pad-18,pw=ph*PW/PH;var tr=Math.min(w-2*pad-24,pw*2.1),tx0=(w-tr)/2;   // travel span
     var ix0=tx0+tr*IMG0,iw=tr*(IMG1-IMG0);if(iw<pw){pw=iw;ph=pw*PH/PW;}
     var ix=(w-pw)/2,iy=top+8+((h-top-pad-18)-ph)/2;ix0=ix;tx0=ix-pw*IMG0/(IMG1-IMG0);tr=pw/(IMG1-IMG0);
@@ -10142,7 +10766,7 @@ EH.special('silkscreen',function(host,room,api){
   sqBtn.addEventListener('blur',function(){if(S.holdKey){S.holdKey=false;holdOff();}});
   colBtn.addEventListener('click',function(){S.color=!S.color;colBtn.setAttribute('aria-pressed',S.color?'true':'false');
     // a fresh sheet if nothing has been printed on the current one
-    if(S.phase==='ready'&&!S.touched){newSheet();startPass();}dirtyBed=true;});
+    if(S.phase==='ready'&&!S.touched){newSheet();startPass();}S.verdict='';verdict(S.color?(S.phase==='ready'&&!S.touched?T.colorFirst:T.colorNext):T.ready);dirtyBed=true;});
   clrBtn.addEventListener('click',function(){if(!PRINTS.length)return;PRINTS.length=0;TOTAL=0;snd('clear',.6,function(){api.sfx.puff(.05,.5);});wallDirty=true;gridDirty=true;verdict('');counter();});
 
   // ------------------------------------------------------------------ the print cycle
@@ -10167,7 +10791,7 @@ EH.special('silkscreen',function(host,room,api){
     else{scrape(0,0);S.anim+=dt;
       if(S.phase==='lift'&&S.anim>(reduce?.3:.55)){if(S.pass==='c'){S.pass='k';S.phase='swap';S.anim=0;verdict(T.swap);}else{S.phase='peel';S.anim=0;peel();}}
       else if(S.phase==='swap'&&S.anim>(reduce?.3:.5)){S.phase='ready';S.side=S.side?0:1;startPass();S.touched=true;}
-      else if(S.phase==='peel'&&S.anim>(reduce?.35:.75)){S.phase='feed';S.anim=0;newSheet();S.side=S.side?0:1;startPass();S.touched=false;}
+      else if(S.phase==='peel'&&S.anim>(reduce?.35:.75)){S.phase='feed';S.anim=0;newSheet();S.side=S.side?0:1;startPass();S.touched=false;if(S.color)verdict(S.pending?S.pending.text+'。'+T.colorFirst:T.colorFirst);}
       else if(S.phase==='feed'&&S.anim>(reduce?.25:.45)){S.phase='ready';}}
     dirtyBed=true;}
   function finishPass(){var st=S.stroke,n=Math.max(1,st.n);S.x=S.xT=S.side===0?1:0;
@@ -10223,7 +10847,7 @@ EH.special('silkscreen',function(host,room,api){
     fly.getContext('2d').drawImage(p.c,0,0,fly.width,fly.height);fly.style.display='block';
     flying={p:p,from:from,to:to,t:0,dur:.85};wallDirty=true;snd('peel',.5,function(){api.sfx.whoosh(.035,.5);});}
   function stepFly(dt){if(!flying)return;var f=flying;f.t+=dt/f.dur;var u=sm(f.t),a=f.from,b=f.to;
-    var sx=lerp(1,b.w/a.w,u),cx=lerp(a.x+a.w/2,b.x+b.w/2,u),cy=lerp(a.y+a.h/2,b.y+b.h/2,u)-Math.sin(Math.PI*clamp(f.t,0,1))*Math.min(160,Math.abs(a.x-b.x)*.25+40);
+    var sx=lerp(1,b.w/a.w,u),cx=lerp(a.x+a.w/2,b.x+b.w/2,u),cy=lerp(a.y+a.h/2,b.y+b.h/2,u)-Math.sin(Math.PI*clamp(f.t,0,1))*Math.min(Math.min(a.y,b.y)+a.h*.3,Math.min(160,Math.abs(a.x-b.x)*.25+40));
     var rot=lerp(0,f.p.rot,u)+Math.sin(Math.PI*clamp(f.t,0,1))*-.12;
     fly.style.transform='translate('+(cx-a.w/2).toFixed(1)+'px,'+(cy-a.h/2).toFixed(1)+'px) scale('+sx.toFixed(4)+') rotate('+rot.toFixed(4)+'rad)';
     if(f.t>=1){flying=null;fly.style.display='none';wallDirty=true;gridDirty=true;snd('pin',.55,function(){api.sfx.thud(.05);api.sfx.tick(.04);});}}
@@ -10235,7 +10859,7 @@ EH.special('silkscreen',function(host,room,api){
     var g=bg;g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
     var ink=tok('--ink','#24211d'),ink2=tok('--ink-2','#4a443c'),ink3=tok('--ink-3','#7b7266');
     // table
-    g.fillStyle='rgba(120,112,100,.13)';g.fillRect(0,BG.top-6,w,h-BG.top+6);
+    g.fillStyle='rgba(120,112,100,.13)';g.fillRect(0,BG.top-14,w,h-BG.top+14);
     // speed gauge on top: 太慢 · 正好 · 太快, with a marker at the blade's speed
     var gx0=12,gx1=w-12,gy=12,gw=gx1-gx0;function vx(v){return gx0+gw*clamp(Math.log(1+v)/Math.log(1+4.2),0,1);}
     var a1=vx(V_SLOW),a2=vx(V_FAST);g.lineWidth=3;g.lineCap='butt';
@@ -10255,7 +10879,7 @@ EH.special('silkscreen',function(host,room,api){
     g.restore();
     // the screen: frame + mesh + emulsion; lifts on its hinge (top edge) after a pass, comes down with the next screen
     var lift=0;if(S.phase==='lift')lift=sm(S.anim/.55);else if(S.phase==='swap')lift=1-sm(S.anim/.5);else if(S.phase==='peel')lift=1;else if(S.phase==='feed')lift=1-sm(S.anim/.45);
-    var fx0=sqPx(0)-10,fx1=sqPx(1)+10,fy0=BG.iy-12,fy1=BG.iy+BG.ph+12,fb=10;
+    var fx0=Math.max(8,sqPx(0)-22),fx1=Math.min(w-8,sqPx(1)+22),fy0=BG.iy-12,fy1=BG.iy+BG.ph+12,fb=10;
     g.save();g.translate(0,fy0-fb);g.scale(1,1-lift*.62);g.translate(0,-(fy0-fb));g.translate(0,-lift*6);g.globalAlpha=1-lift*.55;
     // mesh
     g.fillStyle='rgba(205,200,188,.28)';g.fillRect(fx0,fy0,fx1-fx0,fy1-fy0);
@@ -10269,19 +10893,17 @@ EH.special('silkscreen',function(host,room,api){
     // ink bead in front of the blade, and the squeegee
     if(S.phase==='ready'||S.phase==='pull'||S.phase==='swap'||S.phase==='lift'){
       var bx=sqPx(S.phase==='lift'?S.xT:S.x),dir=S.side===0?1:-1;if(S.phase==='lift')dir=-dir;
-      var lean=clamp(S.vel*.1,-.35,.35);var beadW=clamp(5+S.speed*1.5,5,11),inkCol=S.pass==='c'?(S.col||INKS[0]):BLACK;
+      var lean=clamp(S.vel*.05,-.12,.12);var beadW=clamp(5+S.speed*1.5,5,11),inkCol=S.pass==='c'?(S.col||INKS[0]):BLACK;
       if(S.phase!=='lift'){g.fillStyle=inkCol;g.globalAlpha=(1-lift*.55)*.9;var bxx=bx+dir*(beadW*.5+3);
         g.beginPath();g.moveTo(bxx,fy0+3);for(var k=0;k<=12;k++){var yk=fy0+3+(fy1-fy0-6)*k/12;g.lineTo(bxx+dir*Math.sin(k*1.7+S.x*40)*1.2+dir*beadW*.5,yk);}
         for(var k2=12;k2>=0;k2--){var yk2=fy0+3+(fy1-fy0-6)*k2/12;g.lineTo(bxx-dir*beadW*.5,yk2);}g.closePath();g.fill();g.globalAlpha=1-lift*.55;}
       // blade (rubber) + handle (wood), leaning with the stroke
-      g.save();g.translate(bx,(fy0+fy1)/2);g.transform(1,0,-lean,1,0,0);
+      g.save();g.translate(bx,(fy0+fy1)/2);
       g.fillStyle='#3d4a47';g.fillRect(-2.5,-(fy1-fy0)/2-6,5,(fy1-fy0)+12);
-      g.fillStyle='#b99a6b';g.strokeStyle='rgba(80,56,30,.6)';g.lineWidth=1;var hw=13,hh=(fy1-fy0)+26,hx=-dir*(hw/2+3)-hw/2;g.beginPath();if(g.roundRect)g.roundRect(hx,-hh/2,hw,hh,4);else g.rect(hx,-hh/2,hw,hh);g.fill();g.stroke();
+      g.fillStyle='#b99a6b';g.strokeStyle='rgba(80,56,30,.6)';g.lineWidth=1;var hw=13,hh=(fy1-fy0)+26,hx=-dir*(hw/2+3+Math.abs(lean)*40)-hw/2;g.beginPath();if(g.roundRect)g.roundRect(hx,-hh/2,hw,hh,4);else g.rect(hx,-hh/2,hw,hh);g.fill();g.stroke();
       g.restore();}
     g.restore();
-    // caption on the table
-    g.fillStyle=ink3;g.font='400 12px '+tok('--song','serif');g.textAlign='left';g.textBaseline='alphabetic';
-    var cap=S.pass==='c'&&S.color?T.screen+' · 色':T.screen+(S.color?' · 黑':'');g.fillText(cap,fx0-fb,h-4);}
+}
 
   // ------------------------------------------------------------------ lens: shared renderer
   var ZS=[2.5,5],zi=0;
@@ -10294,14 +10916,14 @@ EH.special('silkscreen',function(host,room,api){
   // lens content. g: target (CSS px), cx,cy: lens centre on screen, r: radius, src: image, ix,iy: image point under the centre (image px), z: css px per image px
   function lensReal(g,img,ix,iy,cx,cy,r,z){g.save();g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.clip();g.fillStyle='#f4f1ea';g.fillRect(cx-r,cy-r,2*r,2*r);
     g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';var sw=2*r/z;g.drawImage(img,ix-sw/2,iy-sw/2,sw,sw,cx-r,cy-r,2*r,2*r);g.restore();}
-  var SCR=[{a:15,c:'rgb(0,160,220)'},{a:75,c:'rgb(230,0,126)'},{a:0,c:'rgb(255,230,0)'},{a:45,c:'rgb(26,24,22)'}];
+  var SCR=[{a:15,c:'rgb(0,158,224)'},{a:75,c:'rgb(222,0,120)'},{a:0,c:'rgb(255,236,0)'},{a:45,c:'rgb(35,31,32)'}];
   function lensPrint(g,w,ix,iy,cx,cy,r,z){var s=sampler(w);if(!s||s.fail){lensReal(g,w.img,ix,iy,cx,cy,r,z);return;}
-    var k=s.w/w.img.naturalWidth,pitch=Math.max(6,r/9);
+    var k=s.w/w.img.naturalWidth,pitch=Math.max(6,r/10.5);
     g.save();g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.clip();g.fillStyle='#f7f5ef';g.fillRect(cx-r,cy-r,2*r,2*r);g.globalCompositeOperation='multiply';
     SCR.forEach(function(ch,ci){var an=ch.a*Math.PI/180,ca=Math.cos(an),sa=Math.sin(an),n=Math.ceil(r*1.5/pitch)+1;g.fillStyle=ch.c;g.beginPath();
       for(var i=-n;i<=n;i++)for(var j=-n;j<=n;j++){var ux=(i+.5*(ci%2))*pitch,uy=j*pitch,dx=ux*ca-uy*sa,dy=ux*sa+uy*ca;if(dx*dx+dy*dy>(r+pitch)*(r+pitch))continue;
         var sx=Math.round((ix+dx/z)*k),sy=Math.round((iy+dy/z)*k);if(sx<0||sy<0||sx>=s.w||sy>=s.h)continue;var p=(sy*s.w+sx)*4,R0=s.d[p]/255,G0=s.d[p+1]/255,B0=s.d[p+2]/255;
-        var K=1-Math.max(R0,G0,B0),v=ci===3?K*.9:(K>.99?0:((ci===0?1-R0:ci===1?1-G0:1-B0)-K)/(1-K));v=clamp(v,0,1);if(v<.04)continue;var rr=pitch*.5*Math.sqrt(v)*1.2;
+        var K=1-Math.max(R0,G0,B0),v=ci===3?Math.max(0,K-.12)*1.1:(K>.99?0:((ci===0?1-R0:ci===1?1-G0:1-B0)-K)/(1-K));v=clamp(v,0,1);if(v<.04)continue;var rr=pitch*.5*Math.sqrt(v)*1.05;
         g.moveTo(cx+dx+rr,cy+dy);g.arc(cx+dx,cy+dy,rr,0,Math.PI*2);}
       g.fill();});
     g.restore();}
@@ -10434,7 +11056,7 @@ var TEX={f1:[0,0,448,100],f2:[0,100,448,100],f3:[0,200,448,100],f4:[0,300,448,10
   f9:[0,800,448,100],f10:[0,900,448,100],f11:[0,1000,448,100],f12:[0,1100,448,100],bottom:[0,1200,448,160],top:[0,1360,448,160],left:[0,1520,160,48]};
 var L0=norm([0.2,0.88,0.43]),LF=norm([0.6,0.4,0.7]);          // key light (toward the light) and fill, from layers.json "light"
 var LAMP0=[1000,108],LAMPC=[820,900],LAMPS=900;                 // lamp handle in image px ↔ light direction
-var CROP=[430,0,1170,1860];                                     // the in-panel stage on narrow screens
+var CROP=[410,0,1600,1880],LX0=CROP[0]+40,LX1=CROP[2]-40;   // lamp x range: always inside the narrow stage too                                     // the in-panel stage on narrow screens
 function norm(v){var l=Math.hypot(v[0],v[1],v[2])||1;return[v[0]/l,v[1]/l,v[2]/l];}
 function camC(){var R=CAM.R,t=CAM.t;return[-(R[0][0]*t[0]+R[1][0]*t[1]+R[2][0]*t[2]),-(R[0][1]*t[0]+R[1][1]*t[1]+R[2][1]*t[2]),-(R[0][2]*t[0]+R[1][2]*t[1]+R[2][2]*t[2])];}
 var CC=camC();
@@ -10449,6 +11071,7 @@ function css(){if(document.getElementById('s-stack-css'))return;var s=document.c
   '.ss h4{margin:26px 0 4px;font:500 15.5px/1.6 var(--song);letter-spacing:.04em}.ss h4:first-child{margin-top:4px}'+
   '.ss .ss-hint{margin:0 0 8px!important}'+
   '.ss-stage,.ss-wallc{display:none;width:100%;height:auto;max-width:100%;touch-action:pan-y;box-shadow:0 18px 40px -24px rgba(0,0,0,.5)}'+
+  '.ss:not(.narrow) .ss-stage,.ss:not(.narrow) .ss-wallc{display:none!important}'+
   '.ss.narrow .ss-stage{display:block;margin:4px 0 12px;aspect-ratio:'+(CROP[2]-CROP[0])+'/'+(CROP[3]-CROP[1])+';max-height:72vh;width:auto;margin-left:auto;margin-right:auto}'+
   '.ss.narrow .ss-wallc{display:block;margin:12px 0 10px;aspect-ratio:4/3}'+
   '.ss-status{display:flex;flex-wrap:wrap;gap:2px 22px;margin:4px 0 2px;font:400 13.5px/1.8 var(--song);color:var(--ink-2);font-variant-numeric:tabular-nums}'+
@@ -10706,8 +11329,11 @@ EH.special('stack',function(host,room,api){
       else{u.vy=0;if(!u.bounced)thud(clamp(imp/700,.15,.9));u.p=b;u.st='pile';dirty=true;}}}
   // held: the grip follows the pointer on a spring; the box hangs from the grip with a stiff wrist and swings with its weight
   var HK=520,HC=2*0.8*Math.sqrt(520),WK=130,WC=4.2;
-  function stepHeld(u,dt){var H=u.h;var n=Math.max(1,Math.ceil(dt/.004)),h=dt/n;
-    for(var i=0;i<n;i++){var ax=HK*(H.tx-H.gx)-HC*H.vx,ay=HK*(H.ty-H.gy)-HC*H.vy;H.vx+=ax*h;H.vy+=ay*h;H.gx+=H.vx*h;H.gy+=H.vy*h;
+  function stepHeld(u,dt){var H=u.h;var n=Math.max(1,Math.ceil(dt/.004)),h=dt/n,TX=H.tx,TY=H.ty;
+    // detent: near the next free slot the box is drawn into it (a soft magnet) and a tiny tick says "here"
+    var ns=nHung();if(ns<maxSlots()){var sx=SLOT[ns][0]+BW/2+H.ox,sy=SLOT[ns][1]+BH/2+H.oy,ex=H.tx-sx,ey=H.ty-sy,inZ=Math.abs(ex)<18&&Math.abs(ey)<10&&H.z<BD;
+      if(inZ&&!H.inZ)api.sfx.tick(.028);H.inZ=inZ;if(inZ){TX=sx+ex*.22;TY=sy+ey*.22;}}else H.inZ=false;
+    for(var i=0;i<n;i++){var ax=HK*(TX-H.gx)-HC*H.vx,ay=HK*(TY-H.gy)-HC*H.vy;H.vx+=ax*h;H.vy+=ay*h;H.gx+=H.vx*h;H.gy+=H.vy*h;
       var c=Math.cos(u.p.th),s=Math.sin(u.p.th),rx=-(c*H.ox-s*H.oy),ry=-(s*H.ox+c*H.oy);   // grip → centre
       var I=BW*BW/12+H.ox*H.ox+H.oy*H.oy,tau=(-G*rx+rx*(-ay)-ry*(-ax))/I;
       H.w+=(tau-WK*u.p.th-WC*H.w)*h;u.p.th=clamp(u.p.th+H.w*h,-.6,.6);}
@@ -10757,14 +11383,14 @@ EH.special('stack',function(host,room,api){
     drag={kind:'box',u:u,id:e.pointerId,where:where,zf:zf};drag.moveTo=function(x,y){var qq=toImg(x,y,where),w=unproj(qq[0],qq[1],u.h.z+BD);u.h.tx=w[0];u.h.ty=w[1];};
     if(wasSlot!=null)closeHole(wasSlot);dirty=true;return true;}
   function move(e){if(!drag||e.pointerId!==drag.id)return;
-    if(drag.kind==='lamp'){var q=toImg(e.clientX,e.clientY,drag.where);setLamp([clamp(q[0]+drag.dx,40,IW-40),clamp(q[1]+drag.dy,30,IH-260)]);return;}
+    if(drag.kind==='lamp'){var q=toImg(e.clientX,e.clientY,drag.where);setLamp([clamp(q[0]+drag.dx,LX0,LX1),clamp(q[1]+drag.dy,30,IH-260)]);return;}
     drag.moveTo(e.clientX,e.clientY);drag.moved=true;}
   function end(e,cancel){if(!drag||(e&&e.pointerId!==drag.id))return;var d=drag;drag=null;dirty=true;if(d.kind==='lamp')return;
     var u=d.u;S.held=null;u.h.zT=0;var cx=u.p.X+BW/2,cy=u.p.Y+BH/2;
     // released: over the wall by the column → hang it; low / to the right / off the work → it drops onto a pile
     var onWall=!cancel&&cy>FLOOR+BH&&cy<S.ceil-4&&cx>-170&&cx<BW+70;
     if(onWall)hangAt(u,true);else{u.vy=Math.min(0,u.h.vy*.5);fallTo(u);}}
-  function setLamp(h){S.lamp=h;S.L=lampDir(h);S.pristine=false;dirty=true;lampIn.value=String(Math.round((h[0]-40)/(IW-80)*1000));syncLamp();}
+  function setLamp(h){S.lamp=h;S.L=lampDir(h);S.pristine=false;dirty=true;lampIn.value=String(Math.round((h[0]-LX0)/(LX1-LX0)*1000));syncLamp();}
 
   // wall (wide): capture phase on the frame so the work's own click (open the viewer) does not fire after a drag
   function wallDown(e){suppress=false;if(!ov||!wallVisible())return;if(e.button!=null&&e.button!==0&&e.pointerType==='mouse')return;
@@ -10800,8 +11426,8 @@ EH.special('stack',function(host,room,api){
   function syncLamp(){var v=(S.lamp[0]-LAMPC[0])/LAMPS;lampOut.textContent=Math.abs(v)<.06?'正上方':v<0?'偏左':'偏右';}
   ceilIn.value='1000';ceilIn.setAttribute('aria-label',T.ceiling);
   ceilIn.addEventListener('input',function(){var C0=CEIL0,cm=CEIL0-6*PITCH;S.ceil=lerp(cm,C0,(+ceilIn.value)/1000);S.pristine=false;syncCeil();enforceCeiling();dirty=true;});
-  lampIn.value=String(Math.round((LAMP0[0]-40)/(IW-80)*1000));
-  lampIn.addEventListener('input',function(){setLamp([40+(+lampIn.value)/1000*(IW-80),S.lamp[1]]);});
+  lampIn.value=String(Math.round((LAMP0[0]-LX0)/(LX1-LX0)*1000));
+  lampIn.addEventListener('input',function(){setLamp([LX0+(+lampIn.value)/1000*(LX1-LX0),S.lamp[1]]);});
 
   // ================================================================ toy 2: the instruction card and the wall drawing
   var card=0,vals=CARDS.map(function(c){var o={};Object.keys(c.slots||{}).forEach(function(k){var s=c.slots[k];o[k]=s.default!=null?s.default:(s.values||[])[0];});return o;});
@@ -10821,13 +11447,13 @@ EH.special('stack',function(host,room,api){
     basisEl.textContent=nb(c.basis||'');basisEl.hidden=!c.basis;}
   renderCard();
   // --- the drawing: lines in normalised wall coordinates (x ∈ 0..1, y ∈ 0..A) where A = h/w
-  function genLines(c,v,A,seed){var R=rng(seed),out=[],lineK=String(v.line||'直线');
+  function genLines(c,v,A,seed,avoid){var R=rng(seed),out=[],lineK=String(v.line||'直线');
     function typeOf(){return /弧/.test(lineK)?'arc':/不直/.test(lineK)?'wobble':/断/.test(lineK)?'broken':'straight';}
     var ty=typeOf();
     function seg(a,b){return{a:a,b:b,t:ty,s:R()*1e6|0};}
     if(c.id==='points'||/点/.test(c.template)&&!/方格/.test(c.template)&&!/出发/.test(c.template)){
       var n=Math.max(2,+v.n||50),P=[],m=.04;
-      for(var i=0;i<n;i++){var best=null,bd=-1;for(var k=0;k<14;k++){var p=[m+R()*(1-2*m),m*A+R()*(A-2*m*A)],d=1e9;P.forEach(function(o){d=Math.min(d,Math.hypot(o[0]-p[0],o[1]-p[1]));});if(!P.length)d=1;if(d>bd){bd=d;best=p;}}P.push(best);}
+      for(var i=0;i<n;i++){var best=null,bd=-1;for(var k=0;k<14;k++){var p=[m+R()*(1-2*m),m*A+R()*(A-2*m*A)],d=1e9;if(avoid&&p[0]>avoid[0]&&p[0]<avoid[2]&&p[1]>avoid[1]&&p[1]<avoid[3]){k--;if(R()<.97)continue;}P.forEach(function(o){d=Math.min(d,Math.hypot(o[0]-p[0],o[1]-p[1]));});if(!P.length)d=1;if(d>bd){bd=d;best=p;}}P.push(best);}
       for(var i2=0;i2<n;i2++)for(var j=i2+1;j<n;j++)out.push(seg(P[i2],P[j]));
       out.sort(function(){return R()-.5;});return{lines:out,points:P};}
     if(c.id==='from'||/出发/.test(c.template)){var f=String(v.from||'四个角'),n2=Math.max(1,+v.n||12),S0;
@@ -10867,7 +11493,7 @@ EH.special('stack',function(host,room,api){
     imsgEl.textContent=nb(T.drawing);imsgEl.classList.add('on');}
   function sizeDraw(reg){var d=DPR(),w=Math.round(reg.w*d),h=Math.round(reg.h*d);if(drawC.width!==w||drawC.height!==h){drawC.width=w;drawC.height=h;return true;}return false;}
   function clearDraw(){dg.setTransform(1,0,0,1,0,0);dg.clearRect(0,0,drawC.width,drawC.height);D.hasInk=false;}
-  function inkStyle(g,k){g.strokeStyle=D.black?'rgba(246,244,238,.82)':'rgba(34,32,30,.62)';g.lineWidth=(D.black?.9:.8)*k;g.lineCap='round';g.lineJoin='round';}
+  function inkStyle(g,k){var am=D.n>160?Math.max(.3,Math.sqrt(160/D.n)):1;g.strokeStyle=D.black?'rgba(246,244,238,'+(.82*am).toFixed(3)+')':'rgba(34,32,30,'+(.62*am).toFixed(3)+')';g.lineWidth=(D.black?.9:.8)*k;g.lineCap='round';g.lineJoin='round';}
   function strokeLine(g,l,W,Hh,k,upto){var pts=linePts(l,W);var tot=0,segs=[];for(var i=1;i<pts.length;i++){var d=Math.hypot((pts[i][0]-pts[i-1][0])*W,(pts[i][1]-pts[i-1][1])*W);segs.push(d);tot+=d;}
     var lim=tot*upto,acc=0;g.beginPath();g.moveTo(pts[0][0]*W,pts[0][1]*W);var end=pts[0];
     for(var j=1;j<pts.length;j++){var d2=segs[j-1];if(acc+d2>=lim){var f=(lim-acc)/(d2||1);end=[lerp(pts[j-1][0],pts[j][0],f),lerp(pts[j-1][1],pts[j][1],f)];g.lineTo(end[0]*W,end[1]*W);break;}acc+=d2;end=pts[j];g.lineTo(end[0]*W,end[1]*W);}
@@ -10917,15 +11543,16 @@ EH.special('stack',function(host,room,api){
     var key=[r.left,r.top,r.width,stage.clientWidth,wv?1:0].map(function(v){return Math.round(v);}).join(',');if(key!==tick.k){tick.k=key;dirty=true;}
     if(active||dirty||drag){drawWall();drawStage();drawHeld();dirty=false;}
     // status
-    var n=nHung(),mx=maxSlots(),st=fmt(T.count,{n:n,max:mx})+'|'+(gapNow!=null?fmt(T.gap,{g:gapNow.toFixed(1)}):n>=2?fmt(T.gap,{g:GAP.toFixed(1)}):'');
+    var n=nHung(),mx=maxSlots(),st=fmt(T.count,{n:n,max:mx})+'|'+(gapNow!=null?fmt(T.gap,{g:gapNow<0?'—':gapNow.toFixed(1)}):n>=2?fmt(T.gap,{g:GAP.toFixed(1)}):'');
     if(st!==lastStatus){lastStatus=st;var p=st.split('|');countEl.textContent=nb(p[0]);gapEl.textContent=nb(p[1]);}
-    if(S.pristine&&!S.msg){msgEl.textContent=nb(touchUI()?T.startT:T.start);msgEl.classList.remove('on');}
+    if(!S.msg){var sm=S.pristine?nb(touchUI()?T.startT:T.start):'';if(msgEl.textContent!==sm){msgEl.textContent=sm;msgEl.classList.remove('on');}}
     btn.one.disabled=n>=mx||!U.some(function(u){return u.st==='pile';});btn.down.disabled=btn.reset.disabled=!n;btn.all.disabled=n>=mx||!U.some(function(u){return u.st==='pile';});
     q('.ss-h1').textContent=nb(touchUI()?T.hintT:T.hint);
     // toy 2
     var reg=regionNow(),rk=reg?[reg.kind,reg.x,reg.y,reg.w,reg.h].join(','):'';
     if(D.started&&(rk!==lastReg||D.gen)){lastReg=rk;D.region=reg;D.dirty=true;
-      if(reg){var g2=genLines(CARDS[card],vals[card],reg.h/reg.w,D.seed);D.lines=g2.lines;D.points=g2.points;D.n=D.lines.length;D.dur=reduce?.01:clamp(1.2+Math.sqrt(D.n)*.22,1.6,7);
+      if(reg){var av=null;if(reg.kind==='room'&&wv){var m2=14;av=[(r.left-m2-reg.x)/reg.w,(r.top-m2-reg.y)/reg.w,(r.right+m2-reg.x)/reg.w,(r.bottom+m2-reg.y)/reg.w];}
+        var g2=genLines(CARDS[card],vals[card],reg.h/reg.w,D.seed,av);D.lines=g2.lines;D.points=g2.points;D.n=D.lines.length;D.dur=reduce?.01:clamp(1.2+Math.sqrt(D.n)*.22,1.6,7);
         if(D.gen){D.gen=false;if(D.wipe<0)clearDraw();D.t=0;D.drawnTo=0;D.done=false;}
         else{var was=D.done;clearDraw();D.wipe=-1;D.drawnTo=0;D.done=false;D.t=was?D.dur:D.t;}}
       else roomC.classList.remove('on');}

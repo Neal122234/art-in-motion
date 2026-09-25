@@ -1,0 +1,731 @@
+{
+ "W": 2048,
+ "H": 1536,
+ "note": "All coords in main.webp px (2048x1536; source is smaller than 2400, not upscaled). Draw order: plate_empty (opaque, lights off) -> haze (room glow: mirrors/water/walkway lit by the lamps) -> far -> mid -> near; plate_empty+haze+far+mid+near == main.webp. Light tiers are disjoint RGBA, source-over (near: lossless; haze/mid/far: webp q97 with lossless alpha). plate_nolights = plate_empty+haze (every light point removed). lights.json = every detected light point. See _wip/cut-contemporary/README.md.",
+ "plate": "plate_empty.webp",
+ "plate_nolights": "plate_nolights.webp",
+ "layers": [
+  {
+   "id": "haze",
+   "label": "房间的微光（镜面、水面、步道的反光）",
+   "file": "haze.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2048,
+   "h": 1536,
+   "depth": 3,
+   "blend": "source-over"
+  },
+  {
+   "id": "far",
+   "label": "远处的灯（深层镜像与水中倒影）",
+   "file": "far.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2048,
+   "h": 1536,
+   "depth": 2,
+   "blend": "source-over",
+   "points": 25744
+  },
+  {
+   "id": "mid",
+   "label": "中景的灯（前几层镜像）",
+   "file": "mid.webp",
+   "x": 0,
+   "y": 8,
+   "w": 2048,
+   "h": 1528,
+   "depth": 1,
+   "blend": "source-over",
+   "points": 700
+  },
+  {
+   "id": "near",
+   "label": "近处的灯（真灯）",
+   "file": "near.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2048,
+   "h": 1521,
+   "depth": 0,
+   "blend": "source-over",
+   "points": 1375
+  }
+ ],
+ "lights": "lights.json",
+ "horizonY": 750,
+ "vp": [
+  1000,
+  750
+ ],
+ "vpNote": "one-point perspective, camera level and facing a mirror wall; vp from the walkway edges (~1002,705), symmetry of the wall seams (x~994) and the densest band of reflections (y 740-790); +-30 px",
+ "mirrorRecursion": {
+  "center": [
+   1000,
+   750
+  ],
+  "scale": 0.47,
+  "note": "each deeper image of the room is ~0.47x about center (ratio of successive horizontal seams: below the horizon y 1031->1324, above y 470->146, all measured from y=750)"
+ },
+ "seamsX": [
+  131,
+  480,
+  824,
+  1164,
+  1507,
+  1852
+ ],
+ "seamsXNote": "vertical joints of the facing mirror wall (full height); panel width ~344 px",
+ "seamsY": [
+  146,
+  470,
+  1031,
+  1324
+ ],
+ "seamsYNote": "strongest horizontal seams: reflected ceiling edges above, water-level edges below; they converge toward horizonY by mirrorRecursion.scale",
+ "walkways": [
+  {
+   "id": "walkway",
+   "label": "步道（真实）",
+   "poly": [
+    [
+     900,
+     975
+    ],
+    [
+     1105,
+     975
+    ],
+    [
+     1125,
+     1040
+    ],
+    [
+     1150,
+     1120
+    ],
+    [
+     1146,
+     1146
+    ],
+    [
+     1100,
+     1160
+    ],
+    [
+     1024,
+     1166
+    ],
+    [
+     905,
+     1161
+    ],
+    [
+     842,
+     1146
+    ],
+    [
+     836,
+     1120
+    ],
+    [
+     872,
+     1040
+    ]
+   ]
+  },
+  {
+   "id": "walkwayL",
+   "label": "步道在左镜中的像",
+   "poly": [
+    [
+     0,
+     1031
+    ],
+    [
+     439,
+     973
+    ],
+    [
+     483,
+     988
+    ],
+    [
+     307,
+     1053
+    ],
+    [
+     117,
+     1127
+    ],
+    [
+     0,
+     1148
+    ]
+   ]
+  },
+  {
+   "id": "walkwayR",
+   "label": "步道在右镜中的像",
+   "poly": [
+    [
+     1536,
+     968
+    ],
+    [
+     1653,
+     966
+    ],
+    [
+     2048,
+     1024
+    ],
+    [
+     2048,
+     1141
+    ],
+    [
+     1960,
+     1127
+    ],
+    [
+     1726,
+     1039
+    ]
+   ]
+  }
+ ],
+ "waterTopY": 750,
+ "water": {
+  "reflectAxisY": 750,
+  "nearWaterTopY": 1031,
+  "note": "everything below horizonY is lights mirrored in the water (y' = 2*750 - y, then wall mirrors); nearWaterTopY..H is the water surface closest to the viewer (darkest, sparse reflections); walkways are not water",
+  "poly": [
+   [
+    0,
+    750
+   ],
+   [
+    2048,
+    750
+   ],
+   [
+    2048,
+    1536
+   ],
+   [
+    0,
+    1536
+   ]
+  ],
+  "excludes": [
+   "walkway",
+   "walkwayL",
+   "walkwayR"
+  ]
+ },
+ "lamps": {
+  "fields": [
+   "x",
+   "y",
+   "coreDiameter px",
+   "colour",
+   "brightness 0..1",
+   "bbox [x,y,w,h] incl. glow+flare"
+  ],
+  "note": "the hanging LED spheres that read as NEAR (big orb + star flare); all pixels of their bbox glow are in near.webp; sorted biggest/brightest first = suggested lighting order",
+  "list": [
+   [
+    1998,
+    363,
+    68.4,
+    "#ffc08c",
+    0.888,
+    [
+     1941,
+     307,
+     107,
+     114
+    ]
+   ],
+   [
+    1863,
+    592,
+    51.6,
+    "#ffe0d3",
+    0.888,
+    [
+     1815,
+     523,
+     97,
+     141
+    ]
+   ],
+   [
+    712,
+    46,
+    51.1,
+    "#ffcc80",
+    0.893,
+    [
+     658,
+     0,
+     111,
+     100
+    ]
+   ],
+   [
+    1906,
+    1464,
+    39.5,
+    "#ffc87d",
+    0.957,
+    [
+     1857,
+     1421,
+     100,
+     89
+    ]
+   ],
+   [
+    85,
+    596,
+    42.7,
+    "#ffe0d8",
+    0.877,
+    [
+     43,
+     548,
+     89,
+     97
+    ]
+   ],
+   [
+    876,
+    595,
+    39.4,
+    "#ffede6",
+    0.913,
+    [
+     826,
+     537,
+     104,
+     116
+    ]
+   ],
+   [
+    371,
+    434,
+    34.8,
+    "#c6fff8",
+    0.947,
+    [
+     327,
+     394,
+     89,
+     84
+    ]
+   ],
+   [
+    982,
+    289,
+    32.7,
+    "#ffd096",
+    0.918,
+    [
+     941,
+     246,
+     84,
+     87
+    ]
+   ],
+   [
+    1433,
+    459,
+    31.9,
+    "#ffd6af",
+    0.936,
+    [
+     1394,
+     420,
+     80,
+     80
+    ]
+   ],
+   [
+    2021,
+    461,
+    32.7,
+    "#ffc4a3",
+    0.895,
+    [
+     1987,
+     421,
+     61,
+     82
+    ]
+   ],
+   [
+    1512,
+    984,
+    33.3,
+    "#fff1f4",
+    0.876,
+    [
+     1474,
+     949,
+     78,
+     73
+    ]
+   ],
+   [
+    1509,
+    248,
+    30.4,
+    "#ffe0c7",
+    0.957,
+    [
+     1467,
+     205,
+     87,
+     88
+    ]
+   ],
+   [
+    1348,
+    582,
+    32.2,
+    "#ffe8e6",
+    0.886,
+    [
+     1316,
+     550,
+     65,
+     66
+    ]
+   ],
+   [
+    1135,
+    113,
+    29.1,
+    "#b7fff5",
+    0.953,
+    [
+     1094,
+     68,
+     83,
+     89
+    ]
+   ],
+   [
+    1692,
+    613,
+    32.1,
+    "#ffd8c3",
+    0.86,
+    [
+     1659,
+     575,
+     67,
+     78
+    ]
+   ],
+   [
+    1115,
+    243,
+    28.7,
+    "#d3e4ff",
+    0.95,
+    [
+     1077,
+     203,
+     78,
+     81
+    ]
+   ],
+   [
+    256,
+    315,
+    27.9,
+    "#ffdcb2",
+    0.956,
+    [
+     220,
+     279,
+     74,
+     74
+    ]
+   ],
+   [
+    263,
+    612,
+    29.5,
+    "#ffdfd3",
+    0.891,
+    [
+     233,
+     582,
+     62,
+     62
+    ]
+   ],
+   [
+    1952,
+    563,
+    28.8,
+    "#ffecd3",
+    0.888,
+    [
+     1920,
+     529,
+     65,
+     73
+    ]
+   ],
+   [
+    1042,
+    557,
+    28.3,
+    "#e8fffc",
+    0.899,
+    [
+     1009,
+     523,
+     68,
+     71
+    ]
+   ],
+   [
+    168,
+    589,
+    27.8,
+    "#ffe2c5",
+    0.876,
+    [
+     136,
+     557,
+     65,
+     65
+    ]
+   ],
+   [
+    358,
+    1434,
+    23.5,
+    "#ffc3a3",
+    0.951,
+    [
+     320,
+     1399,
+     79,
+     73
+    ]
+   ],
+   [
+    1715,
+    479,
+    24.3,
+    "#ffdcbe",
+    0.913,
+    [
+     1683,
+     449,
+     66,
+     62
+    ]
+   ],
+   [
+    1628,
+    356,
+    22.4,
+    "#d5fff8",
+    0.958,
+    [
+     1594,
+     324,
+     70,
+     66
+    ]
+   ],
+   [
+    1828,
+    348,
+    22.9,
+    "#d0dcff",
+    0.935,
+    [
+     1794,
+     316,
+     70,
+     67
+    ]
+   ],
+   [
+    1534,
+    561,
+    23.9,
+    "#ffe8d3",
+    0.889,
+    [
+     1504,
+     530,
+     62,
+     63
+    ]
+   ],
+   [
+    485,
+    268,
+    20.4,
+    "#ffb499",
+    0.951,
+    [
+     450,
+     235,
+     74,
+     69
+    ]
+   ],
+   [
+    2032,
+    562,
+    21.1,
+    "#ffd7b2",
+    0.868,
+    [
+     2014,
+     529,
+     34,
+     67
+    ]
+   ],
+   [
+    1499,
+    420,
+    19.4,
+    "#ffd7cf",
+    0.943,
+    [
+     1468,
+     389,
+     64,
+     63
+    ]
+   ],
+   [
+    543,
+    420,
+    18.5,
+    "#ffc2ac",
+    0.95,
+    [
+     510,
+     389,
+     68,
+     64
+    ]
+   ],
+   [
+    1092,
+    1018,
+    19.6,
+    "#fffdea",
+    0.894,
+    [
+     1053,
+     978,
+     79,
+     77
+    ]
+   ],
+   [
+    866,
+    287,
+    15.2,
+    "#ffb7a1",
+    0.942,
+    [
+     837,
+     257,
+     61,
+     61
+    ]
+   ],
+   [
+    14,
+    398,
+    10.8,
+    "#ffd7cd",
+    0.91,
+    [
+     0,
+     366,
+     34,
+     65
+    ]
+   ],
+   [
+    1990,
+    1132,
+    5.0,
+    "#ffd5b7",
+    0.796,
+    [
+     1948,
+     1100,
+     80,
+     64
+    ]
+   ]
+  ]
+ },
+ "match": {
+  "from": "rooms/minimal/cut/layers.json (1600x2000, 12 units, camera fitted)",
+  "firstMirrors": [
+   "unit08",
+   "unit09"
+  ],
+  "then": [
+   [
+    "unit07",
+    "unit10"
+   ],
+   [
+    "unit06",
+    "unit11"
+   ],
+   [
+    "unit05",
+    "unit12"
+   ],
+   [
+    "unit04"
+   ],
+   [
+    "unit03"
+   ],
+   [
+    "unit02"
+   ],
+   [
+    "unit01"
+   ]
+  ],
+  "why": "unit08/unit09 sit at the camera's eye level (the gap between them, y~1153-1222, is the horizon of the Judd photo): their fronts are almost exact rectangles, facing the viewer like the facing mirror wall in the Kusama photo, so a recursive mirror image scaled about their centre looks right. Units further from eye level show their top/bottom faces and should turn to mirror later, in pairs outward.",
+  "align": {
+   "note": "similarity map minimal px -> contemporary px that puts the Judd eye-level gap on the Kusama horizon and a unit front's width on one mirror panel of the facing wall (seams x 824..1164)",
+   "scale": 1.21,
+   "minimalAnchor": [
+    705,
+    1187
+   ],
+   "contemporaryAnchor": [
+    824,
+    750
+   ],
+   "formula": "xk = 824 + 1.21*(xm - 705); yk = 750 + 1.21*(ym - 1187)"
+  },
+  "frontRecursion": "each Judd front reflects the next one 22.8 cm (one unit height) away; reflections step toward the Kusama vp [1000,750] with mirrorRecursion.scale 0.47"
+ }
+}
