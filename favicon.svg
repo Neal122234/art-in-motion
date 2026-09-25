@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Art in Motion: a gilt frame round the gate's lamp ("点亮火光，进入展厅") -->
+  <defs>
+    <linearGradient id="gilt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efd9a4"/><stop offset=".42" stop-color="#b08d57"/><stop offset="1" stop-color="#5f4119"/>
+    </linearGradient>
+    <radialGradient id="flame" cx=".45" cy=".75" r=".7">
+      <stop offset="0" stop-color="#fff4d0"/><stop offset=".4" stop-color="#ffb347"/><stop offset="1" stop-color="#b8390a"/>
+    </radialGradient>
+    <radialGradient id="glow" cx=".5" cy=".58" r=".5">
+      <stop offset="0" stop-color="#ff9640" stop-opacity=".34"/><stop offset="1" stop-color="#ff9640" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="#0b0908"/>
+  <rect x="9" y="9" width="46" height="46" fill="none" stroke="url(#gilt)" stroke-width="6"/>
+  <rect x="6.5" y="6.5" width="51" height="51" fill="none" stroke="#f3e2b8" stroke-opacity=".5" stroke-width="1"/>
+  <rect x="12.5" y="12.5" width="39" height="39" fill="#120d09" stroke="#3b2a12" stroke-width="1"/>
+  <rect x="13" y="13" width="38" height="38" fill="url(#glow)"/>
+  <path d="M33.2 18.5c-.9 4.3 6.4 8.4 6.4 15.9a7.6 7.6 0 0 1-15.2 0c0-5.6 5.6-8.8 8.8-15.9z" fill="url(#flame)"/>
+  <ellipse cx="31.6" cy="36.2" rx="2.6" ry="3.6" fill="#fff6dc" fill-opacity=".75"/>
+</svg>

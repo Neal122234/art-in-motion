@@ -1,0 +1,31 @@
+{
+ "main": {
+  "file": "main_cut.webp",
+  "w": 810,
+  "h": 2190,
+  "dx": 500,
+  "dy": 112,
+  "src": "main.webp",
+  "srcW": 1802,
+  "srcH": 2400
+ },
+ "kouros": {
+  "file": "kouros_cut.webp",
+  "w": 556,
+  "h": 2152,
+  "dx": 513,
+  "dy": 111,
+  "src": "kouros.webp",
+  "srcW": 1524,
+  "srcH": 2400
+ },
+ "note": "cut_px = orig_px - (dx,dy); same scale as the original webp. Bottom edge of each image = bottom of the plinth (Doryphoros: ancient plinth fragment, modern pedestal removed; kouros: square base).",
+ "shadow": {
+  "file": "shadow.webp",
+  "w": 810,
+  "h": 240,
+  "anchorY": 160,
+  "for": "main",
+  "note": "black RGBA, alpha only; same width/x as main_cut; row anchorY sits on main_cut's bottom edge (floor line). Draw under the statue, multiply/normal at ~0.5–1 opacity."
+ }
+}

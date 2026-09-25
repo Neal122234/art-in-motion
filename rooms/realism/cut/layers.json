@@ -1,0 +1,456 @@
+{
+ "W": 2400,
+ "H": 1796,
+ "note": "All coords in main.webp px (2400x1796). Draw order: sky (opaque full frame; below the far skyline it is synthesized sky) -> sky_ext -> far -> mid -> women -> fg; sky+far+mid+women+fg reproduces main.webp. sky_ext.webp continues the sky UPWARD: its top row sits at y=-720, height 752; its bottom 32 rows (y=0..31) fade out over the painting's own sky (alpha 1->0), rows y<0 are pure synthesis. far/mid/fg are opaque from their soft top edge down to their bottom (far to y=1120, mid and fg to the bottom), so parallax never opens holes; the women's area is inpainted in far/mid/fg (plate_nowomen.webp = whole painting without the women). mid's top edge follows midTopLine (24-px feather), fg's top edge follows fgTopLine (30-px feather), both run just below everything they must not cut. depth: 0 back .. 4 front.",
+ "layers": [
+  {
+   "id": "sky",
+   "depth": 0,
+   "file": "sky.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1796,
+   "label": "天空（原画天空，地平线以下为合成）"
+  },
+  {
+   "id": "sky_ext",
+   "depth": 0,
+   "file": "sky_ext.webp",
+   "x": 0,
+   "y": -720,
+   "w": 2400,
+   "h": 752,
+   "label": "天空向上延伸（合成）"
+  },
+  {
+   "id": "far",
+   "depth": 1,
+   "file": "far.webp",
+   "x": 0,
+   "y": 356,
+   "w": 2400,
+   "h": 764,
+   "label": "远景：麦垛、马车、骑马的监工、村庄"
+  },
+  {
+   "id": "mid",
+   "depth": 2,
+   "file": "mid.webp",
+   "x": 0,
+   "y": 686,
+   "w": 2400,
+   "h": 1110,
+   "label": "中景田地（农妇身后已补画）"
+  },
+  {
+   "id": "women",
+   "depth": 3,
+   "file": "women.webp",
+   "x": 420,
+   "y": 527,
+   "w": 1682,
+   "h": 1050,
+   "label": "三个拾穗的农妇"
+  },
+  {
+   "id": "fg",
+   "depth": 4,
+   "file": "fg.webp",
+   "x": 0,
+   "y": 1403,
+   "w": 2400,
+   "h": 393,
+   "label": "前景麦茬"
+  }
+ ],
+ "plate_nowomen": {
+  "file": "plate_nowomen.webp",
+  "x": 0,
+  "y": 0,
+  "w": 2400,
+  "h": 1796,
+  "note": "flat painting with the three women removed (ground synthesized)"
+ },
+ "horizon": {
+  "y": 533,
+  "polyline": [
+   [
+    0,
+    552
+   ],
+   [
+    330,
+    549
+   ],
+   [
+    1000,
+    536
+   ],
+   [
+    1300,
+    531
+   ],
+   [
+    1700,
+    530
+   ],
+   [
+    2400,
+    531
+   ]
+  ],
+  "note": "where the plain meets the sky/distant trees; ~y 531-552 (29.6-30.7% of H)",
+  "frac": 0.2968
+ },
+ "midTopLine": [
+  [
+   0,
+   715
+  ],
+  [
+   100,
+   715
+  ],
+  [
+   200,
+   715
+  ],
+  [
+   300,
+   715
+  ],
+  [
+   400,
+   715
+  ],
+  [
+   500,
+   710
+  ],
+  [
+   600,
+   700
+  ],
+  [
+   700,
+   700
+  ],
+  [
+   800,
+   700
+  ],
+  [
+   900,
+   700
+  ],
+  [
+   1000,
+   700
+  ],
+  [
+   1100,
+   700
+  ],
+  [
+   1200,
+   700
+  ],
+  [
+   1300,
+   700
+  ],
+  [
+   1400,
+   700
+  ],
+  [
+   1500,
+   700
+  ],
+  [
+   1600,
+   700
+  ],
+  [
+   1700,
+   700
+  ],
+  [
+   1800,
+   700
+  ],
+  [
+   1900,
+   700
+  ],
+  [
+   2000,
+   700
+  ],
+  [
+   2100,
+   700
+  ],
+  [
+   2200,
+   700
+  ],
+  [
+   2300,
+   700
+  ],
+  [
+   2399,
+   700
+  ]
+ ],
+ "fgTopLine": [
+  [
+   0,
+   1420
+  ],
+  [
+   100,
+   1420
+  ],
+  [
+   200,
+   1420
+  ],
+  [
+   300,
+   1420
+  ],
+  [
+   400,
+   1420
+  ],
+  [
+   500,
+   1420
+  ],
+  [
+   600,
+   1420
+  ],
+  [
+   700,
+   1450
+  ],
+  [
+   800,
+   1483
+  ],
+  [
+   900,
+   1483
+  ],
+  [
+   1000,
+   1483
+  ],
+  [
+   1100,
+   1475
+  ],
+  [
+   1200,
+   1435
+  ],
+  [
+   1300,
+   1423
+  ],
+  [
+   1400,
+   1499
+  ],
+  [
+   1500,
+   1610
+  ],
+  [
+   1600,
+   1617
+  ],
+  [
+   1700,
+   1617
+  ],
+  [
+   1800,
+   1617
+  ],
+  [
+   1900,
+   1614
+  ],
+  [
+   2000,
+   1601
+  ],
+  [
+   2100,
+   1591
+  ],
+  [
+   2200,
+   1574
+  ],
+  [
+   2300,
+   1460
+  ],
+  [
+   2399,
+   1420
+  ]
+ ],
+ "boxes": {
+  "overseer": {
+   "x": 2080,
+   "y": 512,
+   "w": 76,
+   "h": 84,
+   "label": "马背上的监工"
+  },
+  "haystacks": [
+   {
+    "x": 328,
+    "y": 362,
+    "w": 226,
+    "h": 246,
+    "label": "左侧大麦垛 1"
+   },
+   {
+    "x": 520,
+    "y": 382,
+    "w": 222,
+    "h": 226,
+    "label": "左侧大麦垛 2"
+   },
+   {
+    "x": 1252,
+    "y": 476,
+    "w": 170,
+    "h": 90,
+    "label": "中间远处两座麦垛"
+   }
+  ],
+  "cart": {
+   "x": 712,
+   "y": 444,
+   "w": 300,
+   "h": 200,
+   "label": "满载麦捆的马车与马"
+  },
+  "stook": {
+   "x": 1236,
+   "y": 556,
+   "w": 106,
+   "h": 116,
+   "label": "田中的麦捆堆"
+  }
+ },
+ "ears": [
+  [
+   1035,
+   1530
+  ],
+  [
+   1838,
+   1627
+  ],
+  [
+   576,
+   1581
+  ],
+  [
+   342,
+   1475
+  ],
+  [
+   226,
+   1570
+  ],
+  [
+   100,
+   1580
+  ],
+  [
+   1308,
+   1626
+  ],
+  [
+   606,
+   1421
+  ],
+  [
+   851,
+   1631
+  ],
+  [
+   1279,
+   1514
+  ],
+  [
+   1553,
+   1640
+  ],
+  [
+   2262,
+   1679
+  ],
+  [
+   428,
+   1555
+  ],
+  [
+   1170,
+   1535
+  ],
+  [
+   389,
+   1662
+  ],
+  [
+   1736,
+   1688
+  ],
+  [
+   2146,
+   1678
+  ],
+  [
+   1440,
+   1635
+  ],
+  [
+   964,
+   1695
+  ],
+  [
+   2325,
+   1543
+  ],
+  [
+   925,
+   1531
+  ],
+  [
+   1120,
+   1635
+  ],
+  [
+   683,
+   1664
+  ],
+  [
+   518,
+   1676
+  ]
+ ],
+ "earsNote": "centres of bright loose straw/ears lying in the foreground stubble (below fgTopLine, away from the women)",
+ "weakSpots": "women.webp keeps a thin band of ground at the feet/hems and between straws of the hand-held sheaves (moves with the women; keeps feet grounded). plate_nowomen/mid inside the women's footprint is quilted ground: fine at parallax offsets up to ~150 px, patchy if the women are removed entirely. The women's cast shadows stay painted on mid. No layer extends below y=1796 or sideways beyond 0..2400: clamp the camera so the bottom edge of fg stays off-screen. sky_ext: first ~25 rows above y=0 are a mirror of the painting's top rows, above that cross-faded shifted copies of its cloud texture over a darker, smoother trend."
+}

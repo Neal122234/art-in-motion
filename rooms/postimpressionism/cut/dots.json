@@ -1,0 +1,494 @@
+{
+ "W": 2400,
+ "H": 1598,
+ "N": 201153,
+ "bytes": 1408071,
+ "layout": "struct-of-arrays, little-endian, in this order: x uint16[N] (main.webp px * 10), y uint16[N] (px*10), r uint8[N] (radius px*50), p uint8[N] (palette index), f uint8[N] (flags: bit0 = dot lies in Seurat's painted border band)",
+ "offsets": {
+  "x": 0,
+  "y": 402306,
+  "r": 804612,
+  "p": 1005765,
+  "f": 1206918
+ },
+ "decode": "x=u16[i]/10, y=u16[N+i]/10, r=u8[4N+i]/50 (all in main.webp pixel space, 2400x1598); colour=palette[u8[5N+i]]",
+ "rgbFile": {
+  "file": "dots_rgb.bin",
+  "layout": "uint8[N*3] interleaved sRGB, same order as dots.bin: the dot's own sampled colour (Gaussian 5x5 at 9600px); use for a faithful render, palette for the pure-pigment beats"
+ },
+ "radius": {
+  "min": 1.72,
+  "median": 2.6,
+  "max": 3.12,
+  "note": "radius varies with the painting: smaller where detail/edges are dense (faces, contours, border), larger in flat grass/water/sky. Centres are a Poisson-disk set, min centre distance = local spacing = r/0.85; disks overlap their neighbours a little and cover ≈89% of the canvas, so ~11% background shows in the gaps (use a dark/neutral ground, or a blurred pyr_4 under the dots for the faithful beat)."
+ },
+ "order": "dots are sorted by LOD level (coarse first, random inside a level). The first lod[k].n dots form a spatially uniform subset (≈1 dot per cell×cell px). When zoomed out, draw only the first n and scale radius up to ≈0.85*cell so the subset still covers the canvas.",
+ "lod": [
+  {
+   "level": 0,
+   "n": 1700,
+   "cell": 48,
+   "drawRadiusMin": 40.8
+  },
+  {
+   "level": 1,
+   "n": 8400,
+   "cell": 24,
+   "drawRadiusMin": 20.4
+  },
+  {
+   "level": 2,
+   "n": 35013,
+   "cell": 12,
+   "drawRadiusMin": 10.2
+  },
+  {
+   "level": 3,
+   "n": 130037,
+   "cell": 6,
+   "drawRadiusMin": 5.1
+  },
+  {
+   "level": 4,
+   "n": 201153,
+   "cell": null,
+   "drawRadiusMin": null
+  }
+ ],
+ "palette": [
+  {
+   "i": 0,
+   "rgb": [
+    115,
+    86,
+    92
+   ],
+   "pure": [
+    209,
+    96,
+    126
+   ],
+   "hue": 5.9,
+   "chroma": 13.0,
+   "L": 39.6,
+   "neutral": false,
+   "count": 5055
+  },
+  {
+   "i": 1,
+   "rgb": [
+    115,
+    56,
+    57
+   ],
+   "pure": [
+    211,
+    25,
+    63
+   ],
+   "hue": 23.6,
+   "chroma": 28.6,
+   "L": 31.3,
+   "neutral": false,
+   "count": 3506
+  },
+  {
+   "i": 2,
+   "rgb": [
+    130,
+    111,
+    105
+   ],
+   "pure": [
+    233,
+    135,
+    102
+   ],
+   "hue": 44.7,
+   "chroma": 8.9,
+   "L": 48.6,
+   "neutral": false,
+   "count": 5806
+  },
+  {
+   "i": 3,
+   "rgb": [
+    127,
+    91,
+    65
+   ],
+   "pure": [
+    208,
+    116,
+    43
+   ],
+   "hue": 60.0,
+   "chroma": 23.8,
+   "L": 41.8,
+   "neutral": false,
+   "count": 4641
+  },
+  {
+   "i": 4,
+   "rgb": [
+    94,
+    81,
+    67
+   ],
+   "pure": [
+    159,
+    111,
+    37
+   ],
+   "hue": 75.3,
+   "chroma": 11.0,
+   "L": 35.5,
+   "neutral": false,
+   "count": 6546
+  },
+  {
+   "i": 5,
+   "rgb": [
+    131,
+    124,
+    99
+   ],
+   "pure": [
+    189,
+    173,
+    83
+   ],
+   "hue": 96.8,
+   "chroma": 15.0,
+   "L": 52.1,
+   "neutral": false,
+   "count": 6931
+  },
+  {
+   "i": 6,
+   "rgb": [
+    131,
+    122,
+    64
+   ],
+   "pure": [
+    183,
+    171,
+    0
+   ],
+   "hue": 98.6,
+   "chroma": 32.9,
+   "L": 50.8,
+   "neutral": false,
+   "count": 8442
+  },
+  {
+   "i": 7,
+   "rgb": [
+    141,
+    133,
+    90
+   ],
+   "pure": [
+    198,
+    186,
+    56
+   ],
+   "hue": 99.0,
+   "chroma": 24.7,
+   "L": 55.3,
+   "neutral": false,
+   "count": 11271
+  },
+  {
+   "i": 8,
+   "rgb": [
+    109,
+    104,
+    58
+   ],
+   "pure": [
+    154,
+    148,
+    0
+   ],
+   "hue": 100.4,
+   "chroma": 27.0,
+   "L": 43.4,
+   "neutral": false,
+   "count": 9012
+  },
+  {
+   "i": 9,
+   "rgb": [
+    80,
+    92,
+    57
+   ],
+   "pure": [
+    98,
+    138,
+    33
+   ],
+   "hue": 121.8,
+   "chroma": 21.8,
+   "L": 37.3,
+   "neutral": false,
+   "count": 7325
+  },
+  {
+   "i": 10,
+   "rgb": [
+    54,
+    70,
+    50
+   ],
+   "pure": [
+    49,
+    112,
+    42
+   ],
+   "hue": 137.4,
+   "chroma": 14.6,
+   "L": 27.8,
+   "neutral": false,
+   "count": 12970
+  },
+  {
+   "i": 11,
+   "rgb": [
+    86,
+    98,
+    85
+   ],
+   "pure": [
+    77,
+    150,
+    81
+   ],
+   "hue": 142.2,
+   "chroma": 9.4,
+   "L": 40.2,
+   "neutral": false,
+   "count": 7782
+  },
+  {
+   "i": 12,
+   "rgb": [
+    40,
+    51,
+    41
+   ],
+   "pure": [
+    21,
+    114,
+    54
+   ],
+   "hue": 147.1,
+   "chroma": 8.9,
+   "L": 20.1,
+   "neutral": false,
+   "count": 14229
+  },
+  {
+   "i": 13,
+   "rgb": [
+    123,
+    136,
+    151
+   ],
+   "pure": [
+    121,
+    192,
+    255
+   ],
+   "hue": 262.5,
+   "chroma": 9.7,
+   "L": 56.2,
+   "neutral": false,
+   "count": 7529
+  },
+  {
+   "i": 14,
+   "rgb": [
+    88,
+    102,
+    129
+   ],
+   "pure": [
+    79,
+    145,
+    227
+   ],
+   "hue": 275.4,
+   "chroma": 16.9,
+   "L": 42.9,
+   "neutral": false,
+   "count": 6812
+  },
+  {
+   "i": 15,
+   "rgb": [
+    67,
+    74,
+    93
+   ],
+   "pure": [
+    50,
+    108,
+    187
+   ],
+   "hue": 280.2,
+   "chroma": 12.4,
+   "L": 31.4,
+   "neutral": false,
+   "count": 11551
+  },
+  {
+   "i": 16,
+   "rgb": [
+    53,
+    69,
+    111
+   ],
+   "pure": [
+    0,
+    102,
+    202
+   ],
+   "hue": 283.7,
+   "chroma": 27.0,
+   "L": 30.0,
+   "neutral": false,
+   "count": 3626
+  },
+  {
+   "i": 17,
+   "rgb": [
+    161,
+    155,
+    144
+   ],
+   "pure": [
+    206,
+    200,
+    189
+   ],
+   "hue": 88.5,
+   "chroma": 6.5,
+   "L": 64.1,
+   "neutral": true,
+   "count": 7349
+  },
+  {
+   "i": 18,
+   "rgb": [
+    127,
+    130,
+    129
+   ],
+   "pure": [
+    165,
+    169,
+    168
+   ],
+   "hue": 183.4,
+   "chroma": 1.3,
+   "L": 54.1,
+   "neutral": true,
+   "count": 7309
+  },
+  {
+   "i": 19,
+   "rgb": [
+    92,
+    94,
+    101
+   ],
+   "pure": [
+    122,
+    124,
+    131
+   ],
+   "hue": 279.8,
+   "chroma": 4.4,
+   "L": 40.0,
+   "neutral": true,
+   "count": 11576
+  },
+  {
+   "i": 20,
+   "rgb": [
+    60,
+    72,
+    70
+   ],
+   "pure": [
+    83,
+    96,
+    93
+   ],
+   "hue": 184.4,
+   "chroma": 5.5,
+   "L": 29.5,
+   "neutral": true,
+   "count": 12574
+  },
+  {
+   "i": 21,
+   "rgb": [
+    77,
+    61,
+    63
+   ],
+   "pure": [
+    100,
+    83,
+    85
+   ],
+   "hue": 9.2,
+   "chroma": 7.9,
+   "L": 27.4,
+   "neutral": true,
+   "count": 7065
+  },
+  {
+   "i": 22,
+   "rgb": [
+    52,
+    55,
+    66
+   ],
+   "pure": [
+    72,
+    75,
+    86
+   ],
+   "hue": 282.6,
+   "chroma": 7.2,
+   "L": 23.2,
+   "neutral": true,
+   "count": 12105
+  },
+  {
+   "i": 23,
+   "rgb": [
+    39,
+    40,
+    42
+   ],
+   "pure": [
+    54,
+    56,
+    58
+   ],
+   "hue": 265.5,
+   "chroma": 1.5,
+   "L": 16.0,
+   "neutral": true,
+   "count": 10141
+  }
+ ],
+ "paletteNote": "24 clusters (k-means in CIELAB over the 201k sampled dot colours, mean ΔE 5.8). Sorted: chromatic by hue angle (Lab h°) then neutrals by lightness. rgb = the cluster mean as it appears in the painting (use for the faithful image). pure = same hue pushed to a pigment-like saturation/lightness (for the colour-wheel / close-up \"pure colour\" beat). The painting's zinc-yellow greens have browned since 1886 (Art Institute of Chicago study), so rgb is today's state.",
+ "source": "Commons File:Georges Seurat - A Sunday on La Grande Jatte -- 1884 - Google Art Project.jpg (public domain), downsampled to 9600x6392 (exactly 4x main.webp, aligned; blurred residual vs main < 1/255 levels 0.7)"
+}

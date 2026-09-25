@@ -1,0 +1,706 @@
+{
+ "W": 2400,
+ "H": 1598,
+ "note": "All coords in main.webp px (2400x1598 = whole canvas incl. Seurat's painted dot border; 7.79 px per cm, physical 207.5 x 308.1 cm, Art Institute of Chicago). This room is a dot dataset, not a cut-out: dots.bin/dots.json (format + palette + LOD inside dots.json) carry the painting as ~201k pure-colour dots; pyr_* is the mip pyramid of the real painting for the far end of the pull-back (crossfade dots -> pyr when a dot is < ~1.5 screen px). No layer needs inpainting: the painting is one flat layer.",
+ "layers": [
+  {
+   "id": "painting",
+   "depth": 0,
+   "file": "pyr_1.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1598,
+   "label": "大碗岛（原图，1x）",
+   "mips": [
+    {
+     "file": "pyr_half.webp",
+     "scale": 2,
+     "w": 4800,
+     "h": 3196
+    },
+    {
+     "file": "pyr_1.webp",
+     "scale": 1,
+     "w": 2400,
+     "h": 1598
+    },
+    {
+     "file": "pyr_2.webp",
+     "scale": 0.5,
+     "w": 1200,
+     "h": 799
+    },
+    {
+     "file": "pyr_4.webp",
+     "scale": 0.25,
+     "w": 600,
+     "h": 400
+    },
+    {
+     "file": "pyr_8.webp",
+     "scale": 0.125,
+     "w": 300,
+     "h": 200
+    }
+   ],
+   "mipNote": "all mips are area-averaged from a 9600x6392 downsample of the 30000px Commons scan, exactly aligned to main.webp (pyr_half = 2x main for the near end; scale = texture px per main px). pyr_1 differs from main.webp only in sharpening (mean |diff| 6.5 per channel unblurred, 0.7 after a 3px blur)."
+  }
+ ],
+ "dots": {
+  "meta": "dots.json",
+  "bin": "dots.bin",
+  "rgb": "dots_rgb.bin",
+  "N": 201153,
+  "paletteSize": 24,
+  "lod": [
+   {
+    "level": 0,
+    "n": 1700,
+    "cell": 48,
+    "drawRadiusMin": 40.8
+   },
+   {
+    "level": 1,
+    "n": 8400,
+    "cell": 24,
+    "drawRadiusMin": 20.4
+   },
+   {
+    "level": 2,
+    "n": 35013,
+    "cell": 12,
+    "drawRadiusMin": 10.2
+   },
+   {
+    "level": 3,
+    "n": 130037,
+    "cell": 6,
+    "drawRadiusMin": 5.1
+   },
+   {
+    "level": 4,
+    "n": 201153,
+    "cell": null,
+    "drawRadiusMin": null
+   }
+  ]
+ },
+ "border": {
+  "mask": "border_mask.png",
+  "maskNote": "8-bit, 255 = Seurat's painted border band (added 1888-89), 0 = picture field; same frame as main.webp. Dots in the band have flag bit0 set in dots.bin.",
+  "insetMedian": {
+   "left": 30.0,
+   "right": 28.0,
+   "top": 23.0,
+   "bottom": 23.0
+  },
+  "insetNote": "band width in px from each outer edge (median); it wobbles 23-41 px (hand painted) - use the mask or innerPolygon for exact shape. The outermost 1-4 px of main.webp are dark scan edge, no dots there.",
+  "innerPolygon": [
+   [
+    0,
+    27.0
+   ],
+   [
+    80,
+    27.0
+   ],
+   [
+    160,
+    25.0
+   ],
+   [
+    240,
+    25.0
+   ],
+   [
+    320,
+    25.0
+   ],
+   [
+    400,
+    24.0
+   ],
+   [
+    480,
+    24.0
+   ],
+   [
+    560,
+    24.0
+   ],
+   [
+    640,
+    24.0
+   ],
+   [
+    720,
+    24.0
+   ],
+   [
+    800,
+    24.0
+   ],
+   [
+    880,
+    23.0
+   ],
+   [
+    960,
+    23.0
+   ],
+   [
+    1040,
+    23.0
+   ],
+   [
+    1120,
+    23.0
+   ],
+   [
+    1200,
+    23.0
+   ],
+   [
+    1280,
+    23.0
+   ],
+   [
+    1360,
+    23.0
+   ],
+   [
+    1440,
+    23.0
+   ],
+   [
+    1520,
+    23.0
+   ],
+   [
+    1600,
+    23.0
+   ],
+   [
+    1680,
+    23.0
+   ],
+   [
+    1760,
+    22.0
+   ],
+   [
+    1840,
+    23.0
+   ],
+   [
+    1920,
+    22.0
+   ],
+   [
+    2000,
+    23.0
+   ],
+   [
+    2080,
+    21.0
+   ],
+   [
+    2160,
+    22.5
+   ],
+   [
+    2240,
+    23.0
+   ],
+   [
+    2320,
+    21.5
+   ],
+   [
+    2372.0,
+    0
+   ],
+   [
+    2371.0,
+    80
+   ],
+   [
+    2371.0,
+    160
+   ],
+   [
+    2371.0,
+    240
+   ],
+   [
+    2371.0,
+    320
+   ],
+   [
+    2370.0,
+    400
+   ],
+   [
+    2371.0,
+    480
+   ],
+   [
+    2370.0,
+    560
+   ],
+   [
+    2369.0,
+    640
+   ],
+   [
+    2369.0,
+    720
+   ],
+   [
+    2369.0,
+    800
+   ],
+   [
+    2371.0,
+    880
+   ],
+   [
+    2372.0,
+    960
+   ],
+   [
+    2373.5,
+    1040
+   ],
+   [
+    2374.5,
+    1120
+   ],
+   [
+    2375.5,
+    1200
+   ],
+   [
+    2376.5,
+    1280
+   ],
+   [
+    2377.5,
+    1360
+   ],
+   [
+    2377.5,
+    1440
+   ],
+   [
+    2378.0,
+    1520
+   ],
+   [
+    2399,
+    1576.0
+   ],
+   [
+    2319,
+    1577.0
+   ],
+   [
+    2239,
+    1579.0
+   ],
+   [
+    2159,
+    1578.5
+   ],
+   [
+    2079,
+    1576.5
+   ],
+   [
+    1999,
+    1575.0
+   ],
+   [
+    1919,
+    1573.0
+   ],
+   [
+    1839,
+    1572.0
+   ],
+   [
+    1759,
+    1571.5
+   ],
+   [
+    1679,
+    1571.5
+   ],
+   [
+    1599,
+    1571.0
+   ],
+   [
+    1519,
+    1571.5
+   ],
+   [
+    1439,
+    1572.0
+   ],
+   [
+    1359,
+    1572.0
+   ],
+   [
+    1279,
+    1572.0
+   ],
+   [
+    1199,
+    1572.0
+   ],
+   [
+    1119,
+    1572.0
+   ],
+   [
+    1039,
+    1572.0
+   ],
+   [
+    959,
+    1572.0
+   ],
+   [
+    879,
+    1571.5
+   ],
+   [
+    799,
+    1572.0
+   ],
+   [
+    719,
+    1574.0
+   ],
+   [
+    639,
+    1574.0
+   ],
+   [
+    559,
+    1574.0
+   ],
+   [
+    479,
+    1576.0
+   ],
+   [
+    399,
+    1576.0
+   ],
+   [
+    319,
+    1577.0
+   ],
+   [
+    239,
+    1577.0
+   ],
+   [
+    159,
+    1577.0
+   ],
+   [
+    79,
+    1577.0
+   ],
+   [
+    33.0,
+    1597
+   ],
+   [
+    32.0,
+    1517
+   ],
+   [
+    30.4,
+    1437
+   ],
+   [
+    30.0,
+    1357
+   ],
+   [
+    29.0,
+    1277
+   ],
+   [
+    29.0,
+    1197
+   ],
+   [
+    29.0,
+    1117
+   ],
+   [
+    30.0,
+    1037
+   ],
+   [
+    29.4,
+    957
+   ],
+   [
+    29.0,
+    877
+   ],
+   [
+    30.0,
+    797
+   ],
+   [
+    30.0,
+    717
+   ],
+   [
+    30.0,
+    637
+   ],
+   [
+    40.6,
+    557
+   ],
+   [
+    41.0,
+    477
+   ],
+   [
+    41.0,
+    397
+   ],
+   [
+    37.0,
+    317
+   ],
+   [
+    28.9,
+    237
+   ],
+   [
+    28.6,
+    157
+   ],
+   [
+    28.4,
+    77
+   ]
+  ],
+  "innerRect": {
+   "x": 30.0,
+   "y": 23.0,
+   "w": 2342.0,
+   "h": 1552.0
+  }
+ },
+ "landmarks": {
+  "monkey": {
+   "x": 1770,
+   "y": 1330,
+   "head": [
+    1705,
+    1300
+   ],
+   "bbox": [
+    1680,
+    1235,
+    200,
+    205
+   ],
+   "label": "被牵着的猴子"
+  },
+  "parasol_woman": {
+   "x": 2010,
+   "y": 800,
+   "face": [
+    1893,
+    375
+   ],
+   "parasol": [
+    2110,
+    290
+   ],
+   "bbox": [
+    1790,
+    190,
+    500,
+    1220
+   ],
+   "label": "右侧撑伞女子（牵猴）"
+  },
+  "top_hat_man": {
+   "x": 1870,
+   "y": 700,
+   "face": [
+    1860,
+    340
+   ],
+   "label": "她身旁戴高帽的男子"
+  },
+  "river": {
+   "x": 300,
+   "y": 560,
+   "bbox": [
+    16,
+    300,
+    1000,
+    660
+   ],
+   "shore": [
+    [
+     20,
+     960
+    ],
+    [
+     100,
+     930
+    ],
+    [
+     200,
+     860
+    ],
+    [
+     300,
+     720
+    ],
+    [
+     400,
+     610
+    ],
+    [
+     500,
+     535
+    ],
+    [
+     700,
+     480
+    ],
+    [
+     900,
+     455
+    ],
+    [
+     1100,
+     432
+    ],
+    [
+     1300,
+     400
+    ],
+    [
+     1600,
+     360
+    ]
+   ],
+   "label": "塞纳河（左侧水面）",
+   "shoreNote": "water/bank boundary from lower-left beach to the far bank (checked on a 100px grid overlay), main px; water lies above/left of this polyline"
+  },
+  "sailboat": {
+   "x": 220,
+   "y": 380,
+   "label": "帆船"
+  },
+  "centre_parasol_woman": {
+   "x": 1170,
+   "y": 650,
+   "parasol": [
+    1180,
+    280
+   ],
+   "label": "中间撑红伞的女子"
+  },
+  "girl_in_white": {
+   "x": 1090,
+   "y": 820,
+   "label": "白衣小女孩（画面中轴）"
+  },
+  "black_dog": {
+   "x": 1060,
+   "y": 1250,
+   "label": "黑狗"
+  },
+  "fishing_woman": {
+   "x": 250,
+   "y": 730,
+   "label": "河边钓鱼的女子"
+  }
+ },
+ "cameraPath": {
+  "note": "suggested pull-back: start at closeStart (screen filled by ~40 dots across), pass the monkey so it resolves, open out to the parasol woman, then the whole canvas, then keep pulling back to show border+bench+viewer. zoom = screen px per main px.",
+  "keys": [
+   {
+    "at": "closeStart",
+    "x": 1745,
+    "y": 1320,
+    "zoom": 24
+   },
+   {
+    "at": "monkey",
+    "x": 1770,
+    "y": 1330,
+    "zoom": 5
+   },
+   {
+    "at": "parasol_woman",
+    "x": 1900,
+    "y": 820,
+    "zoom": 1.6
+   },
+   {
+    "at": "whole",
+    "x": 1200,
+    "y": 799,
+    "zoom": "fit"
+   },
+   {
+    "at": "withViewer",
+    "x": 1200,
+    "y": 1100,
+    "zoom": "fit*0.35"
+   }
+  ]
+ },
+ "physical": {
+  "widthCm": 308.1,
+  "heightCm": 207.5,
+  "pxPerCm": 7.79,
+  "viewerNote": "a 170 cm viewer silhouette is 170*7.79 = 1324 main px tall at canvas scale; the canvas bottom hangs ~50-60 cm above the floor in the museum"
+ },
+ "detailTiles": {
+  "note": "native-resolution crops of the 30000px scan (12.5 scan px per main px) showing Seurat's real dots; x,y,w,h in main px",
+  "monkey": {
+   "file": "detail_monkey.webp",
+   "x": 1660,
+   "y": 1250,
+   "w": 160,
+   "h": 160,
+   "px": [
+    2000,
+    2000
+   ]
+  },
+  "parasol_woman_face": {
+   "file": "detail_parasol_woman_face.webp",
+   "x": 1830,
+   "y": 300,
+   "w": 160,
+   "h": 160,
+   "px": [
+    2000,
+    2000
+   ]
+  }
+ }
+}

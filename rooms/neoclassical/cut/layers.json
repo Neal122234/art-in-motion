@@ -1,0 +1,513 @@
+{
+ "W": 2400,
+ "H": 1871,
+ "plate": "plate.webp",
+ "platePatch": {
+  "file": "arms_hole_patch.webp",
+  "x": 646,
+  "y": 723
+ },
+ "note": "all coords in main.webp px (2400x1871). plate.webp = main.webp with the three raised arms removed and the column / back brother's red cloak / blue tunic repainted behind them (arms_hole_patch.webp = the same repaint as an opaque patch to lay over main.webp at platePatch.x,y). Draw plate, then layers in list order: arm_top, arm_mid, arm_low (back to front), sleeve_low (the front brother's lavender sleeve; it stays still and hides the root of arm_low, which carries a 16-px under-lap beneath it), swords, women. swords/women are exact cut-outs over unchanged plate pixels. Arms: rotate about pivot (shoulder end); angle = painted axis direction (screen degrees, y down, negative = up-right). arm_top/arm_mid carry ~8 px under-lap copied from the arm in front, so small relative rotation opens no slit. Keep arm rotation within about ±25 deg of the painted angle: beyond that the repainted plate and the sleeve hinge start to read as cut paper.",
+ "layers": [
+  {
+   "id": "arm_top",
+   "file": "arm_top.webp",
+   "x": 800,
+   "y": 731,
+   "w": 264,
+   "h": 130,
+   "group": "arms",
+   "label": "后排兄弟的右臂（最高）",
+   "z": 1,
+   "root": [
+    807.5,
+    848.2
+   ],
+   "tip": [
+    1064.9,
+    742.6
+   ],
+   "angle": -22.3,
+   "pivot": [
+    807.5,
+    848.2
+   ]
+  },
+  {
+   "id": "arm_mid",
+   "file": "arm_mid.webp",
+   "x": 796,
+   "y": 786,
+   "w": 267,
+   "h": 82,
+   "group": "arms",
+   "label": "中间一只手臂",
+   "z": 2,
+   "root": [
+    805.3,
+    856.7
+   ],
+   "tip": [
+    1062.4,
+    797.1
+   ],
+   "angle": -13.1,
+   "pivot": [
+    805.3,
+    856.7
+   ]
+  },
+  {
+   "id": "arm_low",
+   "file": "arm_low.webp",
+   "x": 639,
+   "y": 851,
+   "w": 371,
+   "h": 91,
+   "group": "arms",
+   "label": "前排兄弟的右臂（最低、最前）",
+   "z": 3,
+   "root": [
+    651.1,
+    912.1
+   ],
+   "tip": [
+    1008.1,
+    863.4
+   ],
+   "angle": -7.8,
+   "pivot": [
+    651.1,
+    912.1
+   ]
+  },
+  {
+   "id": "sleeve_low",
+   "file": "sleeve_low.webp",
+   "x": 606,
+   "y": 866,
+   "w": 66,
+   "h": 104,
+   "hem": [
+    [
+     661.5,
+     866
+    ],
+    [
+     663.3,
+     874
+    ],
+    [
+     657.9,
+     882
+    ],
+    [
+     656.8,
+     890
+    ],
+    [
+     654.6,
+     898
+    ],
+    [
+     653.5,
+     906
+    ],
+    [
+     653.5,
+     914
+    ],
+    [
+     653.2,
+     922
+    ],
+    [
+     652.5,
+     930
+    ],
+    [
+     651.5,
+     938
+    ],
+    [
+     646.8,
+     946
+    ],
+    [
+     635.5,
+     954
+    ],
+    [
+     635.5,
+     962
+    ]
+   ],
+   "group": "arms",
+   "label": "前排兄弟的袖口（盖住 arm_low 的根部，随身体不动）",
+   "z": 4
+  },
+  {
+   "id": "swords",
+   "file": "swords.webp",
+   "x": 945,
+   "y": 532,
+   "w": 280,
+   "h": 615,
+   "group": "swords",
+   "label": "父亲手中的三把剑",
+   "clean": "swords_clean.webp",
+   "cleanNote": "same box; background fringe between the guards removed and colour neutralised to steel grey. Use it when the swords are shown on their own (rope-to-sword morph, glow, moving); use swords.webp when they sit in place over the plate (exact pixels).",
+   "hub": [
+    1100.7,
+    789.4
+   ]
+  },
+  {
+   "id": "women",
+   "file": "women.webp",
+   "x": 1444,
+   "y": 1021,
+   "w": 956,
+   "h": 727,
+   "group": "women",
+   "label": "右侧哀伤的女人们"
+  }
+ ],
+ "geometryNote": "Arches: semicircles centred (cx,springY), inner = opening (intrados), outer = brick extrados; overlaid and checked on main.webp (about ±5 px). Columns from notes.md (±15 px). convergence = least-squares meeting point of the 3 arm axes + 3 blade axes; swordHub = where the 3 blade axes meet (just below the father's fist); vanishingPoint = LSQ of floor joints + side-wall courses. The painted arms do NOT meet at one point (they fan: missAtHubX = vertical miss in px at swordHub.x); angleToConvergence / angleToSwordHub are the rotations that make each arm aim exactly there (angles in screen degrees, y down, negative = up-right).",
+ "arches": [
+  {
+   "key": "left",
+   "cx": 495,
+   "springY": 445,
+   "rInner": 247,
+   "rOuter": 296,
+   "span": [
+    248,
+    742
+   ]
+  },
+  {
+   "key": "middle",
+   "cx": 1168,
+   "springY": 445,
+   "rInner": 252,
+   "rOuter": 300,
+   "span": [
+    916,
+    1420
+   ]
+  },
+  {
+   "key": "right",
+   "cx": 1852,
+   "springY": 445,
+   "rInner": 248,
+   "rOuter": 302,
+   "span": [
+    1604,
+    2100
+   ]
+  }
+ ],
+ "columns": [
+  {
+   "key": "left",
+   "axisX": 836,
+   "abacus": [
+    712,
+    420,
+    948,
+    443
+   ],
+   "shaft": [
+    757,
+    443,
+    915,
+    1340
+   ]
+  },
+  {
+   "key": "right",
+   "axisX": 1515,
+   "abacus": [
+    1402,
+    420,
+    1642,
+    443
+   ],
+   "shaft": [
+    1440,
+    443,
+    1590,
+    1340
+   ]
+  }
+ ],
+ "grid": {
+  "thirdsX": [
+   800,
+   1600
+  ],
+  "columnAxesX": [
+   836,
+   1515
+  ],
+  "bays": [
+   [
+    0,
+    836
+   ],
+   [
+    836,
+    1515
+   ],
+   [
+    1515,
+    2400
+   ]
+  ],
+  "springY": 445,
+  "crownY": 196,
+  "capitalY": [
+   420,
+   443
+  ],
+  "groundY": 1745,
+  "groups": {
+   "brothers": [
+    70,
+    550,
+    1070,
+    1745
+   ],
+   "father": [
+    935,
+    530,
+    1500,
+    1740
+   ],
+   "women": [
+    1450,
+    1010,
+    2400,
+    1740
+   ]
+  }
+ },
+ "swordHub": [
+  1100.7,
+  789.4
+ ],
+ "convergence": [
+  1093.2,
+  795.1
+ ],
+ "fist": [
+  1105,
+  700,
+  1160,
+  770
+ ],
+ "blades": {
+  "left": {
+   "line": [
+    [
+     1001.5,
+     990
+    ],
+    [
+     971.5,
+     1050
+    ]
+   ],
+   "hilt": [
+    1116.5,
+    760
+   ],
+   "tip": [
+    966.5,
+    1060
+   ],
+   "angle": 116.57
+  },
+  "middle": {
+   "line": [
+    [
+     1031.5,
+     990
+    ],
+    [
+     991,
+     1110
+    ]
+   ],
+   "hilt": [
+    1109.1,
+    760
+   ],
+   "tip": [
+    982.6,
+    1135
+   ],
+   "angle": 108.65
+  },
+  "right": {
+   "line": [
+    [
+     1097,
+     870
+    ],
+    [
+     1084.5,
+     1110
+    ]
+   ],
+   "hilt": [
+    1102.7,
+    760
+   ],
+   "tip": [
+    1082.8,
+    1142
+   ],
+   "angle": 92.98
+  }
+ },
+ "armAxes": {
+  "arm_top": {
+   "pivot": [
+    807.5,
+    848.2
+   ],
+   "tip": [
+    1064.9,
+    742.6
+   ],
+   "angle": -22.31,
+   "angleToConvergence": -10.54,
+   "angleToSwordHub": -11.33,
+   "missAtHubX": -61.5
+  },
+  "arm_mid": {
+   "pivot": [
+    805.3,
+    856.7
+   ],
+   "tip": [
+    1062.4,
+    797.1
+   ],
+   "angle": -13.05,
+   "angleToConvergence": -12.09,
+   "angleToSwordHub": -12.83,
+   "missAtHubX": -1.2
+  },
+  "arm_low": {
+   "pivot": [
+    651.1,
+    912.1
+   ],
+   "tip": [
+    1008.1,
+    863.4
+   ],
+   "angle": -7.77,
+   "angleToConvergence": -14.83,
+   "angleToSwordHub": -15.26,
+   "missAtHubX": 61.3
+  }
+ },
+ "vanishingPoint": [
+  1130.2,
+  836.6
+ ],
+ "floorOrthogonals": [
+  {
+   "through": [
+    [
+     1985,
+     1701
+    ],
+    [
+     2084,
+     1801
+    ]
+   ],
+   "bottom": [
+    2153.1,
+    1871
+   ]
+  },
+  {
+   "through": [
+    [
+     1707,
+     1701
+    ],
+    [
+     1773,
+     1801
+    ]
+   ],
+   "bottom": [
+    1820.4,
+    1871
+   ]
+  },
+  {
+   "through": [
+    [
+     442,
+     1771
+    ],
+    [
+     480,
+     1719
+    ]
+   ],
+   "bottom": [
+    368.3,
+    1871
+   ]
+  }
+ ],
+ "floorOrthogonalsNote": "detected joints of the floor slabs (Hough on the 3200-px source); each passes within ~20 px of vanishingPoint. Draw from vanishingPoint to bottom. Floor is visible only for y > ~1480; slab joints at x≈442/1707/1985 (row y 1700-1800). Horizontal slab edges at y≈1487, 1720, 1802.",
+ "spear": [
+  [
+   75,
+   555
+  ],
+  [
+   367,
+   1733
+  ]
+ ],
+ "parallelPose": {
+  "angle": -14.38,
+  "arms": {
+   "arm_top": {
+    "center": [
+     936.2,
+     795.4
+    ],
+    "rotate": 7.93
+   },
+   "arm_mid": {
+    "center": [
+     933.9,
+     826.9
+    ],
+    "rotate": -1.33
+   },
+   "arm_low": {
+    "center": [
+     829.6,
+     887.8
+    ],
+    "rotate": -6.61
+   }
+  },
+  "note": "Suggested \"pulled parallel\" pose for the 拉平行 interaction: rotate each arm by `rotate` degrees about `center` (the middle of its painted axis), so all three share `angle` while keeping their painted heights. Rotating the two upper arms about their shoulder pivot instead would stack them on top of each other (their visible roots are only ~8 px apart)."
+ },
+ "armAxesNote": "angleToConvergence / angleToSwordHub rotate an arm about its pivot to aim exactly at that point; applied to all three arms, arm_top and arm_mid end up almost on top of each other (see contact sheet), so use those angles for drawn extension lines, not as a pose."
+}

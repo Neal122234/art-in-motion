@@ -1,0 +1,827 @@
+{
+ "W": 2400,
+ "H": 2267,
+ "note": "All coordinates in main.webp pixels (2400x2267), origin top-left, unless a field says otherwise. Layers are RGBA webp, straight alpha, colours decontaminated; drawing main.webp -> plate_hand at its box -> hand at its box reproduces main.webp. Reveal elements (role:\"reveal\") are cut from main.webp itself and never move, so they can be drawn over dark.webp (or used as masks via their alpha) to light up one figure at a time.",
+ "layers": [
+  {
+   "id": "hand",
+   "label": "基督的手与前臂（红袖）",
+   "role": "morph-target",
+   "file": "hand.webp",
+   "x": 1543,
+   "y": 900,
+   "w": 279,
+   "h": 136,
+   "pts": {
+    "indexTip": [
+     1551.2,
+     920.7
+    ],
+    "indexDIP": [
+     1570.0,
+     916.9
+    ],
+    "indexPIP": [
+     1592.5,
+     913.8
+    ],
+    "indexMCP": [
+     1622.5,
+     910.1
+    ],
+    "middleMCP": [
+     1631.2,
+     923.8
+    ],
+    "wrist": [
+     1701.2,
+     920.1
+    ],
+    "wristTop": [
+     1696.2,
+     906.9
+    ],
+    "wristBottom": [
+     1706.2,
+     933.8
+    ],
+    "thumbBase": [
+     1662.5,
+     930.1
+    ],
+    "thumbTip": [
+     1620.0,
+     958.2
+    ],
+    "middleTip": [
+     1600.0,
+     967.6
+    ],
+    "ringTip": [
+     1568.1,
+     987.6
+    ],
+    "littleTip": [
+     1555.0,
+     986.3
+    ],
+    "forearm": [
+     1787.5,
+     965.7
+    ]
+   },
+   "plate": "hand"
+  },
+  {
+   "id": "boyFace",
+   "label": "少年的脸",
+   "file": "boyFace.webp",
+   "x": 1074,
+   "y": 1014,
+   "w": 76,
+   "h": 139,
+   "cx": 1112.7,
+   "cy": 1080.3,
+   "poly": [
+    [
+     1093,
+     1027
+    ],
+    [
+     1117,
+     1018
+    ],
+    [
+     1137,
+     1023
+    ],
+    [
+     1147,
+     1047
+    ],
+    [
+     1145,
+     1080
+    ],
+    [
+     1143,
+     1107
+    ],
+    [
+     1137,
+     1133
+    ],
+    [
+     1120,
+     1143
+    ],
+    [
+     1103,
+     1140
+    ],
+    [
+     1080,
+     1120
+    ],
+    [
+     1077,
+     1093
+    ],
+    [
+     1080,
+     1067
+    ],
+    [
+     1087,
+     1040
+    ]
+   ],
+   "role": "reveal",
+   "order": 0
+  },
+  {
+   "id": "hat",
+   "label": "羽毛帽",
+   "file": "hat.webp",
+   "x": 951,
+   "y": 901,
+   "w": 233,
+   "h": 153,
+   "cx": 1059.8,
+   "cy": 980.7,
+   "poly": [
+    [
+     957,
+     990
+    ],
+    [
+     970,
+     957
+    ],
+    [
+     1007,
+     923
+    ],
+    [
+     1040,
+     907
+    ],
+    [
+     1073,
+     917
+    ],
+    [
+     1110,
+     937
+    ],
+    [
+     1137,
+     957
+    ],
+    [
+     1170,
+     980
+    ],
+    [
+     1180,
+     1007
+    ],
+    [
+     1183,
+     1037
+    ],
+    [
+     1163,
+     1020
+    ],
+    [
+     1143,
+     1020
+    ],
+    [
+     1117,
+     1017
+    ],
+    [
+     1090,
+     1027
+    ],
+    [
+     1030,
+     1053
+    ],
+    [
+     1003,
+     1020
+    ],
+    [
+     980,
+     1013
+    ],
+    [
+     960,
+     1003
+    ]
+   ],
+   "role": "reveal",
+   "order": 1
+  },
+  {
+   "id": "countHands",
+   "label": "数钱的手和钱币",
+   "file": "countHands.webp",
+   "x": 537,
+   "y": 1359,
+   "w": 180,
+   "h": 144,
+   "cx": 608.5,
+   "cy": 1435.2,
+   "poly": [
+    [
+     564,
+     1368
+    ],
+    [
+     596,
+     1364
+    ],
+    [
+     617,
+     1386
+    ],
+    [
+     628,
+     1414
+    ],
+    [
+     646,
+     1443
+    ],
+    [
+     649,
+     1461
+    ],
+    [
+     660,
+     1462
+    ],
+    [
+     710,
+     1468
+    ],
+    [
+     717,
+     1493
+    ],
+    [
+     678,
+     1489
+    ],
+    [
+     639,
+     1486
+    ],
+    [
+     610,
+     1486
+    ],
+    [
+     589,
+     1471
+    ],
+    [
+     564,
+     1457
+    ],
+    [
+     549,
+     1429
+    ],
+    [
+     546,
+     1400
+    ],
+    [
+     551,
+     1379
+    ]
+   ],
+   "role": "reveal",
+   "order": 2
+  },
+  {
+   "id": "youthHead",
+   "label": "桌尾低头的年轻人",
+   "file": "youthHead.webp",
+   "x": 495,
+   "y": 1220,
+   "w": 133,
+   "h": 108,
+   "cx": 556.7,
+   "cy": 1270.9,
+   "poly": [
+    [
+     496,
+     1243
+    ],
+    [
+     531,
+     1221
+    ],
+    [
+     578,
+     1221
+    ],
+    [
+     610,
+     1243
+    ],
+    [
+     617,
+     1282
+    ],
+    [
+     596,
+     1307
+    ],
+    [
+     567,
+     1318
+    ],
+    [
+     531,
+     1314
+    ],
+    [
+     503,
+     1293
+    ]
+   ],
+   "role": "reveal",
+   "order": 3
+  },
+  {
+   "id": "beardFace",
+   "label": "大胡子的脸",
+   "file": "beardFace.webp",
+   "x": 689,
+   "y": 966,
+   "w": 136,
+   "h": 228,
+   "cx": 762.1,
+   "cy": 1074.5,
+   "poly": [
+    [
+     736,
+     976
+    ],
+    [
+     767,
+     968
+    ],
+    [
+     790,
+     988
+    ],
+    [
+     796,
+     1018
+    ],
+    [
+     805,
+     1045
+    ],
+    [
+     813,
+     1092
+    ],
+    [
+     817,
+     1122
+    ],
+    [
+     813,
+     1161
+    ],
+    [
+     790,
+     1192
+    ],
+    [
+     759,
+     1184
+    ],
+    [
+     740,
+     1145
+    ],
+    [
+     713,
+     1099
+    ],
+    [
+     705,
+     1057
+    ],
+    [
+     698,
+     1007
+    ],
+    [
+     713,
+     980
+    ]
+   ],
+   "role": "reveal",
+   "order": 4
+  },
+  {
+   "id": "beardHand",
+   "label": "大胡子的手",
+   "file": "beardHand.webp",
+   "x": 741,
+   "y": 1180,
+   "w": 173,
+   "h": 84,
+   "cx": 833.5,
+   "cy": 1226.9,
+   "poly": [
+    [
+     740,
+     1226
+    ],
+    [
+     786,
+     1213
+    ],
+    [
+     802,
+     1188
+    ],
+    [
+     813,
+     1186
+    ],
+    [
+     825,
+     1199
+    ],
+    [
+     852,
+     1203
+    ],
+    [
+     882,
+     1211
+    ],
+    [
+     900,
+     1222
+    ],
+    [
+     902,
+     1249
+    ],
+    [
+     875,
+     1257
+    ],
+    [
+     836,
+     1249
+    ],
+    [
+     805,
+     1242
+    ],
+    [
+     767,
+     1238
+    ],
+    [
+     744,
+     1234
+    ]
+   ],
+   "role": "reveal",
+   "order": 5
+  }
+ ],
+ "plates": {
+  "dark": {
+   "file": "dark.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 2267,
+   "note": "the painting with luminance compressed above 8/255 by 0.06 (Y' = 8 + 0.06(Y-8)): lit faces fall to ~20/255, shadows to ~9, tonal order kept. Reveal = draw dark.webp, then main.webp clipped to the beam and/or the reveal masks."
+  },
+  "lit": {
+   "file": "lit.webp",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 2267,
+   "note": "white RGB, alpha = where the painting itself is lit (smoothstep of blurred luminance 35..95); multiply with the beam for a light that only picks out lit surfaces"
+  },
+  "hand": {
+   "file": "plate_hand.webp",
+   "x": 1542,
+   "y": 899,
+   "w": 281,
+   "h": 138,
+   "note": "opaque patch: wall/figures behind Christ's hand+sleeve, inpainted with matched grain; draw over main.webp (or over dark.webp after darkening it the same way) before the hand arrives"
+  }
+ },
+ "revealOrder": [
+  "boyFace",
+  "hat",
+  "countHands",
+  "matthew"
+ ],
+ "matthew": {
+  "note": "谁是马太：两种读法。A = 指着自己的大胡子（传统读法）；B = 桌尾低头数钱的年轻人。每组列出要一起点亮的图层。",
+  "A": [
+   "beardFace",
+   "beardHand"
+  ],
+  "B": [
+   "youthHead",
+   "countHands"
+  ],
+  "default": "A",
+  "A_box": [
+   689,
+   966,
+   914,
+   1264
+  ],
+  "B_box": [
+   495,
+   1220,
+   717,
+   1503
+  ]
+ },
+ "adamHand": {
+  "file": "../../renaissance/t_hA.webp",
+  "w": 683,
+  "h": 374,
+  "pts": {
+   "indexTip": [
+    657,
+    194
+   ],
+   "indexDIP": [
+    600,
+    156
+   ],
+   "indexPIP": [
+    529,
+    116
+   ],
+   "indexMCP": [
+    443,
+    86
+   ],
+   "middleMCP": [
+    452,
+    125
+   ],
+   "wrist": [
+    253,
+    88
+   ],
+   "wristTop": [
+    214,
+    29
+   ],
+   "wristBottom": [
+    293,
+    146
+   ],
+   "thumbBase": [
+    340,
+    168
+   ],
+   "thumbTip": [
+    503,
+    243
+   ],
+   "middleTip": [
+    611,
+    250
+   ],
+   "ringTip": [
+    571,
+    252
+   ],
+   "littleTip": [
+    540,
+    236
+   ],
+   "forearm": [
+    70,
+    190
+   ]
+  },
+  "note": "control points in t_hA.webp pixels (unmirrored, pointing right). Mirror: u -> 683-u. Its placement in the Sistine main.webp is js/t-renaissance.js HAND: canvas transform A=[0.34966,0.014753,-0.014753,0.34966,681.014,342.351] applied to (u+0, v+230).",
+  "toChrist": {
+   "similarity": [
+    0.38025,
+    -0.03385,
+    1543.97625,
+    0.03385,
+    0.38025,
+    868.35805
+   ],
+   "affine": [
+    0.3947,
+    0.19261,
+    1510.06201,
+    0.06056,
+    0.33872,
+    863.78139
+   ],
+   "form": "[a,b,tx,c,d,ty]: x=a*u'+b*v+tx, y=c*u'+d*v+ty with u'=683-u (mirrored t_hA px) -> baroque main px",
+   "rmsSimilarityPx": 21.6,
+   "rmsAffinePx": 23.8,
+   "scale": 0.3818,
+   "rotationDeg": 5.09
+  }
+ },
+ "pointNames": {
+  "indexTip": "食指尖",
+  "indexDIP": "食指远节关节",
+  "indexPIP": "食指中节关节",
+  "indexMCP": "食指指根（掌指关节）",
+  "middleMCP": "中指指根",
+  "wrist": "腕中心",
+  "wristTop": "腕背侧（上缘）",
+  "wristBottom": "腕掌侧（下缘）",
+  "thumbBase": "拇指根",
+  "thumbTip": "拇指尖",
+  "middleTip": "中指尖（弯曲）",
+  "ringTip": "无名指尖（弯曲）",
+  "littleTip": "小指尖（弯曲）",
+  "forearm": "前臂轴上一点（图层远端）"
+ },
+ "window": {
+  "rect": [
+   1445,
+   0,
+   1935,
+   733
+  ],
+  "glass": [
+   1452,
+   110,
+   1756,
+   700
+  ],
+  "panes": [
+   [
+    1452,
+    110,
+    1594,
+    352
+   ],
+   [
+    1636,
+    110,
+    1756,
+    352
+   ],
+   [
+    1452,
+    396,
+    1594,
+    700
+   ],
+   [
+    1636,
+    396,
+    1756,
+    700
+   ]
+  ],
+  "mullion": [
+   1594,
+   110,
+   1636,
+   700
+  ],
+  "transom": [
+   1452,
+   352,
+   1756,
+   396
+  ],
+  "jambRight": [
+   1756,
+   0,
+   1935,
+   725
+  ],
+  "sill": [
+   1445,
+   700,
+   1935,
+   733
+  ],
+  "shutter": [
+   1200,
+   0,
+   1445,
+   735
+  ],
+  "note": "measured from luminance profiles; top of the glass fades into the dark frame (~y 110). The painted light does NOT come through this window: it comes from outside the frame, upper right."
+ },
+ "light": {
+  "beam": [
+   [
+    2400,
+    40
+   ],
+   [
+    2400,
+    780
+   ],
+   [
+    0,
+    1860
+   ],
+   [
+    0,
+    820
+   ]
+  ],
+  "axis": [
+   [
+    2400,
+    410
+   ],
+   [
+    0,
+    1340
+   ]
+  ],
+  "angleDeg": 21.2,
+  "wallShadowEdge": [
+   [
+    2400,
+    641
+   ],
+   [
+    2350,
+    655
+   ],
+   [
+    2300,
+    668
+   ],
+   [
+    2250,
+    681
+   ],
+   [
+    2200,
+    694
+   ],
+   [
+    2100,
+    722
+   ],
+   [
+    1900,
+    782
+   ],
+   [
+    1850,
+    793
+   ],
+   [
+    1800,
+    805
+   ]
+  ],
+  "wallShadowAngleDeg": 15.3,
+  "source": [
+   2400,
+   40,
+   2400,
+   780
+  ],
+  "note": "beam = design polygon (upper edge, source side at the right frame edge, spreads to the left) that contains every lit figure: Christ's hand, the boy, the bearded man, the counting hands and the youth; the painted hard shadow edge on the back wall (wallShadowEdge, ~15 deg) lies inside it and runs parallel to Christ's arm. angleDeg = downward slope of the axis from right to left."
+ },
+ "christHandBox": [
+  1543,
+  900,
+  1822,
+  1036
+ ],
+ "christIndexTip": [
+  1551.2,
+  920.7
+ ]
+}

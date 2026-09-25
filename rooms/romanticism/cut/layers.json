@@ -1,0 +1,245 @@
+{
+ "W": 1871,
+ "H": 2400,
+ "note": "All coords in main.webp px (1871x2400). Draw order: sky (opaque, full frame; its area below the horizon is synthesized) -> far -> mid -> rock -> wanderer; sky+far+mid+rock+wanderer reproduces main.webp. rock.webp is the summit with the wanderer removed (rock under his legs synthesized); plate_noman.webp is the flat painting without him. rock_ext.webp continues the foreground rock below the frame: its row 0 sits at y=extY (top 12 rows fade in over the painting's own rock), height extH, full width; rows >= H of the painting are pure synthesis. fog_mask.webp: grey = fog density 0..1 (R channel), same frame as main. depth: 0 back .. 3 front; wanderer shares depth 3 with rock.",
+ "layers": [
+  {
+   "id": "sky",
+   "depth": 0,
+   "file": "sky.webp",
+   "x": 0,
+   "y": 0,
+   "w": 1871,
+   "h": 2400,
+   "label": "天空"
+  },
+  {
+   "id": "far",
+   "depth": 1,
+   "file": "far.webp",
+   "x": 0,
+   "y": 686,
+   "w": 1871,
+   "h": 1714,
+   "label": "远山与雾海"
+  },
+  {
+   "id": "mid",
+   "depth": 2,
+   "file": "mid.webp",
+   "x": 0,
+   "y": 1110,
+   "w": 1663,
+   "h": 514,
+   "label": "中景岩峰"
+  },
+  {
+   "id": "rock",
+   "depth": 3,
+   "file": "rock.webp",
+   "x": 0,
+   "y": 1486,
+   "w": 1871,
+   "h": 914,
+   "label": "前景岩顶（无人）"
+  },
+  {
+   "id": "wanderer",
+   "depth": 3,
+   "file": "wanderer.webp",
+   "x": 731,
+   "y": 810,
+   "w": 440,
+   "h": 944,
+   "label": "漫游者"
+  },
+  {
+   "id": "rock_ext",
+   "depth": 3,
+   "file": "rock_ext.webp",
+   "x": 0,
+   "y": 2340,
+   "w": 1871,
+   "h": 900,
+   "label": "岩石向下延伸（合成）"
+  }
+ ],
+ "plate_noman": {
+  "file": "plate_noman.webp",
+  "x": 0,
+  "y": 0,
+  "w": 1871,
+  "h": 2400,
+  "note": "flat painting with the wanderer removed; the rock pinnacle hidden behind his coat (x~700-760, y~1300-1560) is faded into fog here, while the mid layer keeps the exact painted pixels (hard vertical cut at his old silhouette)"
+ },
+ "fog": {
+  "file": "fog_mask.webp",
+  "x": 0,
+  "y": 0,
+  "w": 1871,
+  "h": 2400,
+  "channel": "R",
+  "range": [
+   0,
+   1
+  ]
+ },
+ "horizon": [
+  [
+   0,
+   777
+  ],
+  [
+   150,
+   792
+  ],
+  [
+   270,
+   777
+  ],
+  [
+   390,
+   750
+  ],
+  [
+   495,
+   705
+  ],
+  [
+   562,
+   687
+  ],
+  [
+   615,
+   698
+  ],
+  [
+   705,
+   750
+  ],
+  [
+   810,
+   810
+  ],
+  [
+   900,
+   848
+  ],
+  [
+   1050,
+   878
+  ],
+  [
+   1200,
+   892
+  ],
+  [
+   1350,
+   885
+  ],
+  [
+   1380,
+   825
+  ],
+  [
+   1410,
+   814
+  ],
+  [
+   1478,
+   822
+  ],
+  [
+   1500,
+   878
+  ],
+  [
+   1590,
+   885
+  ],
+  [
+   1725,
+   878
+  ],
+  [
+   1870,
+   870
+  ]
+ ],
+ "wanderer": {
+  "feet": {
+   "left": [
+    800,
+    1638
+   ],
+   "right": [
+    950,
+    1747
+   ]
+  },
+  "stand": [
+   875,
+   1692
+  ],
+  "head": [
+   927,
+   812
+  ],
+  "stick": {
+   "top": [
+    1060.9,
+    1359.0
+   ],
+   "tip": [
+    1168.5,
+    1752.7
+   ]
+  }
+ },
+ "walkPath": {
+  "points": [
+   [
+    995,
+    3240,
+    2.4
+   ],
+   [
+    965,
+    2960,
+    2.0
+   ],
+   [
+    935,
+    2660,
+    1.6
+   ],
+   [
+    905,
+    2400,
+    1.35
+   ],
+   [
+    885,
+    2150,
+    1.15
+   ],
+   [
+    875,
+    1950,
+    1.04
+   ],
+   [
+    875,
+    1692,
+    1.0
+   ]
+  ],
+  "note": "[x,y,scale] of the stand point (midpoint of the feet) — y beyond H lies on rock_ext; the figure is drawn scaled around its feet so at scale s the layer is placed with feet at (x,y). Scale >1 at the bottom = closer to the viewer. Painted wanderer height ≈ 944 px (layer h)."
+ },
+ "verify": {
+  "composite_mean_abs_diff": 1.42,
+  "compare": "sky+far+mid+rock+wanderer vs main.webp, whole frame, decoded webp",
+  "contact": "_wip/cut-romanticism/contact.jpg",
+  "edges": "_wip/cut-romanticism/edges.jpg"
+ }
+}
