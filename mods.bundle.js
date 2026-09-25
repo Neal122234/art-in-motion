@@ -4053,6 +4053,848 @@ window.EH_SHARED.postimpressionismRest=function(g,o){};
 })();
 
 ;
+/* 现代先锋 · 画侧过来的那个黄昏 — the passage from Seurat's Grande Jatte (postimpressionism) into Kandinsky's Composition VII.
+   The one discovery (Kandinsky, Rückblicke 1913): at dusk he came back to his studio, saw a picture of indescribable beauty glowing from
+   within, and only close up recognised his own painting standing on its side — objects were hurting his pictures.
+   Beats (seconds of D, see T): dusk comes into the room — wall and picture go dark and blue together (one multiply over the whole
+   stage), the details go first (pre-blurred plates) · the canvas is turned on its side, slowly, as if leaned against the wall; parasols,
+   people, trees stop being things · THE MOMENT: in the dark, once nothing is recognisable, the colours start to glow on their own
+   (saturation up, neutrals sink, a soft inner light, a faint spill on the wall) — then a breath, almost nothing moves · the glowing
+   patches begin to flow (curl-noise advection) and settle, patch by patch, into Composition VII, while the picture's outline turns from
+   upright to landscape · the lights come back: the glow gives way to the painting's real colours, it comes into focus, the wall turns
+   into the new room's wall · hand-over. The glow and the flow are one WebGL program on an offscreen canvas (≈ CSS resolution; its content
+   is blurred), copied onto the stage; everything else is Canvas 2D. No rest extras.
+   Assets (rooms/avantgarde/, made by _wip/t-avantgarde/make_assets.py): t_gj_b1/b2 (Seurat softened), t_gj_glow / t_k_glow (the same
+   "inner light" grade on both pictures, NIGHT baked into the neutrals), t_k_b1 (Kandinsky softened, the focus pull), t_halo_* (spill). */
+(function(){
+'use strict';
+var D=12.5;
+var T={dusk:[0.2,2.8],shadowOut:[0.2,2.2],ink:1.3,b1:[1.3,3.6],tip:[2.3,5.1],b2:[3.2,5.2],night:[4.4,6.0],
+  glow:[5.2,7.1],breathe:[6.3,8.0],flow:[7.7,10.2],shape:[7.9,10.2],light:[9.9,12.1],sharp:[10.0,12.2],title:10.8,label:11.3,wallCss:11.0};
+var DUSK=[118,124,150],NIGHT=[46,52,78];      // multiply colours of the room light (NIGHT is baked into the glow plates' neutrals)
+var ND=[0,1,2].map(function(i){return Math.round(NIGHT[i]/DUSK[i]*255);});
+// the room light as one multiply colour (0–255) for dusk amount a1 and night amount a2
+function room(a1,a2){return[0,1,2].map(function(i){return 255*(1-a1*(1-DUSK[i]/255))*(1-a2*(1-ND[i]/255));});}
+var DUSKWALL='#34384a';                        // the DOM wall while it is dark (ink tones are computed against it)
+var ROT=1;                                     // +1: turned clockwise (the Grande Jatte's sky/left edge goes to the top right)
+var HALO=0.2,GAIN=0.1,AMP=0.1;
+var RM=false;try{RM=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[0,0,0];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function mix3(a,b,u){return[lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(a[2],b[2],u)];}
+function css(c){return 'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')';}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!im&&(im.naturalWidth||im.width)>0;}
+
+// ---------------------------------------------------------------- the rest frames (p = 0 and p = 1): wall, light pool, frame shadow, the work
+function wash(g,W,H,rect,ink,k){if(k<=0)return;var dark=ink==='dark',c=dark?'255,255,255':'255,244,225',a=(dark?.35:.08)*k;
+  var sx=+((rect.x+rect.w/2)/W*100).toFixed(1)/100*W,sy=+((rect.y+rect.h/2)/H*100).toFixed(1)/100*H,rx=.7*W,ry=.6*H;
+  g.save();g.translate(sx,sy);g.scale(rx,ry);var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,'rgba('+c+','+a+')');gr.addColorStop(.7,'rgba('+c+',0)');gr.addColorStop(1,'rgba('+c+',0)');
+  g.fillStyle=gr;g.fillRect(-sx/rx,-sy/ry,W/rx,H/ry);g.restore();}
+// .frame.f-none::before box-shadow 0 26px 60px -26px rgba(0,0,0,.6), pre-rendered once per size (device-pixel aligned)
+function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy+4),X0=r.x-spread-M,Y0=r.y-spread-M,X1=r.x+r.w+spread+M,Y1=r.y+r.h+spread+M;
+  var dx=Math.floor(X0*dpr),dy=Math.floor(Y0*dpr),c=cv(Math.ceil(X1*dpr)-dx,Math.ceil(Y1*dpr)-dy),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,-dx,-dy);
+  q.shadowColor='rgba(0,0,0,.6)';q.shadowBlur=blur*dpr;q.shadowOffsetX=1e5*dpr;q.shadowOffsetY=oy*dpr;q.fillStyle='#000';q.fillRect(r.x-spread-1e5,r.y-spread,r.w+2*spread,r.h+2*spread);
+  return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr};}
+function drawShadow(g,sh,a){if(!sh||a<=0)return;g.save();g.globalAlpha=a;g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
+// like core's paintArt(): the hung work is drawn into a canvas of min(round(w·dpr), 2600) px, then scaled by CSS
+function snap(r,dpr){var x=Math.round(r.x*dpr)/dpr,y=Math.round(r.y*dpr)/dpr;return{x:x,y:y,w:Math.round((r.x+r.w)*dpr)/dpr-x,h:Math.round((r.y+r.h)*dpr)/dpr-y};}
+function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*((im&&im.naturalHeight)||1)/((im&&im.naturalWidth)||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+
+// ---------------------------------------------------------------- geometry
+function footTop(H){var f=document.querySelector('.foot');var b=f?f.getBoundingClientRect():null;return b&&b.height?b.top:H-80;}
+function smin(a,b,k){return -k*Math.log(Math.exp(-a/k)+Math.exp(-b/k));}
+function geo(ctx){var W=ctx.W,H=ctx.H,R1=ctx.to.rect,R0=ctx.from?ctx.from.rect:R1,S=ctx.state,k=[W,H,ctx.dpr,R0.x,R0.y,R0.w,R0.h,R1.x,R1.y,R1.w,R1.h].join('/');
+  if(S.G&&S.G.key===k)return S.G;
+  // on its side the picture is as tall as it was wide: it keeps its centre line, and while it turns its bounding box always stays between
+  // the top of the screen and the controls (it recedes a little, smoothly, where it has to)
+  var top=16,bot=Math.max(top+80,footTop(H)-14),av=bot-top,n=smin(1,av/R0.h,.04),s1=RM?1:smin(1,av/R0.w,.04)/n,c0=[R0.x+R0.w/2,R0.y+R0.h/2];
+  var hs=(RM?R0.h:R0.w)*s1,c1=[c0[0],Math.max(top+hs/2,Math.min(bot-hs/2,c0[1]))];
+  var side=RM?{x:R0.x,y:R0.y,w:R0.w,h:R0.h}:{x:c1[0]-R0.h*s1/2,y:c1[1]-R0.w*s1/2,w:R0.h*s1,h:R0.w*s1};
+  return(S.G={key:k,dpr:ctx.dpr||1,R0:R0,R1:R1,s1:s1,c0:c0,c1:c1,side:side,top:top,bot:bot,av:av,n:n});}
+// the card: the Seurat's pose while it is turned (centre, scale, angle), then the axis-aligned box that reshapes into the Kandinsky's rect
+function pose(G,t){var u=RM?0:eio(seg(t,T.tip)),R=G.R0;if(u<=0)return{u:0,cx:G.c0[0],cy:G.c0[1],s:1,th:0};
+  var th=ROT*u*Math.PI/2;if(u>=1)return{u:1,cx:G.c1[0],cy:G.c1[1],s:G.s1,th:th};
+  var ext=R.w*Math.abs(Math.sin(th))+R.h*Math.abs(Math.cos(th)),s=smin(1,G.av/ext,.04)/G.n,bh=s*ext;
+  return{u:u,cx:G.c0[0],cy:Math.max(G.top+bh/2,Math.min(G.bot-bh/2,G.c0[1])),s:s,th:th};}
+function box(G,t){var v=sm(seg(t,T.shape)),a=G.side,b=G.R1;return{x:lerp(a.x,b.x,v),y:lerp(a.y,b.y,v),w:lerp(a.w,b.w,v),h:lerp(a.h,b.h,v),v:v};}
+// draw the Seurat (any plate) in its turning pose
+function drawTurned(g,G,P,im,a){if(!im||a<=0.002)return;g.globalAlpha=a;var R=G.R0;
+  if(P.u<=0){var Z=snap(R,G.dpr);g.drawImage(im,Z.x,Z.y,Z.w,Z.h);}
+  else{var w=R.w*P.s,h=R.h*P.s;g.save();g.translate(P.cx,P.cy);g.rotate(P.th);g.drawImage(im,-w/2,-h/2,w,h);g.restore();}
+  g.globalAlpha=1;}
+// an image of the upright Seurat drawn turned into an axis-aligned box b (bw = its height, bh = its width); pad = extra margin fraction per side
+function drawSideways(g,im,b,a,pad){if(!im||a<=0.002)return;var p=pad||0,cx=b.x+b.w/2,cy=b.y+b.h/2,w=b.h*(1+2*p),h=b.w*(1+2*p);
+  g.save();g.globalAlpha=a;g.translate(cx,cy);g.rotate(RM?0:ROT*Math.PI/2);if(RM){w=b.w*(1+2*p);h=b.h*(1+2*p);}g.drawImage(im,-w/2,-h/2,w,h);g.restore();}
+function drawBox(g,im,b,a,pad){if(!im||a<=0.002)return;var p=pad||0;g.globalAlpha=a;g.drawImage(im,b.x-b.w*p,b.y-b.h*p,b.w*(1+2*p),b.h*(1+2*p));g.globalAlpha=1;}
+
+// ---------------------------------------------------------------- the glow and the flow: one fragment program (WebGL 1)
+var VS='attribute vec2 aP;uniform vec4 uBox;uniform vec2 uRes;varying vec2 vQ;void main(){vQ=aP;vec2 p=(uBox.xy+aP*uBox.zw)/uRes;gl_Position=vec4(p.x*2.-1.,1.-p.y*2.,0.,1.);}';
+var FS=['precision highp float;',
+  'uniform sampler2D uS,uK;uniform vec4 uBox;uniform float uF,uT,uA,uGain,uAmp,uRot;varying vec2 vQ;',
+  'float h(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}',
+  'float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}',
+  'float fbm(vec2 p){return .5*vn(p)+.25*vn(p*2.03+vec2(1.7,9.2))+.125*vn(p*4.01+vec2(8.3,2.8));}',
+  // the Seurat plate is upright; on the card it lies on its side
+  'vec3 sS(vec2 q){q=clamp(q,0.,1.);vec2 u=uRot>.5?vec2(q.y,1.-q.x):q;return texture2D(uS,u).rgb;}',
+  'void main(){vec2 px=vQ*uBox.zw;float ed=min(min(px.x,uBox.z-px.x),min(px.y,uBox.w-px.y));float a=clamp(ed+.5,0.,1.);',
+  '  float k=uF,asp=uBox.z/uBox.w;vec2 P=vec2(vQ.x*asp,vQ.y)*2.2;float tt=uT*.3;',
+  // a divergence-free swirl (curl of an evolving noise field): the colours stream, nothing is torn
+  '  float e=.03,n0=fbm(P+tt),nx=fbm(P+vec2(e,0.)+tt),ny=fbm(P+vec2(0.,e)+tt);vec2 v=vec2(ny-n0,-(nx-n0))/e;v.x/=asp;',
+  '  vec3 S=sS(vQ-v*uAmp*k);vec3 K=texture2D(uK,clamp(vQ+v*uAmp*(1.-k),0.,1.)).rgb;',
+  // patch by patch: a soft noise threshold; where the two pictures already share a colour the new one arrives first
+  '  float n=clamp((fbm(P*1.4+vec2(11.3,4.1))-.44)*3.2+.5,0.,1.),aff=1.-clamp(length(S-K)*1.5,0.,1.),th=n-aff*.15;',
+  '  float m=k<=0.?0.:k>=1.?1.:smoothstep(th-.16,th+.16,mix(-.35,1.2,k));',
+  '  vec3 c=min(mix(S,K,m)*uGain,1.);gl_FragColor=vec4(c*a*uA,a*uA);}'].join('\n');
+function GLR(){var c=cv(4,4),gl=null;try{gl=c.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false});}catch(e){}
+  if(!gl)return null;
+  function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.warn(gl.getShaderInfoLog(s));return null;}return s;}
+  var vs=sh(gl.VERTEX_SHADER,VS),fs=sh(gl.FRAGMENT_SHADER,FS);if(!vs||!fs)return null;var pr=gl.createProgram();gl.attachShader(pr,vs);gl.attachShader(pr,fs);gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){console.warn(gl.getProgramInfoLog(pr));return null;}
+  gl.useProgram(pr);var b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,0,1,0,0,1,1,1]),gl.STATIC_DRAW);
+  var loc=gl.getAttribLocation(pr,'aP');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  var U={};['uS','uK','uBox','uRes','uF','uT','uA','uGain','uAmp','uRot'].forEach(function(n){U[n]=gl.getUniformLocation(pr,n);});
+  gl.uniform1i(U.uS,0);gl.uniform1i(U.uK,1);gl.disable(gl.BLEND);
+  var R={c:c,gl:gl,tex:[null,null],ok:[false,false],
+    upload:function(i,im){if(!ok(im))return;var t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,im);R.tex[i]=t;R.ok[i]=true;},
+    ready:function(){return R.ok[0]&&R.ok[1];},
+    size:function(w,h){w=Math.max(4,Math.round(w));h=Math.max(4,Math.round(h));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}},
+    // o: {box (canvas px), f, t, a, gain, amp}
+    draw:function(o){var b=o.box;gl.viewport(0,0,c.width,c.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform4f(U.uBox,b.x,b.y,b.w,b.h);gl.uniform2f(U.uRes,c.width,c.height);gl.uniform1f(U.uF,o.f);gl.uniform1f(U.uT,o.t);gl.uniform1f(U.uA,o.a);
+      gl.uniform1f(U.uGain,o.gain);gl.uniform1f(U.uAmp,o.amp);gl.uniform1f(U.uRot,RM?0:1);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}};
+  return R;}
+// GL resolution: its content is blurred, so about one pixel per CSS pixel is plenty
+function glScale(dpr){return Math.max(.75,Math.min(1.25,(dpr||1)*.6));}
+
+// ---------------------------------------------------------------- caches (built in init, rebuilt only if the size changes)
+function ensure(ctx,S,only){var G=geo(ctx),dpr=ctx.dpr||1,k=G.key;var C=S.C&&S.C.key===k?S.C:null;
+  if(!C){C=S.C={key:k};}
+  if(!C.art&&only!=='from'){C.art=artCanvas(ctx.to.image,G.R1,dpr);C.shTo=shadowCache(dpr,G.R1);}
+  if(ctx.from&&!C.fromArt&&only!=='to'){C.fromArt=artCanvas(ctx.from.image,G.R0,dpr);C.shFr=shadowCache(dpr,G.R0);}
+  return C;}
+
+// the label hangs where the core will put it (core hangLabels): right of the frame on wide screens, else under it
+function placeLabel(ctx){var l=document.getElementById('lab'+ctx.to.idx);if(!l)return;var r=ctx.to.rect,fp=r.fp||0,f={left:r.x-fp,right:r.x+r.w+fp,bottom:r.y+r.h+fp};
+  var W=innerWidth,Hh=innerHeight,wide=W>1180,h=l.offsetHeight,w=l.offsetWidth,g=W<=560?16:36,ft=document.querySelector('.foot'),fTop=ft?ft.getBoundingClientRect().top:Hh-80;
+  var land=W<=980&&Hh<520&&W>Hh,x,y;
+  if(wide){x=Math.round(f.right+34);y=Math.round(Math.max(64,Math.min(f.bottom-h,fTop-24-h)));}
+  else if(land){var eb=document.getElementById('era'+ctx.to.idx);eb=eb?eb.getBoundingClientRect():null;x=Math.round(W*.58+24);y=Math.round((eb?eb.bottom:40)+14);}
+  else{x=Math.round(Math.min(Math.max(f.left,g),W-g-w));y=Math.round(f.bottom+16);}
+  var xs=x+'px',ys=y+'px';if(l.style.left!==xs)l.style.left=xs;if(l.style.top!==ys)l.style.top=ys;}
+
+var MOD={
+  duration:D,
+  assets:['t_gj_b1.webp','t_gj_b2.webp','t_gj_glow.webp','t_k_glow.webp','t_k_b1.webp','t_halo_gj.webp','t_halo_k.webp'],
+  init:function(ctx){var S=ctx.state;
+    S.im={b1:ctx.asset('t_gj_b1.webp'),b2:ctx.asset('t_gj_b2.webp'),gg:ctx.asset('t_gj_glow.webp'),kg:ctx.asset('t_k_glow.webp'),kb1:ctx.asset('t_k_b1.webp'),hg:ctx.asset('t_halo_gj.webp'),hk:ctx.asset('t_halo_k.webp')};
+    // the hung work first (a jump straight into the room draws p = 1 at once); everything else in small tasks, then one warm-up pass per phase
+    ensure(ctx,S,'to');S.glr=null;S.warm=null;
+    var steps=[function(){ensure(ctx,S,'from');},
+      function(){S.glr=GLR();},
+      function(){if(S.glr)S.glr.upload(0,S.im.gg);},
+      function(){if(S.glr)S.glr.upload(1,S.im.kg);}];
+    [.02,.14,.3,.4,.5,.6,.68,.74,.8,.88,.95,.99].forEach(function(p){steps.push(function(){warmDraw(ctx,S,p);});});
+    (function step(){if(!steps.length)return;var f=steps.shift();try{f();}catch(e){console.error(e);}setTimeout(step,16);})();},
+  draw:function(p,ctx){var S=ctx.state,g=ctx.g,W=ctx.W,H=ctx.H,t=p*D,F=ctx.from,G=geo(ctx),C=ensure(ctx,S),I=S.im||{},warm=!!S.warm;
+    var R0=G.R0,R1=G.R1;
+    // ===== DOM: dark ink on the light wall until dusk, light ink in the dark, the new room's ink when the light is back
+    if(!warm){var lt0=t>=T.wallCss;var ink=t<T.ink?(F?F.ink:ctx.to.ink):(lt0?ctx.to.ink:'light');if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}
+      var wc=t<T.ink&&F?F.wall:(lt0?ctx.to.wall:DUSKWALL);if(S.wallNow!==wc){ctx.ui.wall(wc);S.wallNow=wc;}
+      ctx.ui.title(ctx.to.idx,t>=T.title);var labOn=t>=T.label;ctx.ui.label(ctx.to.idx,labOn);if(labOn)placeLabel(ctx);}
+    if(p>=1){var Z=snap(R1,ctx.dpr||1);g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink,1);if(ctx.to.frame==='none')drawShadow(g,C.shTo,1);g.drawImage(C.art,Z.x,Z.y,Z.w,Z.h);return;}
+    var dk=sm(seg(t,T.dusk)),nt=sm(seg(t,T.night)),lt=sm(seg(t,T.light)),gl=eio(seg(t,T.glow)),P=pose(G,t),B=box(G,t);
+    // ===== 1. the wall (the old room's until the light comes back as the new one's), its light pool and the frame shadow
+    // the multiply colour of the room light: white = daylight, DUSK, NIGHT, and back to white when the light returns
+    // (two multiply fills with alpha rather than one rounded colour: no whole-screen 1/255 steps while it changes slowly)
+    var a1=dk*(1-lt),a2=nt*(1-lt),md=room(dk,nt),mc=room(a1,a2);
+    // the wall as it is SEEN goes straight from the old wall at dusk to the new wall (no brightening on the way): paint seen / light
+    var fw=hex(F?F.wall:ctx.to.wall),tw=hex(ctx.to.wall),seen=mix3([fw[0]*md[0]/255,fw[1]*md[1]/255,fw[2]*md[2]/255],tw,lt);
+    g.fillStyle=css([0,1,2].map(function(i){return Math.min(255,seen[i]*255/Math.max(1,mc[i]));}));g.fillRect(0,0,W,H);
+    if(F)wash(g,W,H,R0,F.ink,1-dk);wash(g,W,H,R1,ctx.to.ink,lt);
+    var so=1-sm(seg(t,T.shadowOut));if(F&&F.frame==='none')drawShadow(g,C.shFr,so);if(ctx.to.frame==='none')drawShadow(g,C.shTo,lt);
+    var pr=window.EH_SHARED&&window.EH_SHARED.postimpressionismRest;if(F&&pr&&so>0){g.save();g.globalAlpha=so;try{pr(g,{W:W,H:H,rect:R0,dpr:ctx.dpr,t:0});}catch(e){}g.restore();}
+    // ===== 2. the pictures in the room's light: the Seurat (softening, turning) until the glow covers it; the Kandinsky once the light returns
+    if(F&&gl<1&&t<T.flow[0]){var u1=sm(seg(t,T.b1)),u2=sm(seg(t,T.b2));
+      drawTurned(g,G,P,u1<1?C.fromArt:null,1);drawTurned(g,G,P,u2<1?I.b1:null,u2<1?(u1<1?u1:1):0);drawTurned(g,G,P,I.b2,u2);}
+    if(t>=T.light[0]){var sh=sm(seg(t,T.sharp));drawBox(g,sh<1?I.kb1:null,R1,1);drawBox(g,C.art,snap(R1,G.dpr),sh);}
+    // ===== 3. dusk: one multiply over the whole room (white = daylight)
+    if(a1>0.0005||a2>0.0005){g.globalCompositeOperation='multiply';g.globalAlpha=a1;g.fillStyle=css(DUSK);g.fillRect(0,0,W,H);
+      if(a2>0.0005){g.globalAlpha=a2;g.fillStyle=css(ND);g.fillRect(0,0,W,H);}g.globalAlpha=1;g.globalCompositeOperation='source-over';}
+    // ===== 4. the inner light: the colours glow by themselves (not lit by the room), a faint spill on the wall, then they flow into the new picture
+    var ga=gl*(1-lt);if(ga>0.001){var fx=seg(t,T.flow),f=.5*fx+.5*sm(fx),gain=1+GAIN*sm(seg(t,T.breathe));
+      g.globalCompositeOperation='lighter';drawSideways(g,I.hg,B,HALO*ga*(1-f),.4);drawBox(g,I.hk,B,HALO*ga*f,.4);g.globalCompositeOperation='source-over';g.globalAlpha=1;
+      var X=S.glr;if(X&&X.ready()){var q=glScale(ctx.dpr);X.size(W*q,H*q);
+        X.draw({box:{x:B.x*q,y:B.y*q,w:B.w*q,h:B.h*q},f:f,t:t,a:ga,gain:gain,amp:RM?0:AMP});
+        var x0=Math.max(0,Math.floor(B.x*q)-1),y0=Math.max(0,Math.floor(B.y*q)-1),x1=Math.min(X.c.width,Math.ceil((B.x+B.w)*q)+1),y1=Math.min(X.c.height,Math.ceil((B.y+B.h)*q)+1);
+        if(x1>x0&&y1>y0)g.drawImage(X.c,x0,y0,x1-x0,y1-y0,x0/q,y0/q,(x1-x0)/q,(y1-y0)/q);}
+      else{// no WebGL: the same glow, crossfaded instead of flowing
+        if(f<1)drawSideways(g,I.gg,B,ga*(1-f));if(f>0)drawBox(g,I.kg,B,ga*f);}
+      g.globalAlpha=1;}
+  },
+  done:function(ctx){},
+  rest:function(ctx){}      // no rest extras: the Kandinsky hangs in the new room's light
+};
+EH.transition('avantgarde',MOD);
+// every draw path once on a scratch canvas, one phase per task: no frame of the passage pays a first-use cost (texture uploads, gradients, GL state)
+function warmDraw(ctx,S,p){var dpr=ctx.dpr||1;if(!S.scratch||S.scratch.width!==Math.round(ctx.W*dpr))S.scratch=cv(ctx.W*dpr,ctx.H*dpr);var q=S.scratch.getContext('2d'),w=Object.assign({},ctx,{g:q});
+  S.warm=true;try{q.setTransform(dpr,0,0,dpr,0,0);MOD.draw(p,w);}catch(e){}S.warm=null;}
+// the next room starts from this room's rest: nothing but the wall and the hung work
+window.EH_SHARED=window.EH_SHARED||{};
+window.EH_SHARED.avantgardeRest=function(g,o){};
+})();
+
+;
+/* 达达与超现实 · 形状落进梦里 — the passage from Kandinsky's Composition VII (avantgarde) into Dalí's The Persistence of Memory.
+   The one discovery: give Kandinsky's floating shapes a horizon and a low sun, and they become things in a dream — one circle softens,
+   droops over a dead branch and is Dalí's soft watch.
+   Beats (seconds of D = 13.5, see T; _wip/sync/dada.timeline.md): Composition VII hangs as it was · its ground (the canvas without the colour
+   forms) falls back like a lid onto the floor, in true perspective — the forms stay in the air; behind them Dalí's dusk sky, sea and horizon ·
+   the fallen canvas becomes Dalí's plain, the dead tree stands on it · a low sun rakes in from the RIGHT (as in the painting: its shadows fall
+   left): each form it reaches gets a lit side and a long hard shadow — the abstract shapes are objects now (a held breath; the shadows keep
+   lengthening as the sun sinks) · the other forms sink onto their shadows and melt into the ground, right to left; the plain empties ·
+   the concentric circle (red rim, blue ring, white centre) drifts alone to the branch while the view pushes in slowly · THE MOMENT: it loses
+   its hardness and droops over the branch in Kandinsky's colours — the silhouette of the soft watch — then its paint gives way to Dalí's watch
+   through the same mesh · Dalí's other things come up, sun and shadows fade into his dusk, the view eases back · hand-over.
+   Data: rooms/avantgarde/cut (plate.webp = Kandinsky without the forms, f_<id>.webp forms, layers.json) and rooms/dada/cut (plate.webp =
+   Dalí without objects; tree, watch_branch, form, watch_form, watch_table, watch_ants). rooms/dada/t_branch.webp = the branch where the watch
+   hangs (not painted there; _wip/t-dada/branch.py). _wip/t-dada/gen.py writes DATA below from both layers.json.
+   No rest extras (EH_SHARED.dadaRest is a no-op for the next room). No sound calls (cue sheet belongs to the sound agent). */
+(function(){
+'use strict';
+var DATA=/*DATA*/{"forms":[["top_yellow_wave","f_top_yellow_wave.webp",60,36,413,117,303.0,96.9,145],["green_mound","f_green_mound.webp",292,118,156,67,366.2,149.5,177],["left_red","f_left_red.webp",139,176,115,87,182.9,216.6,255],["left_orange","f_left_orange.webp",190,270,146,248,259.0,395.9,510],["blue_arc_top","f_blue_arc_top.webp",798,1,122,199,844.1,93.9,192],["yellow_tri","f_yellow_tri.webp",827,116,155,193,911.3,221.4,301],["blue_top","f_blue_top.webp",917,178,211,236,1012.4,286.1,406],["blue_crescent","f_blue_crescent.webp",622,525,412,425,779.5,668.6,942],["red_burst","f_red_burst.webp",1069,500,133,148,1134.3,572.4,640],["yellow_left","f_yellow_left.webp",431,339,84,86,471.3,382.6,417],["yellow_oval","f_yellow_oval.webp",14,477,74,98,51.2,525.4,567],["oval_top","f_oval_top.webp",1399,50,176,155,1487.0,127.5,197],["cerulean_band","f_cerulean_band.webp",1491,233,365,91,1667.6,285.0,316],["red_crescent","f_red_crescent.webp",1727,37,153,233,1792.7,134.5,262],["yellow_tri_right","f_yellow_tri_right.webp",1310,302,132,148,1365.8,391.1,442],["purple_band","f_purple_band.webp",1217,64,196,177,1331.6,121.2,233],["blue_circle","f_blue_circle.webp",2139,373,137,109,2210.8,428.3,474],["crimson_cap","f_crimson_cap.webp",2010,502,210,159,2131.6,567.8,653],["mauve_tile","f_mauve_tile.webp",1459,469,115,115,1516.8,536.2,576],["pink_saddle","f_pink_saddle.webp",1381,633,237,136,1512.1,692.7,761],["crimson_splash","f_crimson_splash.webp",416,943,299,274,532.8,1102.9,1209],["red_zigzag","f_red_zigzag.webp",517,1251,333,306,692.1,1446.4,1549],["green_bug","f_green_bug.webp",299,1102,117,112,352.3,1160.2,1206],["salmon_disc","f_salmon_disc.webp",157,1183,147,110,220.0,1231.8,1285],["brown_block","f_brown_block.webp",277,875,104,128,330.3,933.7,995],["red_halfmoon","f_red_halfmoon.webp",1393,906,186,184,1490.6,995.9,1082],["sky_patch","f_sky_patch.webp",1636,897,218,153,1749.1,968.1,1042],["white_disc","f_white_disc.webp",1174,1183,113,130,1231.3,1251.1,1305],["blue_low","f_blue_low.webp",1265,1133,90,98,1311.9,1178.8,1223],["red_low","f_red_low.webp",1250,1234,86,98,1296.9,1291.3,1324],["green_comb","f_green_comb.webp",1297,868,113,101,1352.0,927.4,961],["yellow_wedge","f_yellow_wedge.webp",2083,946,115,88,2144.4,988.6,1026],["maroon_pod","f_maroon_pod.webp",1804,978,58,84,1830.2,1020.0,1054],["blue_mid","f_blue_mid.webp",1063,1229,125,155,1116.3,1313.3,1376]],"hero":{"id":"oval_top","file":"f_oval_top.webp","x":1399,"y":50,"c":[88.0,77.4],"ang":2.4743,"phiEnd":0.6673,"rs":[96.0,90.0,77.5,64.0,55.5,53.5,51.5,53.0,62.5,70.0,77.0,90.5,91.0,85.5,82.5,66.0,56.0,51.0,47.5,48.0,55.0,69.5,79.0,85.0]},"watch":{"file":"watch_branch.webp","x":547,"y":277,"w":245,"h":319,"c":[124.4,115.3],"rt":[114.5,113.0,115.0,123.5,148.5,206.5,151.5,169.0,139.0,131.0,122.5,119.0,120.0,125.5,135.5,133.0,123.5,103.5,99.0,105.5,123.5,145.0,130.5,120.5]},"tree":{"file":"tree.webp","x":99,"y":114},"form":{"file":"form.webp","x":756,"y":725,"w":1046,"h":523},"watch_form":{"file":"watch_form.webp","x":883,"y":779,"w":276,"h":222},"watch_table":{"file":"watch_table.webp","x":211,"y":763,"w":382,"h":455},"watch_ants":{"file":"watch_ants.webp","x":29,"y":990,"w":309,"h":248},"horizon":{"y":333.5,"note":"sea/sky line, flat across the painting"},"light":{"from":"right, low (evening); foreground ground lies in a large shadow, distant plain and cliffs sunlit","vector":[-0.95,0.3],"skyGlowX":411,"note":"vector = direction light travels in image px (toward left, slightly down). NB the room plan says \u659c\u9633\u4ece\u5de6\u8fb9 \u2014 in the painting cast shadows fall to the LEFT (table watch crown, pocket watch crown, tree roots), i.e. light comes from the right."},"match":{"note":"Kandinsky coords in rooms/avantgarde main px (2400x1594), Dal\u00ed coords in this main px (2000x1446). dist = centre distance in frame widths after mapping both frames onto the same rectangle (u=x/W, v=y/H).","primary":{"kandinsky":{"id":"oval_top","name":"\u9876\u90e8\u540c\u5fc3\u692d\u5706","file":"f_oval_top.webp","center":[1486.6,127.7],"rx":48.1,"ry":91.8,"angle":51.4,"bbox":[1407,58,160,139]},"dali":{"id":"watch_branch","center":[671.4,412.9],"bbox":[547,277,245,319],"hang":[672,286],"hangEdge":[[560,300],[785,294]],"droop":[712,592]},"dist":0.32,"why":"the only true concentric circle in Composition VII (red ring + white centre) \u2014 reads as a dial: ring -> rim, white centre -> face. It sits high (top centre) and travels left-down about 1/3 frame to fall over the branch; the travel itself is the \"softening and hanging\". Nearest round-ish form to this watch is yellow_tri (dist 0.12, but it reads as a yellow blob, not a circle) \u2014 use it if the shortest path matters more than the circle reading."},"others":[{"kandinsky":{"id":"red_halfmoon","name":"\u7ea2\u8272\u534a\u6708","file":"f_red_halfmoon.webp","center":[1490.2,995.5],"rx":57.7,"ry":98.6,"angle":43.7,"bbox":[1401,914,170,168]},"dali":{"id":"watch_form","center":[1051.1,872.6],"bbox":[883,779,276,222],"hangEdge":[[930,852],[1140,800]],"droop":[1120,997]},"dist":0.1,"why":"closest pair overall; rounded half-disc -> watch saddled on the soft form (alt: white_disc, dist 0.13, truest circle)"},{"kandinsky":{"id":"salmon_disc","name":"\u9c91\u7ea2\u5706\u6591","file":"f_salmon_disc.webp","center":[223.5,1235.0],"rx":30.2,"ry":66.6,"angle":126.4,"bbox":[165,1191,131,94]},"dali":{"id":"watch_ants","center":[177.8,1114.7],"bbox":[29,990,309,248],"rest":[177.8,1114.7]},"dist":0.01,"why":"almost the same spot and a warm orange-red disc -> the orange pocket watch"},{"kandinsky":{"id":"green_bug","name":"\u7eff\u8272\u5c0f\u866b","file":"f_green_bug.webp","center":[352.2,1160.5],"rx":27.0,"ry":59.7,"angle":44.8,"bbox":[307,1110,101,96]},"dali":{"id":"watch_table","center":[448.0,923.2],"bbox":[211,763,382,455],"hangEdge":[[568,770],[460,1000]],"droop":[534,1214]},"dist":0.1,"why":"nearest roundish form to the watch on the platform"}],"alt":{"kandinsky":{"id":"yellow_tri","name":"\u7ea2\u70b9\u9ec4\u4e09\u89d2","file":"f_yellow_tri.webp","center":[910.4,218.5],"rx":62.2,"ry":79.8,"angle":16.2,"bbox":[835,124,139,177]},"dali":{"id":"watch_branch","center":[671.4,412.9],"bbox":[547,277,245,319],"hang":[672,286],"hangEdge":[[560,300],[785,294]],"droop":[712,592]},"dist":0.12}}}/*END*/;
+var D=13.5, KW=2400, KH=1594, PW=2000, PH=1446;
+var HZ=333/PH;                                   // Dalí's horizon (sky meets sea), fraction of the picture height
+var T={swapIn:[0.45,0.95], fromX:[0.3,1.4], fall:[1.0,3.9], rect:[1.0,3.9], wall:[1.2,3.6], ground:[3.0,4.5], tree:[3.3,4.7],
+  sun:[4.3,5.9], lower:[4.3,9.6], sink:[6.6,9.0], drift:[7.4,9.5], droop:[9.3,11.1], swap:[10.8,11.8],
+  paint:[12.3,13.2], shOut:[10.6,12.1], sunOut:[11.0,12.8], title:12.0, ink:2.4, heroOut:[12.9,13.4]};
+// Dalí's other things (drawn over his plate in the painting's own order): they come up where the forms sink
+var OBJ=['form','watch_form','watch_table','watch_ants'],OBJT=[[11.0,12.5],[11.4,12.7],[11.1,12.5],[11.4,12.7]];
+var LMAX=2.2, LY=0.27;                           // shadow length per unit of height above the ground (to the left), and its slant toward the viewer
+var SHC='26,15,6';                               // Dalí's shadows are a deep warm brown
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function eo(x){x=clamp(x);return 1-Math.pow(1-x,3);}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function backOut(x,s){x=clamp(x);var c=s+1;return 1+c*Math.pow(x-1,3)+s*Math.pow(x-1,2);}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[0,0,0];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function mixc(a,b,u){return 'rgb('+[0,1,2].map(function(i){return Math.round(lerp(a[i],b[i],u));}).join(',')+')';}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!(im&&(im.naturalWidth||im.width)>0);}
+// the camera: 1 → ZM about the branch (where the watch will hang) and back, so the one moment is seen large; the frame never moves
+var ZM=1.3,ZIN=[8.0,9.9],ZOUT=[11.5,13.0];
+function zoom(R,t){var z=1+(ZM-1)*(eio(seg(t,ZIN))-eio(seg(t,ZOUT)));if(z<=1.0001)return R;var fx=R.x+R.w*671/PW,fy=R.y+R.h*420/PH;
+  return{x:fx-(fx-R.x)*z,y:fy-(fy-R.y)*z,w:R.w*z,h:R.h*z,fp:R.fp};}
+function lrect(a,b,u){return{x:lerp(a.x,b.x,u),y:lerp(a.y,b.y,u),w:lerp(a.w,b.w,u),h:lerp(a.h,b.h,u),fp:lerp(a.fp||0,b.fp||0,u)};}
+
+// ---------------------------------------------------------------- the DOM rest look (index.html): .wash, frame shadows and decorations, paintArt's resampling
+function wash(g,W,H,r,light,a){if(a<=0)return;g.save();g.translate(r.x+r.w/2,r.y+r.h/2);g.scale(.7*W,.6*H);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)');gr.addColorStop(.7,light?'rgba(255,255,255,0)':'rgba(255,244,225,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();}
+var SHADOW={none:[26,60,-26,.6],white:[22,50,-22,.45],gilt:[28,70,-24,.8],stone:[24,60,-24,.7]};
+function shadowCache(dpr,r,style){var sp=SHADOW[style]||SHADOW.none,fp=style&&style!=='none'&&style!=='fade'?(r.fp||0):0;r={x:r.x-fp,y:r.y-fp,w:r.w+2*fp,h:r.h+2*fp};
+  var oy=sp[0],blur=sp[1],spread=sp[2],M=Math.ceil(1.6*blur+oy+4),X0=r.x-spread-M,Y0=r.y-spread-M,X1=r.x+r.w+spread+M,Y1=r.y+r.h+spread+M;
+  var dx=Math.floor(X0*dpr),dy=Math.floor(Y0*dpr),c=cv(Math.ceil(X1*dpr)-dx,Math.ceil(Y1*dpr)-dy),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,-dx,-dy);
+  q.shadowColor='#000';q.shadowBlur=blur*dpr;q.shadowOffsetX=1e5*dpr;q.shadowOffsetY=oy*dpr;q.fillStyle='#000';q.fillRect(r.x-spread-1e5,r.y-spread,r.w+2*spread,r.h+2*spread);
+  return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr,r:r,a:sp[3],fpu:fp>0};}
+// the rest rect's shadow, carried to the moving window rc
+function drawShadow(g,sh,a,rc){if(!sh||a<=0)return;g.save();g.globalAlpha=a*sh.a;if(rc){var fp=sh.fpu?(rc.fp||0):0,fx=rc.x-fp,fy=rc.y-fp,sx=(rc.w+2*fp)/sh.r.w,sy=(rc.h+2*fp)/sh.r.h;
+  g.translate(fx,fy);g.scale(sx,sy);g.translate(-sh.r.x,-sh.r.y);}g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
+function frameDeco(g,r,style,a){var fp=r.fp||0;if(!fp||a<=0||style==='none'||style==='fade')return;var x=r.x-fp,y=r.y-fp,w=r.w+2*fp,h=r.h+2*fp;
+  g.save();g.globalAlpha=a;
+  if(style==='gilt'){var an=160*Math.PI/180,dx=Math.sin(an),dy=-Math.cos(an),L=Math.abs(w*dx)+Math.abs(h*dy),cx=x+w/2,cy=y+h/2;
+    var gr=g.createLinearGradient(cx-dx*L/2,cy-dy*L/2,cx+dx*L/2,cy+dy*L/2);gr.addColorStop(0,'#6d5230');gr.addColorStop(.55,'#3a2a14');gr.addColorStop(1,'#5c4424');
+    g.fillStyle='#1c1409';g.fillRect(x,y,w,h);g.fillStyle='#7a5e35';g.fillRect(x+1,y+1,w-2,h-2);g.fillStyle='#241a0c';g.fillRect(x+5,y+5,w-10,h-10);g.fillStyle=gr;g.fillRect(x+6,y+6,w-12,h-12);}
+  else if(style==='white'){g.fillStyle='rgba(0,0,0,.07)';g.fillRect(x,y,w,h);g.fillStyle='#f2f0eb';g.fillRect(x+1,y+1,w-2,h-2);g.fillStyle='rgba(0,0,0,.08)';g.fillRect(x+9,y+9,w-18,h-18);g.fillStyle='#f2f0eb';g.fillRect(x+10,y+10,w-20,h-20);}
+  else if(style==='stone'){var gs=g.createLinearGradient(0,y,0,y+h);gs.addColorStop(0,'#5b554c');gs.addColorStop(1,'#3f3a33');g.fillStyle='rgba(0,0,0,.4)';g.fillRect(x,y,w,h);g.fillStyle=gs;g.fillRect(x+1,y+1,w-2,h-2);}
+  g.restore();}
+function artCanvas(im,r,dpr,fade){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*(im.naturalHeight||1)/(im.naturalWidth||1)),c=cv(w,h),q=c.getContext('2d');if(ok(im))q.drawImage(im,0,0,w,h);
+  if(fade){var m=q.createRadialGradient(0,0,0,0,0,1);m.addColorStop(0,'#000');m.addColorStop(.62,'#000');m.addColorStop(1,'rgba(0,0,0,0)');
+    q.globalCompositeOperation='destination-in';q.save();q.translate(w/2,h/2);q.scale(w*.58,h*.60);q.fillStyle=m;q.fillRect(-1/.58,-1/.6,2/.58,2/.6);q.restore();}
+  return c;}
+
+// ---------------------------------------------------------------- geometry
+function geo(ctx){var W=ctx.W,H=ctx.H,R1=ctx.to.rect,R0=ctx.from?ctx.from.rect:null,S=ctx.state;
+  var k=[W,H,ctx.dpr,R1.x,R1.y,R1.w,R1.h,R0?[R0.x,R0.y,R0.w,R0.h].join():''].join('/');if(S.G&&S.G.key===k)return S.G;
+  var G={key:k,W:W,H:H,R1:R1,dpr:ctx.dpr||1};
+  G.R0=R0||{x:R1.x+(R1.w-R1.h*KW/KH)/2,y:R1.y,w:R1.h*KW/KH,h:R1.h,fp:R1.fp};
+  return(S.G=G);}
+// Kandinsky px / Dalí px → screen, in the window r
+function kx(r,x){return r.x+x*r.w/KW;} function ky(r,y){return r.y+y*r.h/KH;}
+function dx(r,x){return r.x+x*r.w/PW;} function dy(r,y){return r.y+y*r.h/PH;}
+
+// the fallen picture plane: rotation a about its bottom edge, seen from eye height ye (the horizon), focal length F
+function planeRow(r,a,ye,F,s){var z=s*r.h*Math.sin(a),yw=r.y+r.h-s*r.h*Math.cos(a),q=F/(F+z);return{y:ye+(yw-ye)*q,q:q};}
+function drawPlane(g,r,src,a,alpha,shade,S,dpr){if(alpha<=0||!src)return;var sw=src.width,sh=src.height;
+  var ye=r.y+HZ*r.h,F=r.h*.62,xc=r.x+r.w/2,N=90,top=planeRow(r,a,ye,F,1),y0c=Math.floor(top.y)-1,hC=Math.ceil(r.y+r.h-y0c)+1,
+    P=S.P,q=S.Pq,ox=Math.floor(r.x*dpr)/dpr,wP=Math.ceil(r.w*dpr)+3,hP=Math.ceil(hC*dpr)+2;   // P lands on whole device pixels: no extra resampling
+  if(P.width<wP||P.height<hP){P.width=Math.max(P.width,wP);P.height=Math.max(P.height,hP);}
+  q.setTransform(1,0,0,1,0,0);q.clearRect(0,0,wP,hP);q.setTransform(dpr,0,0,dpr,-ox*dpr,-y0c*dpr);
+  q.save();q.beginPath();q.moveTo(r.x,r.y+r.h);q.lineTo(r.x+r.w,r.y+r.h);q.lineTo(xc+r.w*top.q/2,top.y);q.lineTo(xc-r.w*top.q/2,top.y);q.closePath();q.clip();
+  var prev=planeRow(r,a,ye,F,0);
+  for(var i=0;i<N;i++){var s1=(i+1)/N,cur=planeRow(r,a,ye,F,s1),qm=(prev.q+cur.q)/2,w=r.w*qm+2,v0=(1-s1)*sh,v1=(1-i/N)*sh;
+    var y0=cur.y,y1=prev.y+.6;if(y1>y0)q.drawImage(src,0,v0,sw,v1-v0,xc-w/2,y0,w,y1-y0);prev=cur;}
+  // the plane turns away from the viewer: it darkens a little as it falls
+  if(shade>0){q.fillStyle='rgba(27,18,10,'+shade.toFixed(3)+')';q.fillRect(r.x,y0c,r.w,hC);}
+  q.restore();
+  g.save();g.globalAlpha=alpha;g.drawImage(P,0,0,wP,hP,ox,y0c,wP/dpr,hP/dpr);g.restore();}
+
+// ---------------------------------------------------------------- forms: sprites (lit / shadow), placement, foot points on Dalí's plain
+function spriteSet(im){var w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
+  var lit=cv(w,h),q=lit.getContext('2d');q.drawImage(im,0,0);q.globalCompositeOperation='source-atop';
+  var gr=q.createLinearGradient(0,0,w,0);gr.addColorStop(0,'rgba(24,12,4,.42)');gr.addColorStop(.38,'rgba(24,12,4,.05)');gr.addColorStop(.55,'rgba(255,214,150,.06)');gr.addColorStop(1,'rgba(255,214,150,.30)');
+  q.fillStyle=gr;q.fillRect(0,0,w,h);
+  var sd=cv(w,h),r=sd.getContext('2d');r.drawImage(im,0,0);r.globalCompositeOperation='source-in';r.fillStyle='rgb('+SHC+')';r.fillRect(0,0,w,h);
+  return{lit:lit,sd:sd,w:w,h:h};}
+// the ground point under a form (fraction of the picture height): high forms float far above a far-off spot, low ones hover near the front
+function footV(bv){var base=HZ+(1-HZ)*(.14+.86*bv*bv);return Math.min(.975,Math.max(bv+.035,base));}
+
+// ---------------------------------------------------------------- the hero circle: a ring mesh (N rays × rings) from Kandinsky's disc to Dalí's draped watch
+var RINGS=[0,.42,.78,1,1.14];
+function triMap(s,d){var x0=s[0][0],y0=s[0][1],x1=s[1][0]-x0,y1=s[1][1]-y0,x2=s[2][0]-x0,y2=s[2][1]-y0,det=x1*y2-x2*y1;if(Math.abs(det)<1e-9)return null;
+  var u1=d[1][0]-d[0][0],v1=d[1][1]-d[0][1],u2=d[2][0]-d[0][0],v2=d[2][1]-d[0][1];
+  var a=(u1*y2-u2*y1)/det,c=(u2*x1-u1*x2)/det,b=(v1*y2-v2*y1)/det,e=(v2*x1-v1*x2)/det;return[a,b,c,e,d[0][0]-a*x0-c*y0,d[0][1]-b*x0-e*y0];}
+function buildMesh(){var H=DATA.hero,Wt=DATA.watch,N=H.rs.length,V=[],tris=[];
+  // vertex: [ring, ray]; src K (form-local px), src D (watch-local px), ang (world)
+  V.push({f:0,j:-1,sk:[H.c[0],H.c[1]],sd:[Wt.c[0],Wt.c[1]],lk:[0,0],ld:[0,0]});
+  for(var r=1;r<RINGS.length;r++)for(var j=0;j<N;j++){var f=RINGS[r],psi=2*Math.PI*j/N,ak=psi-H.phiEnd,rk=f*H.rs[j],rd=f*Wt.rt[j];
+    V.push({f:f,j:j,sk:[H.c[0]+Math.cos(ak)*rk,H.c[1]+Math.sin(ak)*rk],sd:[Wt.c[0]+Math.cos(psi)*rd,Wt.c[1]+Math.sin(psi)*rd],
+      lk:[Math.cos(ak)*rk,Math.sin(ak)*rk],ld:[Math.cos(psi)*rd,Math.sin(psi)*rd]});}
+  function id(r,j){return r===0?0:1+(r-1)*N+((j%N)+N)%N;}
+  for(j=0;j<N;j++)tris.push([0,id(1,j),id(1,j+1)]);
+  for(r=1;r<RINGS.length-1;r++)for(j=0;j<N;j++){tris.push([id(r,j),id(r+1,j),id(r+1,j+1)]);tris.push([id(r,j),id(r+1,j+1),id(r,j+1)]);}
+  return{V:V,tris:tris,N:N};}
+function warp(q,img,src,dst,tris,off){
+  for(var i=0;i<tris.length;i++){var t=tris[i],s=[src[t[0]],src[t[1]],src[t[2]]],d=[dst[t[0]],dst[t[1]],dst[t[2]]].map(function(p){return[(p[0]-off.x)*off.k,(p[1]-off.y)*off.k];});
+    var m=triMap(s,d);if(!m)continue;var cx=(d[0][0]+d[1][0]+d[2][0])/3,cy=(d[0][1]+d[1][1]+d[2][1])/3;q.save();q.beginPath();
+    d.forEach(function(p,k){var ex=p[0]-cx,ey=p[1]-cy,n=Math.hypot(ex,ey)||1,x=p[0]+ex/n*.9,y=p[1]+ey/n*.9;if(k)q.lineTo(x,y);else q.moveTo(x,y);});q.closePath();q.clip();
+    q.setTransform(m[0],m[1],m[2],m[3],m[4],m[5]);var iw=img.width,ih=img.height,
+      sx=Math.max(0,Math.floor(Math.min(s[0][0],s[1][0],s[2][0]))-2),sy=Math.max(0,Math.floor(Math.min(s[0][1],s[1][1],s[2][1]))-2),
+      sx2=Math.min(iw,Math.ceil(Math.max(s[0][0],s[1][0],s[2][0]))+2),sy2=Math.min(ih,Math.ceil(Math.max(s[0][1],s[1][1],s[2][1]))+2);
+    if(sx2>sx&&sy2>sy)q.drawImage(img,sx,sy,sx2-sx,sy2-sy,sx,sy,sx2-sx,sy2-sy);q.restore();}}
+
+// the hero's pose before it drapes: centre, rotation and scale (Kandinsky px → screen) at time t
+function heroPose(t,G,R){var H=DATA.hero,Wt=DATA.watch,u=seg(t,T.drift),e=eio(u);
+  var k0=R.h/KH,c0=[kx(R,H.x+H.c[0]),ky(R,H.y+H.c[1])];
+  var kd=R.w/PW,half=.5*(H.rs[0]+H.rs[H.rs.length/2]),k1=(.5*(Wt.rt[0]+Wt.rt[Wt.rt.length/2])*kd)/half;
+  // it comes to rest on the branch: its top edge on the watch's top line
+  var top=Wt.y+wTop(),c1=[dx(R,Wt.x+Wt.c[0]),dy(R,top)+k1*H.rs[3*H.rs.length/4]];
+  var arc=Math.sin(Math.PI*u)*R.h*.05;                   // a slow float: it rises a little before it settles
+  return{c:[lerp(c0[0],c1[0],e),lerp(c0[1],c1[1],e)-arc],phi:H.phiEnd*eio(seg(t,[T.drift[0]+.2,T.drift[1]])),k:Math.exp(lerp(Math.log(k0),Math.log(k1),e)),c1:c1,k1:k1};}
+function wTop(){var Wt=DATA.watch,m=1e9;for(var j=0;j<Wt.rt.length;j++){var y=Wt.c[1]+Math.sin(2*Math.PI*j/Wt.rt.length)*Wt.rt[j];if(y<m)m=y;}return m+4;}
+
+var MOD={
+  duration:D,musicAt:.86,
+  assets:['cut/plate.webp','cut/tree.webp','cut/watch_branch.webp','t_branch.webp'].concat(OBJ.map(function(k){return 'cut/'+k+'.webp';})),
+  fromAssets:['cut/plate.webp'].concat((DATA.forms||[]).map(function(f){return 'cut/'+f[1];})),
+  init:function(ctx){var S=ctx.state;S.kPlate=ctx.fromAsset('cut/plate.webp');S.dPlate=ctx.asset('cut/plate.webp');S.tree=ctx.asset('cut/tree.webp');S.watch=ctx.asset('cut/watch_branch.webp');S.bridge=ctx.asset('t_branch.webp');S.obj=OBJ.map(function(k){return ctx.asset('cut/'+k+'.webp');});
+    S.forms=(DATA.forms||[]).map(function(f){return{id:f[0],im:ctx.fromAsset('cut/'+f[1]),x:f[2],y:f[3],w:f[4],h:f[5],cx:f[6],cy:f[7],bv:f[8]/KH,sp:null};});
+    S.hero=null;S.forms.forEach(function(F){if(F.id===DATA.hero.id)S.hero=F;});
+    S.mesh=buildMesh();S.P=cv(8,8);S.Pq=S.P.getContext('2d');S.O=cv(8,8);S.Oq=S.O.getContext('2d');S.O2=cv(8,8);S.O2q=S.O2.getContext('2d');
+    var rnd=EH.util.rng(1931);S.forms.forEach(function(F){F.d=rnd();});
+    S.caches=null;S.jobs=[];
+    // pre-render in small tasks (sprites for the forms, the art canvases), then a warm-up pass over the draw paths
+    S.forms.forEach(function(F){S.jobs.push(function(){if(ok(F.im))F.sp=spriteSet(F.im);});});
+    S.jobs.push(function(){ensure(ctx,S);});
+    S.jobs.push(function(){var w=S.watch;if(ok(w)){var c=cv(w.naturalWidth,w.naturalHeight);c.getContext('2d').drawImage(w,0,0);S.watchC=c;
+      var d=cv(w.naturalWidth,w.naturalHeight),q=d.getContext('2d');q.drawImage(w,0,0);q.globalCompositeOperation='source-in';q.fillStyle='rgb('+SHC+')';q.fillRect(0,0,d.width,d.height);S.watchSd=d;}});
+    runJobs(S,function(){warmUp(ctx,S);});},
+  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,G=geo(ctx),R0=G.R0,R1=ctx.to.rect,F=ctx.from;ensure(ctx,S);var C=S.caches;
+    var warm=S.warm;
+    if(!warm){fromLayers(ctx,1-sm(seg(t,T.fromX)));
+      var ink=t<T.ink?(F?F.ink:ctx.to.ink):ctx.to.ink;if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}
+      ctx.ui.title(ctx.to.idx,t>=T.title);}
+    // ===== hand-over: exactly the hung painting
+    if(t>=D-1e-6){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink==='dark',1);drawShadow(g,C.shTo,1,null);frameDeco(g,R1,ctx.to.frame,1);g.drawImage(C.toArt,R1.x,R1.y,R1.w,R1.h);return;}
+    // ===== the room: wall, wash, the frame's shadow and decoration follow the window
+    var wl=sm(seg(t,T.wall)),er=eio(seg(t,T.rect)),R=lrect(R0,R1,er);
+    g.fillStyle=F?mixc(hex(F.wall),hex(ctx.to.wall),wl):ctx.to.wall;g.fillRect(0,0,W,H);
+    if(F){wash(g,W,H,R,F.ink==='dark',1-wl);if(F.frame!=='fade')drawShadow(g,C.shFr,1-wl,R);frameDeco(g,R,F.frame,1-wl);}
+    wash(g,W,H,R,ctx.to.ink==='dark',F?wl:1);if(ctx.to.frame!=='fade')drawShadow(g,C.shTo,F?wl:1,R);frameDeco(g,R,ctx.to.frame,F?wl:1);
+    // ===== p ≈ 0: the hung Composition VII itself (and the previous room's rest extras)
+    var fa=F?1-sm(seg(t,T.swapIn)):0;
+    if(fa>=1){g.drawImage(C.fromArt,R0.x,R0.y,R0.w,R0.h);fromRest(ctx,g,R0,1);return;}
+    g.save();g.beginPath();g.rect(R.x,R.y,R.w,R.h);g.clip();
+    R=zoom(R,t);   // a slow push toward the branch for the moment the circle softens, and back
+    // ===== 1. Dalí's empty stage behind, the Kandinsky ground falling back onto it
+    var dp=S.dPlate;if(ok(dp))g.drawImage(dp,R.x,R.y,R.w,R.h);else{g.fillStyle='#3b2a17';g.fillRect(R.x,R.y,R.w,R.h);}
+    var a=Math.PI/2*eio(seg(t,T.fall)),gA=1-sm(seg(t,T.ground));
+    drawPlane(g,R,C.kPlate,a,gA,.28*Math.sin(a),S,ctx.dpr||1);
+    // ===== 2. the low sun: a light front sweeps in from the right; each form it reaches gets a lit side and a long shadow
+    var sunU=seg(t,T.sun),front=R.x+R.w*1.15-sunU*R.w*1.35,sunOut=1-sm(seg(t,T.sunOut)),shOut=1-sm(seg(t,T.shOut)),Lx=LMAX*(.62+.38*eio(seg(t,T.lower)));
+    var hz=R.y+HZ*R.h,shore=R.y+R.h*446/PH,paint=sm(seg(t,T.paint));   // shadows fall on the plain, not on the sea
+    if(sunU>0&&sunOut>0){// the warm light on the plain and the sky's glow low on the right, reaching as far as the front
+      g.save();g.globalCompositeOperation='lighter';var lf=sm(seg(t,[T.sun[0],T.sun[0]+.9]))*sunOut*(1-.6*paint),dusk=1-.45*sm(seg(t,[7.5,11.5]));
+      var gr=g.createLinearGradient(front+R.w*.35,0,front,0);gr.addColorStop(0,'rgba(150,92,34,'+(.30*lf*dusk).toFixed(3)+')');gr.addColorStop(1,'rgba(150,92,34,0)');
+      var fx0=Math.max(R.x,front),sy=R.y+R.h*446/PH;g.fillStyle=gr;g.fillRect(fx0,sy,Math.max(0,R.x+R.w-fx0),R.y+R.h-sy);
+      var rg=g.createRadialGradient(R.x+R.w,hz,0,R.x+R.w,hz,R.w*.75);rg.addColorStop(0,'rgba(255,190,110,'+(.22*lf).toFixed(3)+')');rg.addColorStop(1,'rgba(255,190,110,0)');
+      g.fillStyle=rg;g.fillRect(R.x,R.y,R.w,R.h);g.restore();}
+    var tr=DATA.tree,ta=sm(seg(t,T.tree));if(ta>0&&ok(S.tree)){g.globalAlpha=ta;g.drawImage(S.tree,dx(R,tr.x),dy(R,tr.y),S.tree.naturalWidth*R.w/PW,S.tree.naturalHeight*R.h/PH);
+      // the branch where the watch will hang (not painted there): until the watch covers it
+      var bz=ta*(1-sm(seg(t,T.swap)));if(bz>0&&ok(S.bridge)){g.globalAlpha=bz;g.drawImage(S.bridge,dx(R,548),dy(R,286),S.bridge.naturalWidth*R.w/PW,S.bridge.naturalHeight*R.h/PH);}g.globalAlpha=1;}
+    // ===== 3. the painting's own things come up (the forms dissolve into it)
+    for(var o=0;o<OBJ.length;o++){var oa=sm(seg(t,OBJT[o])),oi=S.obj[o],od=DATA[OBJ[o]];if(oa>0&&ok(oi)&&od){g.globalAlpha=oa;g.drawImage(oi,dx(R,od.x),dy(R,od.y),od.w*R.w/PW,od.h*R.h/PH);}}g.globalAlpha=1;
+    if(paint>0){g.globalAlpha=paint;g.drawImage(C.toArt,R.x,R.y,R.w,R.h);g.globalAlpha=1;}
+    // shadows (on the plain only) and forms
+    var k=R.h/KH,hero=S.hero,lit=[],list=S.forms;
+    if(sunU>0&&shOut>0){g.save();g.beginPath();g.rect(R.x,shore,R.w,R.y+R.h-shore);g.clip();
+      for(var i=0;i<list.length;i++){var Fm=list[i];if(Fm===hero||!Fm.sp)continue;var X=kx(R,Fm.cx)-(Fm.cx-Fm.x)*k,Y=ky(R,Fm.cy)-(Fm.cy-Fm.y)*k,la=reach(front,X,Fm.w*k,R);
+        if(la<=0)continue;var fy=R.y+footV(Fm.bv)*R.h,sk=sinkAt(t,Fm),dy0=sk*(fy-(Y+Fm.h*k*.97)),L=Lx*(.35+.65*la);
+        g.save();g.globalAlpha=.78*la*shOut*(1-sk);g.transform(1,0,L,-LY,-fy*L,fy*(1+LY));g.drawImage(Fm.sp.sd,X,Y+dy0,Fm.w*k,Fm.h*k);g.restore();}
+      g.restore();}
+    for(i=0;i<list.length;i++){Fm=list[i];if(Fm===hero)continue;var fk=1-sm(seg(sinkAt(t,Fm),[.35,1]));if(fk<=0)continue;
+      X=kx(R,Fm.cx)-(Fm.cx-Fm.x)*k;Y=ky(R,Fm.cy)-(Fm.cy-Fm.y)*k;fy=R.y+footV(Fm.bv)*R.h;sk=sinkAt(t,Fm);dy0=eio(sk)*(fy-(Y+Fm.h*k*.97));
+      la=Fm.sp?reach(front,X,Fm.w*k,R)*sunOut:0;g.globalAlpha=fk;if(la<.999)g.drawImage(Fm.im,X,Y+dy0,Fm.w*k,Fm.h*k);
+      if(la>0){g.globalAlpha=fk*(la<.999?la:1);g.drawImage(Fm.sp.lit,X,Y+dy0,Fm.w*k,Fm.h*k);}g.globalAlpha=1;}
+    // ===== 4. the circle: drifts to the branch, settles, softens and drapes — the soft watch
+    if(hero)drawHero(ctx,g,S,R,t,front,Lx,shore,shOut,sunOut);
+    g.restore();
+    // ===== the hung Composition VII over it all at the very start (an invisible swap to the cut-outs)
+    if(fa>0){g.globalAlpha=fa;g.drawImage(C.fromArt,R0.x,R0.y,R0.w,R0.h);g.globalAlpha=1;fromRest(ctx,g,R0,fa);}
+    else if(F&&t<T.fromX[1])fromRest(ctx,g,R,1-sm(seg(t,T.fromX)));
+  },
+  done:function(ctx){fromLayers(ctx,1);},
+  rest:function(ctx){}
+};
+// light reaching a form (the sun is low on the right): 0 before the front, 1 once it has passed the form's right third
+function reach(front,X,w,R){return sm((X+w-front)/(w*.5+R.w*.06));}
+// each form sinks onto its shadow at its own moment during T.sink (0 → 1)
+function sinkAt(t,F){var a=T.sink[0]+(1-F.cx/KW)*.75+F.d*.35,b=a+(T.sink[1]-T.sink[0])-1.1;return seg(t,[a,b]);}
+
+function drawHero(ctx,g,S,R,t,front,Lx,hz,shOut,sunOut){var Hm=S.hero,M=S.mesh,H=DATA.hero,Wt=DATA.watch,dpr=ctx.dpr||1;
+  var P=heroPose(t,{},R),m=seg(t,T.droop),xf=sm(seg(t,T.swap)),ho=1-sm(seg(t,T.heroOut));if(ho<=0)return;
+  var la=Hm.sp?reach(front,P.c[0]-P.k*H.rs[0],P.k*2*H.rs[0],R)*sunOut:0;
+  var fy0=R.y+footV(Hm.bv)*R.h,fy1=dy(R,.52*PH),fy=lerp(fy0,fy1,eio(seg(t,T.drift)));
+  if(m<=0){// rigid: one transformed image (and its shadow)
+    var cs=Math.cos(P.phi)*P.k,sn=Math.sin(P.phi)*P.k,A=[cs,sn,-sn,cs,P.c[0]-(cs*(H.c[0])-sn*(H.c[1])),P.c[1]-(sn*(H.c[0])+cs*(H.c[1]))];
+    if(la>0&&shOut>0){g.save();g.beginPath();g.rect(R.x,hz,R.w,R.y+R.h-hz);g.clip();g.globalAlpha=.78*la*shOut;g.transform(1,0,Lx,-LY,-fy*Lx,fy*(1+LY));g.transform(A[0],A[1],A[2],A[3],A[4],A[5]);g.drawImage(Hm.sp.sd,0,0);g.restore();}
+    g.save();g.transform(A[0],A[1],A[2],A[3],A[4],A[5]);g.globalAlpha=ho;if(la<.999)g.drawImage(Hm.im,0,0);if(la>0){g.globalAlpha=ho*(la<.999?la:1);g.drawImage(Hm.sp.lit,0,0);}g.restore();return;}
+  // fully draped and fully Dalí's: the mesh is at rest on the watch's own place, so the watch itself is drawn (no per-triangle cost)
+  if(m>=1&&xf>=1&&ok(S.watch)){if(la>0&&shOut>0&&S.watchSd){g.save();g.beginPath();g.rect(R.x,hz,R.w,R.y+R.h-hz);g.clip();g.globalAlpha=.78*la*shOut;g.transform(1,0,Lx,-LY,-fy*Lx,fy*(1+LY));
+      g.drawImage(S.watchSd,dx(R,Wt.x),dy(R,Wt.y),Wt.w*R.w/PW,Wt.h*R.h/PH);g.restore();}
+    g.globalAlpha=ho;g.drawImage(S.watch,dx(R,Wt.x),dy(R,Wt.y),Wt.w*R.w/PW,Wt.h*R.h/PH);g.globalAlpha=1;return;}
+  // draped: every vertex moves from the resting disc to the watch; the parts that hang lowest flow last and sag a little past their place
+  var c1=P.c1,k1=P.k1,cs1=Math.cos(H.phiEnd)*k1,sn1=Math.sin(H.phiEnd)*k1,kd=R.w/PW,branchY=dy(R,Wt.y+wTop()),lowY=dy(R,Wt.y+Wt.h);
+  var dst=M.V.map(function(v){var sx=v.lk[0],sy=v.lk[1],p0=[c1[0]+cs1*sx-sn1*sy,c1[1]+sn1*sx+cs1*sy],p1=[dx(R,Wt.x+v.sd[0]),dy(R,Wt.y+v.sd[1])];
+    var dep=clamp((p1[1]-branchY)/Math.max(1,lowY-branchY)),u=clamp((m-.32*dep)/.68),e=lerp(eio(u),backOut(u,1.1),dep);
+    return[lerp(p0[0],p1[0],eio(u)),lerp(p0[1],p1[1],e)];});
+  var bx=1e9,by=1e9,bx2=-1e9,by2=-1e9;dst.forEach(function(q){bx=Math.min(bx,q[0]);by=Math.min(by,q[1]);bx2=Math.max(bx2,q[0]);by2=Math.max(by2,q[1]);});
+  bx=Math.floor(bx)-2;by=Math.floor(by)-2;var bw=Math.ceil(bx2)-bx+4,bh=Math.ceil(by2)-by+4,kq=dpr;
+  var need=[Math.ceil(bw*kq),Math.ceil(bh*kq)];if(S.O.width<need[0]||S.O.height<need[1]){S.O.width=S.O2.width=Math.max(S.O.width,need[0]);S.O.height=S.O2.height=Math.max(S.O.height,need[1]);}
+  var q=S.Oq,off={x:bx,y:by,k:kq};q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.clearRect(0,0,need[0]+2,need[1]+2);
+  var srcK=M.V.map(function(v){return v.sk;}),srcD=M.V.map(function(v){return v.sd;});
+  // Dalí's watch through the same mesh underneath; the Kandinsky paint on top gives way to it (no see-through halfway)
+  if(xf>0&&S.watchC){q.globalAlpha=Math.min(1,xf*3);warp(q,S.watchC,srcD,dst,M.tris,off);q.globalAlpha=1;}
+  if(xf<1){var ka=1-xf;q.globalAlpha=ka;if(la<.999||!Hm.sp)warp(q,Hm.im,srcK,dst,M.tris,off);if(la>0&&Hm.sp){q.globalAlpha=ka*(la<.999?la:1);warp(q,Hm.sp.lit,srcK,dst,M.tris,off);}q.globalAlpha=1;}
+  q.setTransform(1,0,0,1,0,0);
+  if(la>0&&shOut>0){var q2=S.O2q;q2.setTransform(1,0,0,1,0,0);q2.globalCompositeOperation='source-over';q2.clearRect(0,0,need[0]+2,need[1]+2);q2.drawImage(S.O,0,0);q2.globalCompositeOperation='source-in';q2.fillStyle='rgb('+SHC+')';q2.fillRect(0,0,need[0]+2,need[1]+2);q2.globalCompositeOperation='source-over';
+    g.save();g.beginPath();g.rect(R.x,hz,R.w,R.y+R.h-hz);g.clip();g.globalAlpha=.78*la*shOut;g.transform(1,0,Lx,-LY,-fy*Lx,fy*(1+LY));g.drawImage(S.O2,0,0,need[0],need[1],bx,by,need[0]/kq,need[1]/kq);g.restore();}
+  g.globalAlpha=ho;g.drawImage(S.O,0,0,need[0],need[1],bx,by,need[0]/kq,need[1]/kq);g.globalAlpha=1;}
+
+// the previous room's rest extras (if its module shares them) at p ≈ 0
+function fromRest(ctx,g,r,a){var f=window.EH_SHARED&&window.EH_SHARED.avantgardeRest;if(!f||a<=0)return;g.save();g.globalAlpha=a;try{f(g,{W:ctx.W,H:ctx.H,rect:r,dpr:ctx.dpr,t:0,alpha:a});}catch(e){}g.restore();}
+// the previous room's overlay layers (they stay up through this passage): fade them with the old picture, restore them afterwards
+var fadedLayers=[],watching=false,myIdx=-1;
+function fromLayers(ctx,a){myIdx=ctx.to.idx;var els=document.querySelectorAll('#room canvas.ovl');
+  for(var i=0;i<els.length;i++){var el=els[i];if(el.style.display==='none'&&fadedLayers.indexOf(el)<0)continue;var v=a>=1?'':a.toFixed(3);if(el.style.opacity!==v)el.style.opacity=v;if(v&&fadedLayers.indexOf(el)<0)fadedLayers.push(el);}
+  if(a>=1)fadedLayers=[];else watch();}
+function watch(){if(watching)return;watching=true;(function loop(){var st=window.EH&&EH.debug&&EH.debug.state;
+  if(!st||st.idx!==myIdx||st.phase!=='enter'){fadedLayers.forEach(function(el){el.style.opacity='';});fadedLayers=[];watching=false;return;}requestAnimationFrame(loop);})();}
+
+EH.transition('dada',MOD);
+window.EH_SHARED=window.EH_SHARED||{};
+window.EH_SHARED.dadaRest=function(g,o){};         // no rest extras: the next room starts from the plain hung painting
+
+// ---------------------------------------------------------------- caches (per layout), pre-render queue, warm-up
+function ensure(ctx,S){var G=geo(ctx),dpr=ctx.dpr||1,k=G.key;if(S.caches&&S.caches.key===k)return;var C={key:k},F=ctx.from;
+  C.toArt=artCanvas(ctx.to.image,ctx.to.rect,dpr,ctx.to.frame==='fade');C.shTo=shadowCache(dpr,ctx.to.rect,ctx.to.frame);
+  if(F){C.fromArt=artCanvas(F.image,F.rect,dpr,F.frame==='fade');C.shFr=shadowCache(dpr,F.rect,F.frame);}
+  // the Kandinsky ground at about the screen resolution of the window (the strips resample it)
+  var kp=S.kPlate;if(ok(kp)){var w=Math.min(KW,Math.round(Math.max(G.R0.w,ctx.to.rect.w)*dpr)),c=cv(w,Math.round(w*KH/KW));c.getContext('2d').drawImage(kp,0,0,c.width,c.height);C.kPlate=c;}
+  S.caches=C;}
+function runJobs(S,then){(function step(){var t0=performance.now();while(S.jobs.length&&performance.now()-t0<12){try{S.jobs.shift()();}catch(e){console.error(e);}}
+  if(S.jobs.length)setTimeout(step,0);else if(then)then();})();}
+// every draw path once on a scratch canvas, one phase per task: no frame of the passage pays a first-use cost
+function warmUp(ctx,S){var dpr=ctx.dpr||1,c=cv(ctx.W*dpr,ctx.H*dpr),q=c.getContext('2d'),w=Object.assign({},ctx,{g:q}),P=[.02,.06,.12,.2,.3,.4,.5,.6,.7,.75,.8,.86,.92,.97];
+  (function step(){if(!P.length){S.warm=null;return;}var p=P.shift();S.warm={g:q};try{q.setTransform(dpr,0,0,dpr,0,0);MOD.draw(p,w);}catch(e){}S.warm=null;setTimeout(step,16);})();}
+})();
+
+;
+/* 抽象表现主义 · 墙倒下，变成地板 — the passage from Dalí's Persistence of Memory (dada) into Pollock's Autumn Rhythm (Number 30).
+   One discovery: the dream plain tips over and becomes the canvas on the floor; paint flung from an invisible stick lands, and wherever
+   it lands Autumn Rhythm appears — layer by layer in the real order, along the real lines; then the canvas stands up onto the wall.
+   Beats (seconds of D, see T): the Dalí hangs as it rested; the camera eases towards its empty plain · the wall with the picture tips
+   back onto the floor (the thud), the camera cranes up and looks straight down: wall → floor; the dream drains and the plane becomes raw,
+   unstretched cotton duck that runs past every edge of the screen · THE MOMENT: one slow black fling across the canvas — under the wet
+   line the real black of Autumn Rhythm is there; a breath; two more; then faster and faster, layer after layer (order and lines from
+   rooms/abex/cut, the prep agent's technical layering); footprints of the painter now and then on the canvas round the picture · the
+   paint settles into the exact picture; the canvas stands up (it pivots on its near edge, the camera comes down to eye level), the
+   margins of raw canvas become the wall; hand-over. Portrait screens: the canvas lies across the phone and is turned on the floor
+   before it stands up (Pollock painted it from all four sides).
+   Rendering: the two perspective moves are one textured plane (+ the barn floor) in an offscreen WebGL2 canvas blitted onto the stage;
+   the pour is 2D: raw canvas + a paint canvas P that is a pure function of t — each stroke is revealed by stroking its real path with a
+   pattern of that layer's pixels (t_L*.webp = main.webp ∧ layer mask); forward playback adds only the new pieces, seeking back clears
+   P and replays everything up to t in one stroke() per layer and width. Init work is split into tasks; draw() never waits for it. */
+(function(){
+'use strict';
+/*DATA*/var DATA={"PW":2400,"PH":1223,"Q":8,"cot":[202,174,128],"L":[{"id":"black","file":"t_black.webp","c":[36,34,33]},{"id":"brown","file":"t_brown.webp","c":[137,105,65]},{"id":"white","file":"t_white.webp","c":[225,222,204]},{"id":"teal","file":"t_teal.webp","c":[33,69,82]}]};/*/DATA*/
+var D=13.5;
+var T={push:[0.4,2.3], fall:[2.0,3.3], bounce:[3.3,3.78], crane:[2.05,4.55], pitch:[2.3,4.55], drain:[3.3,3.95], cot:[3.75,4.5], vig:[2.4,4.5],
+  pour:[4.75,10.8], fuse:[10.8,11.25], turn:[10.95,11.75], rise:[11.25,13.05], riseTh:[11.35,12.95], wallIn:[11.9,13.0], vigOut:[11.3,12.6], end:[13.05,13.35]};
+var TP={pour:[4.75,10.6], fuse:[10.6,10.95], rise:[11.7,13.1], riseTh:[11.8,13.0], wallIn:[12.1,13.05], vigOut:[11.8,12.8], end:[13.1,13.35]};   // portrait overrides
+
+function clamp(x){return x<0?0:x>1?1:x;}
+function seg(t,a){return clamp((t-a[0])/(a[1]-a[0]));}
+function lerp(a,b,u){return a+(b-a)*u;}
+function sm(x){x=clamp(x);return x*x*(3-2*x);}
+function eo(x){x=clamp(x);return 1-Math.pow(1-x,3);}
+function eio(x){x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
+function cv(w,h){var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c;}
+function ok(im){return !!im&&(im.naturalWidth||im.width)>0;}
+function hex(c){var m=String(c||'').trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);if(!m)return[43,40,37];var h=m[1];if(h.length===3)h=h.replace(/./g,'$&$&');var n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function tm(t,k){return (T.port&&TP[k])||T[k];}
+
+// ---------------------------------------------------------------- the DOM rest look (index.html): .wash, frame shadows and decorations, paintArt's resampling
+function wash(g,W,H,r,light,a){if(a<=0)return;g.save();g.translate(r.x+r.w/2,r.y+r.h/2);g.scale(.7*W,.6*H);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,light?'rgba(255,255,255,.35)':'rgba(255,244,225,.08)');gr.addColorStop(.7,light?'rgba(255,255,255,0)':'rgba(255,244,225,0)');
+  g.globalAlpha=a;g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();}
+var SHADOW={none:[26,60,-26,.6],white:[22,50,-22,.45],gilt:[28,70,-24,.8],stone:[24,60,-24,.7]};
+function drawShadow(g,dpr,r,style){var sp=SHADOW[style]||SHADOW.none;if(style==='fade')return;var fp=style&&style!=='none'?(r.fp||0):0;
+  g.save();g.shadowColor='rgba(0,0,0,'+sp[3]+')';g.shadowBlur=sp[1]*dpr;g.shadowOffsetX=1e5*dpr;g.shadowOffsetY=sp[0]*dpr;g.fillStyle='#000';
+  var s=sp[2];g.fillRect(r.x-fp-s-1e5,r.y-fp-s,r.w+2*fp+2*s,r.h+2*fp+2*s);g.restore();}
+function frameDeco(g,r,style){var fp=r.fp||0;if(!fp||style==='none'||style==='fade')return;var x=r.x-fp,y=r.y-fp,w=r.w+2*fp,h=r.h+2*fp;
+  if(style==='gilt'){g.fillStyle='#1c1409';g.fillRect(x,y,w,h);g.fillStyle='#7a5e35';g.fillRect(x+1,y+1,w-2,h-2);g.fillStyle='#241a0c';g.fillRect(x+5,y+5,w-10,h-10);g.fillStyle='#4a371c';g.fillRect(x+6,y+6,w-12,h-12);}
+  else if(style==='white'){g.fillStyle='rgba(0,0,0,.07)';g.fillRect(x,y,w,h);g.fillStyle='#f2f0eb';g.fillRect(x+1,y+1,w-2,h-2);g.fillStyle='rgba(0,0,0,.08)';g.fillRect(x+9,y+9,w-18,h-18);g.fillStyle='#f2f0eb';g.fillRect(x+10,y+10,w-20,h-20);}
+  else if(style==='stone'){g.fillStyle='rgba(0,0,0,.4)';g.fillRect(x,y,w,h);g.fillStyle='#4d4840';g.fillRect(x+1,y+1,w-2,h-2);}}
+function artCanvas(im,r,dpr){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*((im&&im.naturalHeight)||1)/((im&&im.naturalWidth)||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(im,0,0,w,h);return c;}
+function fadeMask(c){var g=c.getContext('2d'),w=c.width,h=c.height;g.save();g.globalCompositeOperation='destination-in';g.translate(w/2,h/2);g.scale(.58*w,.60*h);
+  var gr=g.createRadialGradient(0,0,0,0,0,1);gr.addColorStop(0,'#000');gr.addColorStop(.62,'#000');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(-2,-2,4,4);g.restore();return c;}
+// a room's resting look, drawn in CSS px on g (whose transform already includes dpr)
+function restLook(g,o){g.fillStyle=o.wall;g.fillRect(0,0,o.W,o.H);wash(g,o.W,o.H,o.rect,o.ink==='dark',1);drawShadow(g,o.dpr,o.rect,o.frame);frameDeco(g,o.rect,o.frame);
+  if(o.art)g.drawImage(o.art,o.rect.x,o.rect.y,o.rect.w,o.rect.h);}
+
+// ---------------------------------------------------------------- geometry
+function geo(ctx){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null;
+  var key=[W,H,dpr,to.x,to.y,to.w,to.h,fr?[fr.x,fr.y,fr.w,fr.h].join(','):''].join('/'),S=ctx.state;if(S.G&&S.G.key===key)return S.G;
+  var PW=DATA?DATA.PW:2400,PH=DATA?DATA.PH:1218,AR=PW/PH,port=H>W*1.15,G={key:key,W:W,H:H,dpr:dpr,to:to,PW:PW,PH:PH,port:port};
+  G.f=1.25*Math.max(W,H);G.Vp=H*1.08;G.Z0=G.f;G.yP=-(G.Vp-H/2);G.Stop=G.Vp+2.2*H;
+  if(!fr)fr={x:W*.3,y:H*.25,w:W*.4,h:H*.5};G.fr=fr;
+  // the dream plain: the empty shore in the lower middle of the Dalí (where the camera eases in, and what becomes the canvas)
+  G.focus=[fr.x+fr.w*.76,fr.y+fr.h*.80];   // the empty dark plain right of the sleeping creature
+  // overhead: the picture area of the pour (A) and after the turn (L = landscape, where the canvas stands up from)
+  var A,Lr;if(!port){var w=Math.min(W*.86,H*.84*AR);A={x:(W-w)/2,y:(H-w/AR)/2,w:w,h:w/AR,rot:0};Lr=A;}
+  else{var lw=Math.min(H*.86,W*.9*AR);A={x:(W-lw)/2,y:(H-lw/AR)/2,w:lw,h:lw/AR,rot:-Math.PI/2};var w2=W*.92;Lr={x:(W-w2)/2,y:(H-w2/AR)/2,w:w2,h:w2/AR,rot:0};}
+  G.A=A;G.L=Lr;G.sO=A.w/PW;
+  // plane 1 (the dada wall, CSS px of the p = 0 screen) → overhead screen: similarity S1 (the plain fills the screen and more)
+  G.k1=1.3*Math.max(W/fr.w,H/fr.h);G.c1=[G.focus[0],G.focus[1]];
+  // plane 2 (the abex wall, CSS px of the rest screen) → overhead screen: to.rect → L
+  G.k2=Lr.w/to.w;G.c2=[to.x+to.w/2+(W/2-(Lr.x+Lr.w/2))/G.k2,to.y+to.h/2+(H/2-(Lr.y+Lr.h/2))/G.k2];
+  G.C1=[G.c1[0]-W/2,G.yP+G.f/G.k1,G.Z0+G.Vp-G.c1[1]];G.C2=[G.c2[0]-W/2,G.yP+G.f/G.k2,G.Z0+G.Vp-G.c2[1]];
+  // the raw canvas texture (Q = overhead screen space) covers the screen with a margin (the diagonal on portrait: it turns)
+  if(port){var m=Math.hypot(W,H)*1.04;G.Q={x:(W-m)/2,y:(H-m)/2,w:m,h:m};}else G.Q={x:-W*.15,y:-H*.15,w:W*1.3,h:H*1.3};
+  // the painting's transform during the pour: painting px → screen
+  G.M=function(g){g.translate(A.x+A.w/2,A.y+A.h/2);g.rotate(A.rot);g.scale(G.sO,G.sO);g.translate(-PW/2,-PH/2);};
+  G.toScr=function(x,y){var u=(x-PW/2)*G.sO,v=(y-PH/2)*G.sO,c=Math.cos(A.rot),s=Math.sin(A.rot);return[A.x+A.w/2+u*c-v*s,A.y+A.h/2+u*s+v*c];};
+  return(S.G=G);}
+
+// camera & plane poses. phase 1: plane 1 tips back (θ 0→90°), camera cranes from eye level to overhead C1; phase 2: the reverse with plane 2
+function pose1(t,G){var ub=.07*sm(seg(t,T.push))+.93*eio(seg(t,T.crane)),C=[G.C1[0]*ub,G.C1[1]*ub,G.C1[2]*ub];
+  var x=seg(t,T.fall),th=Math.PI/2*x*x,b=seg(t,T.bounce);if(b>0&&b<1)th=Math.PI/2-.045*Math.sin(Math.PI*b)*(1-b);if(t>=T.bounce[1])th=Math.PI/2;
+  return{C:C,phi:-Math.PI/2*eio(seg(t,T.pitch)),th:th};}
+function pose2(t,G){var u=eio(seg(t,tm(t,'rise'))),C=[G.C2[0]*(1-u),G.C2[1]*(1-u),G.C2[2]*(1-u)];
+  var r=seg(t,tm(t,'riseTh')),th=Math.PI/2*(1-eio(r));return{C:C,phi:-Math.PI/2*(1-eio(seg(t,[tm(t,'rise')[0],tm(t,'rise')[1]-.05]))),th:th};}
+
+// ---------------------------------------------------------------- WebGL: one plane + the barn floor, offscreen, blitted onto the stage
+var VS='#version 300 es\nin vec2 aP;uniform int uKind;uniform vec3 uCam;uniform float uPhi,uF,uTh,uYP,uZ0,uVp;uniform vec2 uView;out vec2 vUV;out vec3 vW;\n'+
+ 'void main(){vec3 w;if(uKind==0){w=vec3(aP.x-uView.x*.5,uYP+aP.y*cos(uTh),uZ0+aP.y*sin(uTh));vUV=vec2(aP.x,uVp-aP.y);}else{w=vec3(aP.x,uYP-.5,aP.y);vUV=aP;}vW=w;\n'+
+ 'vec3 d=w-uCam;float s=sin(uPhi),c=cos(uPhi);float zc=d.y*s+d.z*c,yc=d.y*c-d.z*s;float n=2.,fa=1e6;\n'+
+ 'gl_Position=vec4(uF*d.x/(uView.x*.5),uF*yc/(uView.y*.5),(zc*(fa+n)-2.*fa*n)/(fa-n),zc);}';
+var FS='#version 300 es\nprecision highp float;precision highp int;in vec2 vUV;in vec3 vW;uniform int uKind;uniform sampler2D uBase,uCot,uRaw,uArt;uniform vec2 uView;\n'+
+ 'uniform vec3 uBaseFill,uCotFill,uVoid,uCam;uniform float uMixBase,uShade,uArtOn,uRawOn,uDrain;uniform mat3 uQ,uRawM;uniform vec4 uCotR,uArtR;out vec4 o;\n'+
+ 'bool ins(vec2 t){return t.x>=0.&&t.y>=0.&&t.x<=1.&&t.y<=1.;}\n'+
+ 'void main(){if(uKind==1){float bw=64.,q=vW.x/bw,bi=floor(q),fx=fract(q),aa=fwidth(q)*1.5+.004;float h=fract(sin(bi*12.9898+7.)*43758.5453);\n'+
+ ' vec3 c=mix(vec3(.13,.1,.075),vec3(.19,.145,.105),h);c*=mix(.5,1.,smoothstep(0.,aa+.02,fx)*smoothstep(1.,1.-aa-.02,fx));\n'+
+ ' c*=.93+.07*sin(vW.z*.045+h*40.+sin(vW.z*.011+bi)*3.);float dd=length(vW-uCam);c=mix(c,uVoid,clamp(dd/(uView.x*3.5),0.,1.)*.7);o=vec4(c*uShade,1.);return;}\n'+
+ ' vec2 q=(uQ*vec3(vUV,1.)).xy;vec2 ct=(q-uCotR.xy)/uCotR.zw;vec3 c=ins(ct)?texture(uCot,ct).rgb:uCotFill;\n'+
+ ' if(uRawOn>0.){vec2 rt=(uRawM*vec3(q,1.)).xy;if(ins(rt)){vec4 r=texture(uRaw,rt);c=mix(c,r.rgb,r.a);}}\n'+
+ ' if(uMixBase>0.){vec2 bt=vUV/uView;vec3 b=ins(bt)?texture(uBase,bt).rgb:uBaseFill;\n'+
+ '  if(uDrain>0.){float l=dot(b,vec3(.299,.587,.114));b=mix(b,uCotFill*(.72+.56*l),uDrain);}c=mix(c,b,uMixBase);}\n'+
+ ' if(uArtOn>0.){vec2 at=(vUV-uArtR.xy)/uArtR.zw;if(ins(at))c=texture(uArt,at).rgb;}\n'+
+ ' o=vec4(c*uShade,1.);}';
+function glInit(G,S){var c=cv(G.W*G.dpr,G.H*G.dpr),gl=c.getContext('webgl2',{alpha:false,antialias:true,premultipliedAlpha:false,preserveDrawingBuffer:true});if(!gl)return null;
+  function sh(tp,src){var s=gl.createShader(tp);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));return null;}return s;}
+  var p=gl.createProgram(),v=sh(gl.VERTEX_SHADER,VS),f=sh(gl.FRAGMENT_SHADER,FS);if(!v||!f)return null;gl.attachShader(p,v);gl.attachShader(p,f);gl.bindAttribLocation(p,0,'aP');gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)){console.error(gl.getProgramInfoLog(p));return null;}
+  var U={};['uKind','uCam','uPhi','uF','uTh','uYP','uZ0','uVp','uView','uBase','uCot','uRaw','uArt','uBaseFill','uCotFill','uVoid','uMixBase','uShade','uArtOn','uRawOn','uDrain','uQ','uRawM','uCotR','uArtR'].forEach(function(n){U[n]=gl.getUniformLocation(p,n);});
+  var W=G.W,H=G.H,X=6*Math.max(W,H),plane=new Float32Array([-X,0,W+X,0,-X,G.Stop,W+X,0,W+X,G.Stop,-X,G.Stop]),Zf=G.f*8,floor=new Float32Array([-X*2,-Zf,X*2,-Zf,-X*2,Zf,X*2,-Zf,X*2,Zf,-X*2,Zf]);
+  function vao(data){var a=gl.createVertexArray(),b=gl.createBuffer();gl.bindVertexArray(a);gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);gl.bindVertexArray(null);return a;}
+  var an=gl.getExtension('EXT_texture_filter_anisotropic');
+  return{c:c,gl:gl,p:p,U:U,vPlane:vao(plane),vFloor:vao(floor),tex:{},an:an,aMax:an?gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT):1};}
+function glTex(R,name,src){var gl=R.gl,t=R.tex[name]||(R.tex[name]=gl.createTexture());gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src);gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  if(R.an)gl.texParameterf(gl.TEXTURE_2D,R.an.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,R.aMax));}
+function aff(a,b,c,d,e,f){return new Float32Array([a,b,0,c,d,0,e,f,1]);}   // column-major mat3 of x' = a x + c y + e, y' = b x + d y + f
+// render one frame of a plane pose; o: {pose, base, mixBase, drain, art, rawOn, Q:[a,b,c,d,e,f] plane uv → Q, shade, baseFill}
+function glDraw(R,G,o){var gl=R.gl,U=R.U,W=G.W,H=G.H;gl.viewport(0,0,R.c.width,R.c.height);var v=o.voidC;gl.clearColor(v[0],v[1],v[2],1);gl.clear(gl.COLOR_BUFFER_BIT);gl.useProgram(R.p);
+  gl.uniform3f(U.uCam,o.pose.C[0],o.pose.C[1],o.pose.C[2]);gl.uniform1f(U.uPhi,o.pose.phi);gl.uniform1f(U.uF,G.f);gl.uniform1f(U.uTh,o.pose.th);gl.uniform1f(U.uYP,G.yP);gl.uniform1f(U.uZ0,G.Z0);gl.uniform1f(U.uVp,G.Vp);
+  gl.uniform2f(U.uView,W,H);gl.uniform3f(U.uVoid,v[0],v[1],v[2]);gl.uniform1f(U.uShade,o.shade);
+  gl.uniform1i(U.uKind,1);gl.bindVertexArray(R.vFloor);gl.drawArrays(gl.TRIANGLES,0,6);
+  var names=['uBase','uCot','uRaw','uArt'],src=[o.base,'cot','raw',o.art||'art'];names.forEach(function(n,i){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,R.tex[src[i]]||R.tex.cot||null);gl.uniform1i(U[n],i);});
+  var q=o.Q;gl.uniformMatrix3fv(U.uQ,false,aff(q[0],q[1],q[2],q[3],q[4],q[5]));var Qr=G.Q;gl.uniform4f(U.uCotR,Qr.x,Qr.y,Qr.w,Qr.h);
+  var rm=G.rawM;gl.uniformMatrix3fv(U.uRawM,false,aff(rm[0],rm[1],rm[2],rm[3],rm[4],rm[5]));gl.uniform1f(U.uRawOn,o.rawOn?1:0);
+  var cf=G.cotFill;gl.uniform3f(U.uCotFill,cf[0]/255,cf[1]/255,cf[2]/255);var bf=o.baseFill;gl.uniform3f(U.uBaseFill,bf[0]/255,bf[1]/255,bf[2]/255);
+  gl.uniform1f(U.uMixBase,o.mixBase);gl.uniform1f(U.uDrain,o.drain||0);var ar=o.artR;gl.uniform1f(U.uArtOn,ar?1:0);if(ar)gl.uniform4f(U.uArtR,ar.x,ar.y,ar.w,ar.h);
+  gl.uniform1i(U.uKind,0);gl.bindVertexArray(R.vPlane);gl.drawArrays(gl.TRIANGLES,0,6);gl.bindVertexArray(null);}
+
+// ---------------------------------------------------------------- raw cotton duck (Q space): base colour, fine grain, slow undulations of an unstretched canvas on a floor
+function noiseTile(n,seed,amp){var c=cv(n,n),g=c.getContext('2d'),d=g.createImageData(n,n),r=EH.util.rng(seed);for(var i=0;i<n*n;i++){var v=128+(r()-.5)*amp,k=i*4;d.data[k]=d.data[k+1]=d.data[k+2]=v;d.data[k+3]=255;}g.putImageData(d,0,0);return c;}
+function cotton(G){var dpr=Math.min(G.dpr,1.5),Q=G.Q,c=cv(Q.w*dpr,Q.h*dpr),g=c.getContext('2d'),cf=G.cotFill,r=EH.util.rng(7);g.setTransform(dpr,0,0,dpr,0,0);
+  g.fillStyle='rgb('+cf.join(',')+')';g.fillRect(0,0,Q.w,Q.h);
+  // undulations: long soft bands of light and shade (a canvas that was rolled, lying loose on boards)
+  var L=Math.max(Q.w,Q.h);for(var i=0;i<9;i++){var x=r()*Q.w,y=r()*Q.h,a=(r()-.5)*.9+(i%2?1.2:-.3),len=L*(.6+r()*.8),w=L*(.04+r()*.07),dark=r()<.55;
+    g.save();g.translate(x,y);g.rotate(a);var gr=g.createLinearGradient(0,-w,0,w);var col=dark?'40,28,15':'255,250,238',al=dark?.055:.07;
+    gr.addColorStop(0,'rgba('+col+',0)');gr.addColorStop(.5,'rgba('+col+','+al+')');gr.addColorStop(1,'rgba('+col+',0)');g.fillStyle=gr;g.fillRect(-len/2,-w,len,2*w);g.restore();}
+  // grain: two noise octaves (small tiles, scaled), overlay-like via soft-light
+  g.globalCompositeOperation='soft-light';g.globalAlpha=.55;var n1=noiseTile(128,3,70);g.fillStyle=g.createPattern(n1,'repeat');g.fillRect(0,0,Q.w,Q.h);
+  g.globalAlpha=.35;var n2=noiseTile(64,5,90);g.save();g.scale(6,6);g.imageSmoothingEnabled=true;g.fillStyle=g.createPattern(n2,'repeat');g.fillRect(0,0,Q.w/6,Q.h/6);g.restore();
+  g.globalCompositeOperation='source-over';g.globalAlpha=1;return c;}
+
+// ---------------------------------------------------------------- strokes: decode, schedule (pure function of the data and the pour window)
+// rooms/abex/t_strokes.bin (made by _wip/t-abex/prep.py from rooms/abex/cut/paths_*.json): u16 LE per stroke [layer, radius*8, n, x*Q, y*Q, …]
+var BIN=null;function loadBin(){if(!BIN)BIN=fetch('rooms/abex/t_strokes.bin').then(function(r){if(!r.ok)throw new Error(r.status);return r.arrayBuffer();}).then(function(b){return new Uint16Array(b);});return BIN;}
+function decode(a){var k=0,S=[],Q=DATA.Q;while(k<a.length){var L=a[k],n=a[k+1],p=new Float32Array(n*2),rr=new Float32Array(n),cum=new Float32Array(n);k+=2;
+    for(var i=0;i<n;i++){p[2*i]=a[k+3*i]/Q;p[2*i+1]=a[k+3*i+1]/Q;rr[i]=a[k+3*i+2]/8;if(i)cum[i]=cum[i-1]+Math.hypot(p[2*i]-p[2*i-2],p[2*i+1]-p[2*i-1]);}k+=3*n;
+    var mx=0,my=0;for(i=0;i<n;i++){mx+=p[2*i];my+=p[2*i+1];}var so=Array.prototype.slice.call(rr).sort(function(x,y){return x-y;});
+    S.push({L:L,r:so[n>>1],rr:rr,p:p,cum:cum,len:cum[n-1]||0,cx:mx/n,cy:my/n});}
+  return{S:S,P:[]};}
+var SHARE=[.5,.15,.29,.06],CURVE=[.3,.8,.8,1];   // share of the pour after the first three flings, and how slowly each layer starts (x^a)
+function schedule(Z,pour){var S=Z.S,N=S.length,a=pour[0],b=pour[1];if(!N)return;
+  // the moment: one slow fling (the data puts three long black lines first), a breath, two more
+  var t0=a+.1;S[0].t0=t0;S[0].d=1.2;
+  var nx=Math.min(N,3);if(N>1){S[1].t0=t0+1.2+.5;S[1].d=.55;}if(N>2){S[2].t0=S[1].t0+.5;S[2].d=.45;}
+  var st=(N>2?S[2].t0+.4:t0+2.4),span=b-.3-st,counts={},order=[];for(var i=nx;i<N;i++){if(!(S[i].L in counts)){counts[S[i].L]=0;order.push(S[i].L);}counts[S[i].L]++;}
+  var wsum=0;order.forEach(function(L){wsum+=SHARE[L]||.1;});var ta=st,win={};order.forEach(function(L){var w=span*(SHARE[L]||.1)/wsum;win[L]=[ta,ta+w];ta+=w;});
+  var idx={};order.forEach(function(L){idx[L]=0;});
+  for(i=nx;i<N;i++){var s=S[i],L=s.L,x=idx[L]++/Math.max(1,counts[L]),wl=win[L];s.t0=lerp(wl[0],wl[1],Math.pow(x,CURVE[L]||1));
+    var v=1400*(1+4.5*(s.t0-a)/(b-a));s.d=Math.max(.06,Math.min(.42,s.len/v));}
+  Z.S.sort(function(x,y){return x.t0-y.t0;});layerSpans(Z);Z.end=0;S.forEach(function(s){Z.end=Math.max(Z.end,s.t0+s.d);});}
+function revAt(s,t){var x=(t-s.t0)/s.d;return x<=0?0:x>=1?s.len:s.len*(1-Math.pow(1-x,1.35));}
+// add the piece of stroke s between arc lengths a0 < a1 to path pa (painting px)
+function piece(pa,s,a0,a1){var p=s.p,c=s.cum,n=c.length;if(n<2){pa.moveTo(p[0],p[1]);pa.lineTo(p[0]+.01,p[1]);return;}
+  var i=0;while(i<n-2&&c[i+1]<a0)i++;var f=(a0-c[i])/Math.max(1e-6,c[i+1]-c[i]);pa.moveTo(lerp(p[2*i],p[2*i+2],f),lerp(p[2*i+1],p[2*i+3],f));
+  while(i<n-2&&c[i+1]<a1){i++;pa.lineTo(p[2*i],p[2*i+1]);}f=(a1-c[i])/Math.max(1e-6,c[i+1]-c[i]);f=clamp(f);pa.lineTo(lerp(p[2*i],p[2*i+2],f)+.01,lerp(p[2*i+1],p[2*i+3],f));}
+function pointAt(s,a){var p=s.p,c=s.cum,n=c.length;if(n<2)return[p[0],p[1],1,0];var i=0;while(i<n-2&&c[i+1]<a)i++;var f=clamp((a-c[i])/Math.max(1e-6,c[i+1]-c[i])),dx=p[2*i+2]-p[2*i],dy=p[2*i+3]-p[2*i+1],l=Math.hypot(dx,dy)||1;
+  return[lerp(p[2*i],p[2*i+2],f),lerp(p[2*i+1],p[2*i+3],f),dx/l,dy/l];}
+// the reveal: one alpha mask per layer (half resolution), stroked along the real lines; the layer's own pixels show through it
+// every segment is stroked with the paint's own width there (the smaller of its two ends); swollen points (pools) get their own disc
+function maskPieces(g,Z,from,to,t,a0t,kM){var B={},D={},i,s;
+  function bk(L,r){var key=L+':'+r;return B[key]||(B[key]={L:L,r:r,pa:new Path2D()});}
+  function dk(L){return D[L]||(D[L]=new Path2D());}
+  for(i=from;i<to;i++){s=Z.S[i];if(s.t0>t)break;if(a0t!=null&&s.t0+s.d<a0t)continue;var p=s.p,c=s.cum,rr=s.rr,n=rr.length;
+    if(n<2){if(a0t==null||s.t0>a0t){var d=dk(s.L);d.moveTo(p[0]+rr[0],p[1]);d.arc(p[0],p[1],rr[0],0,6.2832);}continue;}
+    var a0=a0t==null?0:revAt(s,a0t),a1=revAt(s,t);if(a0t!=null&&a1<=a0)continue;a0=Math.max(0,a0-1);a1=Math.max(a1,.01);
+    for(var j=0;j<n-1;j++){if(c[j+1]<a0)continue;if(c[j]>a1)break;var sl=c[j+1]-c[j]||1e-6,f0=clamp((a0-c[j])/sl),f1=clamp((a1-c[j])/sl),rs=Math.round(Math.min(rr[j],rr[j+1])),b=bk(s.L,rs);
+      b.pa.moveTo(lerp(p[2*j],p[2*j+2],f0),lerp(p[2*j+1],p[2*j+3],f0));b.pa.lineTo(lerp(p[2*j],p[2*j+2],f1)+.01,lerp(p[2*j+1],p[2*j+3],f1));
+      if(c[j]>=a0&&rr[j]>rs+1.5){var d2=dk(s.L);d2.moveTo(p[2*j]+rr[j],p[2*j+1]);d2.arc(p[2*j],p[2*j+1],rr[j],0,6.2832);}}
+    if(c[n-1]>=a0&&c[n-1]<=a1+.01&&rr[n-1]>rr[n-2]+1.5){var d3=dk(s.L);d3.moveTo(p[2*n-2]+rr[n-1],p[2*n-1]);d3.arc(p[2*n-2],p[2*n-1],rr[n-1],0,6.2832);}}
+  for(var k in B){var b2=B[k],mg=g[b2.L];mg.lineWidth=Math.max(1,b2.r*2);mg.stroke(b2.pa);}
+  for(var L in D){g[L].fillStyle='#fff';g[L].fill(D[L]);}}
+function mctx(c,kM){var g=c.getContext('2d');g.setTransform(kM,0,0,kM,0,0);g.lineCap='round';g.lineJoin='round';g.strokeStyle='#fff';return g;}
+// bring the masks to time t: forward → only the new pieces; backward → per layer: nearest checkpoint, then replay (≤ one checkpoint interval)
+function paintTo(S,t){var Z=S.Z;if(!Z||!S.M)return;var t0=S.pT;if(t===t0)return;var nL=S.M.length,g=S.Mg,L;
+  if(t0==null||t<t0){
+    for(L=0;L<nL;L++){if(t0!=null&&t0<Z.Ls[L])continue;                       // untouched since the last reset
+      var c=S.M[L];g[L].setTransform(1,0,0,1,0,0);g[L].clearRect(0,0,c.width,c.height);g[L].setTransform(S.kM,0,0,S.kM,0,0);
+      if(t<Z.Ls[L])continue;var from=Z.Li[L][0],ck=null;(S.CK[L]||[]).forEach(function(q){if(q.tv<=t)ck=q;});
+      if(ck){g[L].setTransform(1,0,0,1,0,0);g[L].drawImage(ck.c,0,0);g[L].setTransform(S.kM,0,0,S.kM,0,0);from=ck.k;}
+      if(t<Z.Le[L]+FADE){var one={};one[L]=g[L];maskPieces(one,Z,from,Z.Li[L][1],t,null,S.kM);}}
+  }else{var lo=0,hi=Z.S.length;var ta=t0-1.4;while(lo<hi){var m=(lo+hi)>>1;if(Z.S[m].t0<ta)lo=m+1;else hi=m;}maskPieces(g,Z,Math.max(0,lo-3),Z.S.length,t,t0,S.kM);}
+  S.pT=t;}
+// checkpoints, built in init tasks: every CKN strokes of a layer, a copy of its mask with those strokes complete; valid from the time they all ended
+var CKN=2500;
+function ckJobs(S,jobs){var Z=S.Z,run=null,rg=null;S.CK=[];
+  Z.Li.forEach(function(li,L){S.CK[L]=[];var n=li[1]-li[0];if(n<=CKN)return;
+    jobs.push(function(){run=cv(S.M[L].width,S.M[L].height);rg=mctx(run,S.kM);});
+    for(var k=li[0];k+CKN<li[1];k+=CKN)(function(a,b){jobs.push(function(){var one={};one[L]=rg;
+        for(var i=a;i<b;i+=500){maskPieces(one,Z,i,Math.min(b,i+500),1e9,null,S.kM);}
+        var tv=0;for(var i2=li[0];i2<b;i2++)tv=Math.max(tv,Z.S[i2].t0+Z.S[i2].d);var c=cv(run.width,run.height);c.getContext('2d').drawImage(run,0,0);S.CK[L].push({k:b,tv:tv+1e-4,c:c});});})(k,k+CKN);});}
+// per layer: stroke index range, first start, last end (after schedule)
+var FADE=.4;
+function layerSpans(Z){var nL=DATA.L.length;Z.Li=[];Z.Ls=[];Z.Le=[];for(var L=0;L<nL;L++){Z.Li[L]=[1e9,-1];Z.Ls[L]=1e9;Z.Le[L]=-1;}
+  Z.S.forEach(function(s,i){var L=s.L;Z.Li[L][0]=Math.min(Z.Li[L][0],i);Z.Li[L][1]=Math.max(Z.Li[L][1],i+1);Z.Ls[L]=Math.min(Z.Ls[L],s.t0);Z.Le[L]=Math.max(Z.Le[L],s.t0+s.d);});}
+// draw the paint of time t in painting px (the stage transform is G.M): finished layers whole, the running ones through their masks
+function drawPaint(g,S,t){var Z=S.Z,C=S.C,cg=S.Cg;for(var L=0;L<DATA.L.length;L++){var im=S.lay[L];if(!im||t<Z.Ls[L])continue;
+    if(t>=Z.Le[L]+FADE){g.drawImage(im,0,0,DATA.PW,DATA.PH);continue;}
+    // the mask; while the layer settles, the mask opens evenly towards 1 (m' = m + (1-m)u), so nothing is painted twice
+    cg.globalCompositeOperation='copy';cg.drawImage(S.M[L],0,0,C.width,C.height);cg.globalCompositeOperation='source-over';
+    var u=sm(seg(t,[Z.Le[L]-.1,Z.Le[L]+FADE]));if(u>0){cg.globalAlpha=u;cg.fillStyle='#fff';cg.fillRect(0,0,C.width,C.height);cg.globalAlpha=1;}
+    cg.globalCompositeOperation='source-in';cg.drawImage(im,0,0,C.width,C.height);cg.globalCompositeOperation='source-over';
+    g.drawImage(C,0,0,DATA.PW,DATA.PH);}}
+
+// ---------------------------------------------------------------- the painter: where he stands (from the strokes being flung), footprints when he walks
+function painterTrack(Z,G,pour){var PW=G.PW,PH=G.PH,m=.05*PW,rx=PW/2+m,ry=PH/2+m*.9,out=[],prev=null;
+  function ang(x,y){return Math.atan2((y-PH/2)/ry,(x-PW/2)/rx);}
+  for(var t=pour[0];t<=pour[1]+.001;t+=.1){var sx=0,sy=0,w=0;Z.S.forEach(function(s){if(t>=s.t0-.25&&t<=s.t0+s.d+.1){sx+=s.cx*s.len;sy+=s.cy*s.len;w+=s.len;}});
+    var a=w?ang(sx/w,sy/w):(prev==null?Math.PI/2:prev);if(prev!=null){while(a-prev>Math.PI)a-=2*Math.PI;while(a-prev<-Math.PI)a+=2*Math.PI;}out.push(a);prev=a;}
+  // smooth (he walks, he doesn't jump) and limit his speed
+  for(var it=0;it<3;it++)out=out.map(function(v,i){var a=out[Math.max(0,i-2)],b=out[Math.max(0,i-1)],c=out[Math.min(out.length-1,i+1)],d=out[Math.min(out.length-1,i+2)];return(a+b+2*v+c+d)/6;});
+  for(var i=1;i<out.length;i++){var dv=out[i]-out[i-1],mx=.16;if(dv>mx)out[i]=out[i-1]+mx;if(dv<-mx)out[i]=out[i-1]-mx;}
+  var track={a:out,t0:pour[0],dt:.1,rx:rx,ry:ry,pos:function(t){var u=clamp((t-this.t0)/(this.dt*(this.a.length-1)))*(this.a.length-1),i=Math.floor(u),f=u-i,A=i>=this.a.length-1?this.a[this.a.length-1]:lerp(this.a[i],this.a[i+1],f);return[PW/2+Math.cos(A)*rx,PH/2+Math.sin(A)*ry,A];}};
+  // footprints: one per stride of the walk along the loop (only while he moves), alternating left/right
+  var steps=[],acc=0,stride=PW*.72/5.26*.5,side=1,lastA=out[0];for(i=1;i<out.length;i++){var A=out[i],dA=A-lastA,ds=Math.abs(dA)*Math.hypot(rx,ry)*.72;acc+=ds;lastA=A;
+    if(acc>=stride){acc=0;side=-side;var t2=pour[0]+i*.1,x=PW/2+Math.cos(A)*rx,y=PH/2+Math.sin(A)*ry,tx=-Math.sin(A)*rx*Math.sign(dA||1),ty=Math.cos(A)*ry*Math.sign(dA||1),l=Math.hypot(tx,ty)||1;tx/=l;ty/=l;
+      steps.push({t:t2,x:x-ty*side*PW*.022,y:y+tx*side*PW*.022,a:Math.atan2(ty,tx),s:side});}}
+  track.steps=steps;return track;}
+function soleSprite(){var c=cv(128,48),g=c.getContext('2d');g.fillStyle='#000';
+  g.beginPath();g.ellipse(80,24,44,19,0,0,Math.PI*2);g.fill();g.beginPath();g.ellipse(22,24,19,15,0,0,Math.PI*2);g.fill();
+  g.globalCompositeOperation='destination-out';var r=EH.util.rng(9);for(var i=0;i<60;i++){g.globalAlpha=.3+r()*.5;g.fillRect(8+r()*112,6+r()*36,2+r()*5,1+r()*2);}
+  for(i=0;i<7;i++){g.globalAlpha=.55;g.fillRect(50+i*9,6,3,36);}g.globalAlpha=1;g.globalCompositeOperation='source-over';return c;}
+
+// ---------------------------------------------------------------- init: everything cheap, in small tasks; draw() works before they finish (fallbacks)
+function build(ctx){var S=ctx.state,G=geo(ctx),dpr=G.dpr,gen=(S.gen=(S.gen||0)+1);S.bkey=G.key;T.port=G.port;S.R=null;S.F0=null;S.F1=null;S.cot=null;S.ready={};S.pT=null;
+  var W=G.W,H=G.H,to=ctx.to,fr=ctx.from;G.cotFill=DATA?DATA.cot:[190,172,140];
+  // painting uv of a Q point (for the raw canvas under the paint in GL): Q → painting px → uv
+  var A=G.A,c=Math.cos(-A.rot),s=Math.sin(-A.rot),k=1/(G.sO);G.rawM=[c*k/G.PW,s*k/G.PH,-s*k/G.PW,c*k/G.PH,0,0];
+  var cx=A.x+A.w/2,cy=A.y+A.h/2;G.rawM[4]=(-(c*cx-s*cy)*k+G.PW/2)/G.PW;G.rawM[5]=(-(s*cx+c*cy)*k+G.PH/2)/G.PH;
+  var jobs=[
+    function(){var c0=cv(W*dpr,H*dpr),g=c0.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+      if(fr){var art=artCanvas(fr.image,fr.rect,dpr);if(fr.frame==='fade')fadeMask(art);restLook(g,{W:W,H:H,dpr:dpr,wall:fr.wall,ink:fr.ink,rect:fr.rect,frame:fr.frame,art:art});
+        var rr=window.EH_SHARED&&window.EH_SHARED.dadaRest;if(rr)try{rr(g,{W:W,H:H,rect:fr.rect,dpr:dpr,t:0});}catch(e){}}
+      else{g.fillStyle='#000';g.fillRect(0,0,W,H);}S.F0=c0;},
+    function(){var c1=cv(W*dpr,H*dpr),g=c1.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);restLook(g,{W:W,H:H,dpr:dpr,wall:to.wall,ink:to.ink,rect:G.to,frame:to.frame,art:null});S.F1bg=c1;
+      S.art=artCanvas(to.image,G.to,dpr);},
+    function(){S.cot=cotton(G);},
+    function(){var im=ctx.asset('t_raw.webp');if(ok(im)){var c2=cv(im.naturalWidth,im.naturalHeight);c2.getContext('2d').drawImage(im,0,0);S.raw=c2;}
+      var hw=Math.min(Math.round(Math.max(A.w,A.h)*dpr),G.PW);S.artHi=cv(hw,hw*G.PH/G.PW);if(ok(to.image))S.artHi.getContext('2d').drawImage(to.image,0,0,S.artHi.width,S.artHi.height);},
+    function(){var w=Math.min(Math.round(Math.max(A.w,A.h)*dpr),G.PW);S.C=cv(w,w*G.PH/G.PW);S.Cg=S.C.getContext('2d');S.kM=w/2/G.PW;S.lay=[];
+      if(DATA)DATA.L.forEach(function(L,i){var im=ctx.asset(L.file);if(ok(im))S.lay[i]=im;});},
+    function(){S.R=glInit(G,S);},
+    function(){if(S.R)glTex(S.R,'F0',S.F0);},
+    function(){if(S.R)glTex(S.R,'cot',S.cot);},
+    function(){if(S.R&&S.raw)glTex(S.R,'raw',S.raw);},
+    function(){if(S.R)glTex(S.R,'F1',S.F1bg);},
+    function(){if(S.R)glTex(S.R,'art',S.artHi);S.ready.gl=!!S.R;},
+    function(){S.sole=soleSprite();S.vig=vignette(G);}
+  ];
+  // the strokes: fetched once, decoded and scheduled in a task, then masks + checkpoints (small tasks)
+  function strokes(a){if(S.gen!==gen)return;var J=[];
+    J.push(function(){S.Z=null;S.M=null;var Z=decode(a);schedule(Z,tm(0,'pour'));S.Z0=Z;});
+    J.push(function(){S.track=painterTrack(S.Z0,G,tm(0,'pour'));});
+    J.push(function(){var w=S.C?S.C.width:Math.round(G.PW/2);S.M=[];S.Mg=[];DATA.L.forEach(function(L,i){S.M[i]=cv(w/2,w/2*G.PH/G.PW);S.Mg[i]=mctx(S.M[i],S.kM);});});
+    J.push(function(){S.Z=S.Z0;S.pT=null;});
+    run(J,function(){var K=[];S.CK=[];ckJobs(S,K);run(K,function(){S.ckDone=true;});});}
+  function run(J,then){(function nx(){if(S.gen!==gen)return;var j=J.shift();if(!j){if(then)then();return;}try{j();}catch(e){console.error(e);}setTimeout(nx,0);})();}
+  S.pT=null;
+  (function next(){if(S.gen!==gen)return;var j=jobs.shift();if(!j){S.built=true;if(DATA)loadBin().then(strokes,function(e){console.warn('abex strokes',e);});return;}try{j();}catch(e){console.error(e);}setTimeout(next,0);})();}
+function vignette(G){var c=cv(G.W/2,G.H/2),g=c.getContext('2d'),R=Math.hypot(G.W,G.H)/4;g.translate(G.W/4,G.H/4);var gr=g.createRadialGradient(0,-G.H*.05,R*.25,0,0,R*1.05);
+  gr.addColorStop(0,'rgba(20,14,8,0)');gr.addColorStop(.6,'rgba(20,14,8,.12)');gr.addColorStop(1,'rgba(20,14,8,.42)');g.fillStyle=gr;g.fillRect(-G.W/4,-G.H/4,G.W/2,G.H/2);return c;}
+
+// ---------------------------------------------------------------- the pour (2D, overhead)
+function turnM(t,G){if(!G.port)return null;var u=eio(seg(t,T.turn));if(u<=0)return null;var A=G.A,L=G.L,sc=lerp(1,L.w/A.w,u),r=-A.rot*u;return{sc:sc,r:r};}
+function applyTurn(g,G,tq){if(!tq)return;g.translate(G.W/2,G.H/2);g.rotate(tq.r);g.scale(tq.sc,tq.sc);g.translate(-G.W/2,-G.H/2);}
+function drawPour(g,ctx,t){var S=ctx.state,G=S.G,W=G.W,H=G.H,Q=G.Q,tq=turnM(t,G);
+  g.save();applyTurn(g,G,tq);
+  // the raw duck runs past every edge; while the canvas turns and shrinks (portrait) it is widened so the corners stay covered
+  var qk=tq?1/tq.sc:1,qx=W/2+(Q.x-W/2)*qk,qy=H/2+(Q.y-H/2)*qk;
+  if(S.cot)g.drawImage(S.cot,qx,qy,Q.w*qk,Q.h*qk);else{g.fillStyle='rgb('+G.cotFill.join(',')+')';g.fillRect(qx,qy,Q.w*qk,Q.h*qk);}
+  g.save();G.M(g);
+  if(S.raw)g.drawImage(S.raw,0,0,G.PW,G.PH);
+  var fu=sm(seg(t,tm(t,'fuse')));
+  if(fu<1&&S.Z&&S.M){var tp=Math.min(t,tm(t,'pour')[1]+.3);paintTo(S,tp);drawPaint(g,S,tp);}
+  if(fu>0){g.globalAlpha=fu;var a=S.artHi||ctx.to.image;if(ok(a)||a&&a.width)g.drawImage(a,0,0,G.PW,G.PH);g.globalAlpha=1;}
+  if(S.Z&&fu<1){wet(g,S,G,t);footprints(g,S,G,t);}
+  g.restore();
+  if(S.Z&&fu<1)streams(g,S,G,t);
+  g.restore();}
+// wet enamel: the last few tenths of a second of each flung line catch the light; the landing drop at the head
+function wet(g,S,G,t){var Z=S.Z,n=0;g.lineCap='round';g.lineJoin='round';
+  for(var i=Z.S.length-1;i>=0&&n<60;i--){var s=Z.S[i];if(s.t0>t||t>s.t0+s.d+.5)continue;n++;var h=revAt(s,t),tail=revAt(s,t-.35),age=clamp((t-s.t0-s.d)/.5),col=DATA.L[s.L].c;
+    if(h-tail>.5){var pa=new Path2D();piece(pa,s,tail,h);g.globalAlpha=.55*(1-age);g.strokeStyle='rgb('+col.join(',')+')';g.lineWidth=s.r*1.6;g.stroke(pa);
+      g.globalAlpha=.16*(1-age)*(1-age);g.strokeStyle='rgba(255,250,236,1)';g.lineWidth=Math.max(1.2,s.r*.3);g.save();g.translate(-s.r*.3,-s.r*.36);g.stroke(pa);g.restore();}
+    if(t<s.t0+s.d){var P=pointAt(s,h);g.globalAlpha=.9;g.fillStyle='rgb('+col.join(',')+')';g.beginPath();g.arc(P[0],P[1],s.r*1.15,0,Math.PI*2);g.fill();}}
+  g.globalAlpha=1;}
+// the paint in the air: from the invisible stick (held out from where the painter stands) down to where it lands; seen from above, higher = nearer the eye
+function streams(g,S,G,t){var Z=S.Z,tr=S.track,n=0,W=G.W,H=G.H;if(!tr)return;var pp=tr.pos(t);g.lineCap='round';g.lineJoin='round';
+  for(var i=Z.S.length-1;i>=0&&n<4;i--){var s=Z.S[i];if(s.t0>t||t>s.t0+s.d+.12)continue;if(s.len<40&&s.d<.2)continue;n++;
+    var fade=1-clamp((t-s.t0-s.d)/.12),a=Math.min(s.len,revAt(s,t)),H0=pointAt(s,a),col=DATA.L[s.L].c,
+      tipX=lerp(H0[0],pp[0],.36),tipY=lerp(H0[1],pp[1],.36),bx=-H0[3]*s.len*.08,by=H0[2]*s.len*.08,wS=Math.max(1.2,s.r*G.sO*.9);
+    // one thread from where it lands up to the stick (seen from above: the higher, the nearer the eye), bowed by the swing
+    var pa=new Path2D(),sh=new Path2D(),x0=0,y0=0,x1=0,y1=0;
+    for(var k=0;k<=12;k++){var u=k/12,e=u*u,gx=lerp(H0[0],tipX,u)+Math.sin(u*Math.PI)*bx,gy=lerp(H0[1],tipY,u)+Math.sin(u*Math.PI)*by,sp=G.toScr(gx,gy),
+        m=1+.22*e,x=W/2+(sp[0]-W/2)*m,y=H/2+(sp[1]-H/2)*m;
+      if(!k){pa.moveTo(x,y);sh.moveTo(sp[0],sp[1]);x0=x;y0=y;}else{pa.lineTo(x,y);sh.lineTo(sp[0]+e*10,sp[1]+e*14);}x1=x;y1=y;}
+    g.globalAlpha=.07*fade;g.strokeStyle='#1a120a';g.lineWidth=wS*1.4;g.stroke(sh);
+    var gr=g.createLinearGradient(x0,y0,x1,y1);gr.addColorStop(0,'rgba('+col.join(',')+',.9)');gr.addColorStop(.55,'rgba('+col.join(',')+',.45)');gr.addColorStop(1,'rgba('+col.join(',')+',0)');
+    g.globalAlpha=fade;g.strokeStyle=gr;g.lineWidth=wS;g.stroke(pa);}
+  g.globalAlpha=1;}
+function footprints(g,S,G,t){var st=S.track&&S.track.steps,sp=S.sole;if(!st||!sp)return;var L=G.PW*28/525.8;
+  for(var i=0;i<st.length;i++){var f=st[i];if(f.t>t||t>f.t+1.9)continue;var a=Math.min(1,(t-f.t)/.12)*(1-sm((t-f.t-.5)/1.4));if(a<=0)continue;
+    g.save();g.translate(f.x,f.y);g.rotate(f.a);if(f.s<0)g.scale(1,-1);g.globalAlpha=.16*a;g.drawImage(sp,-L/2,-L*.19,L,L*.375);g.restore();}
+  g.globalAlpha=1;}
+
+// ---------------------------------------------------------------- draw
+var VOID=[.055,.045,.037];
+function draw(p,ctx){var g=ctx.g,S=ctx.state,t=p*D,G=geo(ctx);if(!S.built&&!S.gen)build(ctx);if(S.G!==G||S.bkey!==G.key){S.bkey=G.key;build(ctx);}
+  T.port=G.port;var W=G.W,H=G.H,to=ctx.to,fr=ctx.from,dpr=G.dpr;
+  // ① at rest / easing towards the plain · ② the fall and the crane (GL) · ③ the pour (2D) · ④ standing up (GL) · rest
+  var endA=seg(t,tm(t,'end'));
+  if(p>=1||(endA>=1)){restFrame(g,ctx,S,G);return;}
+  if(t<T.push[0]){if(S.F0)g.drawImage(S.F0,0,0,W,H);else if(fr)restLook(g,{W:W,H:H,dpr:dpr,wall:fr.wall,ink:fr.ink,rect:fr.rect,frame:fr.frame,art:fr.image});return;}
+  if(t<T.pour[0]){
+    var ps=pose1(t,G),mixB=1-sm(seg(t,T.cot)),drain=sm(seg(t,T.drain));
+    if(S.ready.gl){glDraw(S.R,G,{pose:ps,base:'F0',mixBase:mixB,drain:drain,rawOn:!!S.R.tex.raw,Q:[G.k1,0,0,G.k1,W/2-G.k1*G.c1[0],H/2-G.k1*G.c1[1]],shade:1-.12*Math.sin(ps.th)*(1-sm(seg(t,[3.7,4.6]))),baseFill:hex(fr?fr.wall:'#000'),voidC:VOID});
+      g.drawImage(S.R.c,0,0,W,H);}
+    else fallback1(g,ctx,S,G,t,mixB);
+    vig(g,S,G,sm(seg(t,T.vig)));return;}
+  var rise=tm(t,'rise');
+  if(t<rise[0]){drawPour(g,ctx,t);vig(g,S,G,1);return;}
+  // ④ the canvas stands up: plane 2 (rest screen coords); raw margins → wall
+  var p2=pose2(t,G),wl=sm(seg(t,tm(t,'wallIn'))),tq=G.port?{sc:G.L.w/G.A.w,r:-G.A.rot}:null;
+  // plane-2 uv → Q (cotton canvas coords): S2 then undo the turn
+  var k2=G.k2,e=W/2-k2*G.c2[0],f2=H/2-k2*G.c2[1],Qm=[k2,0,0,k2,e,f2];
+  if(tq){var c=Math.cos(-tq.r),s=Math.sin(-tq.r),i=1/tq.sc;var a=c*i,b=s*i,cc=-s*i,d=c*i;var ox=W/2,oy=H/2;
+    Qm=[a*k2,b*k2,cc*k2,d*k2,a*(e-ox)+cc*(f2-oy)+ox,b*(e-ox)+d*(f2-oy)+oy];}
+  if(S.ready.gl){glDraw(S.R,G,{pose:p2,base:'F1',mixBase:wl,rawOn:false,Q:Qm,art:'art',artR:G.to,shade:1-.1*Math.sin(p2.th)*sm(seg(t,[tm(t,'rise')[0],tm(t,'rise')[0]+.9])),baseFill:hex(to.wall),voidC:VOID});g.drawImage(S.R.c,0,0,W,H);}
+  else fallback2(g,ctx,S,G,t,wl);
+  vig(g,S,G,1-sm(seg(t,tm(t,'vigOut'))));
+  if(endA>0){g.globalAlpha=sm(endA);restFrame(g,ctx,S,G);g.globalAlpha=1;}}
+function vig(g,S,G,a){if(a<=0||!S.vig)return;g.globalAlpha=a;g.drawImage(S.vig,0,0,G.W,G.H);g.globalAlpha=1;}
+function restFrame(g,ctx,S,G){var to=ctx.to;if(S.F1bg&&S.art){g.drawImage(S.F1bg,0,0,G.W,G.H);g.drawImage(S.art,G.to.x,G.to.y,G.to.w,G.to.h);}
+  else restLook(g,{W:G.W,H:G.H,dpr:G.dpr,wall:to.wall,ink:to.ink,rect:G.to,frame:to.frame,art:to.image});}
+// before the GL layer is up (first frames after a direct seek): flat 2D stand-ins of the same moves
+function fallback1(g,ctx,S,G,t,mixB){var u=eio(seg(t,T.crane)),k=lerp(1,G.k1,u),fx=G.c1[0],fy=G.c1[1];g.save();g.translate(lerp(fx,G.W/2,u),lerp(fy,G.H/2,u));g.scale(k,k);g.translate(-fx,-fy);
+  if(S.F0)g.drawImage(S.F0,0,0,G.W,G.H);g.restore();if(mixB<1){g.globalAlpha=1-mixB;g.fillStyle='rgb('+G.cotFill.join(',')+')';g.fillRect(0,0,G.W,G.H);if(S.cot)g.drawImage(S.cot,G.Q.x,G.Q.y,G.Q.w,G.Q.h);g.globalAlpha=1;}}
+function fallback2(g,ctx,S,G,t,wl){var u=eio(seg(t,tm(t,'rise'))),L=G.L,r=G.to,x=lerp(L.x,r.x,u),y=lerp(L.y,r.y,u),w=lerp(L.w,r.w,u),h=lerp(L.h,r.h,u);
+  if(S.cot)g.drawImage(S.cot,G.Q.x,G.Q.y,G.Q.w,G.Q.h);if(wl>0&&S.F1bg){g.globalAlpha=wl;g.drawImage(S.F1bg,0,0,G.W,G.H);g.globalAlpha=1;}
+  var a=S.art||ctx.to.image;if(a)g.drawImage(a,x,y,w,h);}
+
+window.EH_SHARED=window.EH_SHARED||{};
+// the abex rest has no extras (the picture alone on its wall): the next room's p = 0 needs nothing from here
+window.EH_SHARED.abexRest=function(g,o){};
+
+EH.transition('abex',{
+  duration:D,
+  assets:DATA?['t_raw.webp'].concat(DATA.L.map(function(L){return L.file;})):[],
+  init:function(ctx){loadBin();build(ctx);},
+  draw:draw,
+  rest:function(ctx){}
+});
+})();
+
+;
 /* Special exhibit "calling" (巴洛克 · 光落在谁身上).
    A beam of light enters from a "window" handle at the top right of the hung painting. Drag the window: the beam follows
    the pointer, and whoever it hits is "called" (the figure lifts out of the dark and gets a name tag). Release: the beam
@@ -5668,7 +6510,7 @@ EH.special('drip',function(host,room,api){
     blob(lx,ly,d.r,d.pc,d.vx,d.vy,el);
     var ns=v>250*S?Math.floor(rnd(0,4)):Math.floor(rnd(0,1.6));for(var s=0;s<ns;s++){var dd=d.r*el*rnd(1.4,4.2),rr=d.r*rnd(.18,.45),q=rnd(-.35,.35);
       blob(lx+(ux*Math.cos(q)-uy*Math.sin(q))*dd,ly+(uy*Math.cos(q)+ux*Math.sin(q))*dd,rr,d.pc,d.vx,d.vy,1+(el-1)*.5);}
-    mark('splat',lx,ly,d.r*d.r*.6);
+    mark('splat',lx,ly,d.r*d.r*.6*(v>160*S?1:.12));   // a lazy drip from a resting stick barely counts; flung drops do
     snd('splat',clamp(d.r/(2.4*S),.15,.8),function(){api.sfx.drip(clamp(.01+d.r*.012,.01,.05));},45);}}
 
   // ---------- the falling thread (one physics substep of length h)
@@ -5777,7 +6619,7 @@ EH.special('drip',function(host,room,api){
     else{yg.fillStyle=RAW;yg.fillRect(0,0,px,px);}
     var D=shown?det(shown):null;
     if(D&&ok(D.img)){var iw=D.img.naturalWidth,ih=D.img.naturalHeight,s=Math.max(px/iw,px/ih);hg.drawImage(D.img,(px-iw*s)/2,(px-ih*s)/2,iw*s,ih*s);}
-    else if(D&&ok(hung)){var b=D.box,sc=hung.naturalWidth/AW,m=Math.max(b[2],b[3]);hg.drawImage(hung,(b[0]+b[2]/2-m/2)*sc,(b[1]+b[3]/2-m/2)*sc,m*sc,m*sc,0,0,px,px);}
+    else if(D&&ok(hung)){var b=D.box,sc=hung.naturalWidth/AW,m=Math.min(Math.max(b[2],b[3]),AW,AH),qx=clamp(b[0]+b[2]/2-m/2,0,AW-m),qy=clamp(b[1]+b[3]/2-m/2,0,AH-m);hg.drawImage(hung,qx*sc,qy*sc,m*sc,m*sc,0,0,px,px);}
     else if(ok(hung)){var ih2=hung.naturalHeight;hg.globalAlpha=.35;hg.drawImage(hung,(hung.naturalWidth-ih2)/2,0,ih2,ih2,0,0,px,px);hg.globalAlpha=1;}
     [yg,hg].forEach(function(g){g.restore();});
     var k=shown;youC.textContent=nb(k?K[k].you:'你的画布');hisC.textContent=nb(k?(D&&D.label&&D.label.length<=14?D.label:K[k].his):'《秋韵》局部');

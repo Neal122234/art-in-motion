@@ -1,0 +1,256 @@
+{
+ "W": 2400,
+ "H": 1223,
+ "note": "All coords in main.webp px (2400x1223). Draw order: canvas_raw.webp (bare unprimed canvas, full size) -> layer_black -> layer_brown -> layer_white -> layer_teal (RGBA, source-over). The stack reproduces main.webp. Reveal: for each layer draw its strokes (paths_<id>.json) into an offscreen mask canvas as round-capped polylines of radius r[i] (or circles for k=s/p), in order of t; use that mask (destination-in) on layer_<id>.webp. When a layer's last stroke is drawn the mask covers the whole layer (coverage in this file). mask_<id>.webp = the layer alpha alone (grayscale) if you prefer main.webp clipped by masks.",
+ "canvas": "canvas_raw.webp",
+ "order": [
+  "black",
+  "brown",
+  "white",
+  "teal"
+ ],
+ "orderWhy": "Met label: black skeleton first (thinned, soaked into raw canvas), then white/brown/turquoise over it; Bohm-Duchen from Namuth photos: right third first, then centre, then left. See src/LAYERS.md.",
+ "sections": {
+  "right": [
+   1600,
+   0,
+   800,
+   1223
+  ],
+  "centre": [
+   800,
+   0,
+   800,
+   1223
+  ],
+  "left": [
+   0,
+   0,
+   800,
+   1223
+  ],
+  "why": "stroke times inside every layer run right third -> centre -> left"
+ },
+ "layers": [
+  {
+   "id": "black",
+   "label": "黑色瓷漆（先铺，稀释后渗进生帆布）",
+   "file": "layer_black.webp",
+   "mask": "mask_black.webp",
+   "paths": "paths_black.json",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1223,
+   "z": 1,
+   "coverage": {
+    "pix_alpha>=0.1": 100.0,
+    "alpha_weighted": 99.982,
+    "strokes": 8779,
+    "lines": 7508,
+    "splats": 885,
+    "patches": 386
+   }
+  },
+  {
+   "id": "brown",
+   "label": "褐色（半透明棕褐）",
+   "file": "layer_brown.webp",
+   "mask": "mask_brown.webp",
+   "paths": "paths_brown.json",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1223,
+   "z": 2,
+   "coverage": {
+    "pix_alpha>=0.1": 100.0,
+    "alpha_weighted": 99.958,
+    "strokes": 7215,
+    "lines": 4264,
+    "splats": 911,
+    "patches": 2040
+   }
+  },
+  {
+   "id": "white",
+   "label": "白色瓷漆",
+   "file": "layer_white.webp",
+   "mask": "mask_white.webp",
+   "paths": "paths_white.json",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1223,
+   "z": 3,
+   "coverage": {
+    "pix_alpha>=0.1": 100.0,
+    "alpha_weighted": 99.957,
+    "strokes": 17105,
+    "lines": 13942,
+    "splats": 1598,
+    "patches": 1565
+   }
+  },
+  {
+   "id": "teal",
+   "label": "青绿（少量点缀）",
+   "file": "layer_teal.webp",
+   "mask": "mask_teal.webp",
+   "paths": "paths_teal.json",
+   "x": 0,
+   "y": 0,
+   "w": 2400,
+   "h": 1223,
+   "z": 4,
+   "coverage": {
+    "pix_alpha>=0.1": 100.0,
+    "alpha_weighted": 99.991,
+    "strokes": 468,
+    "lines": 78,
+    "splats": 181,
+    "patches": 209
+   }
+  }
+ ],
+ "details": [
+  {
+   "n": 1,
+   "file": "detail_1.webp",
+   "label": "一滩积漆和四周的飞溅漆点",
+   "kind": "pool-splatter",
+   "box": [
+    300,
+    0,
+    288,
+    192
+   ],
+   "srcBox": [
+    670,
+    0,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  },
+  {
+   "n": 2,
+   "file": "detail_2.webp",
+   "label": "细如鞭梢的甩线",
+   "kind": "whip",
+   "box": [
+    18,
+    72,
+    288,
+    192
+   ],
+   "srcBox": [
+    40,
+    161,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  },
+  {
+   "n": 3,
+   "file": "detail_3.webp",
+   "label": "甩出去的羽状黑漆",
+   "kind": "feathered-fling",
+   "box": [
+    1908,
+    24,
+    288,
+    192
+   ],
+   "srcBox": [
+    4260,
+    54,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  },
+  {
+   "n": 4,
+   "file": "detail_4.webp",
+   "label": "厚厚的白漆",
+   "kind": "white-pool",
+   "box": [
+    1656,
+    216,
+    288,
+    192
+   ],
+   "srcBox": [
+    3697,
+    482,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  },
+  {
+   "n": 5,
+   "file": "detail_5.webp",
+   "label": "青绿色细线",
+   "kind": "teal",
+   "box": [
+    1056,
+    24,
+    288,
+    192
+   ],
+   "srcBox": [
+    2358,
+    54,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  },
+  {
+   "n": 6,
+   "file": "detail_6.webp",
+   "label": "半透明的褐色",
+   "kind": "brown-wash",
+   "box": [
+    1296,
+    0,
+    288,
+    192
+   ],
+   "srcBox": [
+    2893,
+    0,
+    643,
+    429
+   ],
+   "size": [
+    643,
+    429
+   ],
+   "scale": 2.2325
+  }
+ ]
+}
