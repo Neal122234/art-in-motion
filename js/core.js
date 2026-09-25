@@ -6,9 +6,9 @@
 'use strict';
 var EH=window.EH=window.EH||{};
 var $=function(id){return document.getElementById(id);};
-var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism','avantgarde','dada','abex'];
+var ROOM_IDS=['prehistory','antiquity','medieval','renaissance','baroque','rococo','neoclassical','romanticism','realism','impressionism','postimpressionism','avantgarde','dada','abex','pop','minimal','contemporary'];
 var ERAS=['史前','古希腊罗马','中世纪','文艺复兴','巴洛克','洛可可','新古典','浪漫主义','现实主义','印象派','后印象派','现代先锋','达达与超现实','抽象表现主义','波普','极简与观念','当代'];
-var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10,avantgarde:11,dada:12,abex:13};
+var ERA_OF={prehistory:0,antiquity:1,medieval:2,renaissance:3,baroque:4,rococo:5,neoclassical:6,romanticism:7,realism:8,impressionism:9,postimpressionism:10,avantgarde:11,dada:12,abex:13,pop:14,minimal:15,contemporary:16};
 var FRAME_OVERRIDE={};   // per-room presentation now lives in rooms/<id>/overlay.json (merged over room.json by build.py)
 var BED={prehistory:'cave',antiquity:'sun',medieval:'church',renaissance:'chapel',baroque:'church'};   // ambient sound per room
 var HOLD=11;                                                    // seconds a room rests before the next transition
