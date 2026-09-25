@@ -5759,9 +5759,16 @@ EH.special('drip',function(host,room,api){
     var sx=(a.x-r)*DPR,sy=(a.y-r)*DPR;g.fillStyle=RAW;g.fillRect(0,0,c.width,c.height);g.drawImage(base,sx,sy,c.width,c.height,0,0,c.width,c.height);g.drawImage(paint,sx,sy,c.width,c.height,0,0,c.width,c.height);youSnap=c;}
   function updateMag(now){if(!pg)return;var quiet=!P.pour||now-shownAt>2600;if(!quiet)return;var k=pickKind();
     if(!k||(k===shown&&now-shownAt<1500))return;
-    if(k!==shown||!P.pour){if(DET[k]&&DET[k].length&&k===shown)detIdx[k]=(detIdx[k]+1)%DET[k].length;}
+    if(k===shown)detIdx[k]=(detIdx[k]+1)%Math.max(1,detList(k).length);
     snapYou(k);shown=k;shownAt=now;KINDS.forEach(function(q){acc[q].m=0;});magDirty=true;snd('mag',.2,function(){api.sfx.tick(.02);},300);}
-  function det(k){var L=DET[k],cap=LENS[k]?LENS[k].cap:'';if(L&&L.length){var d0=L[detIdx[k]%L.length];if(!d0.cap)d0.cap=cap;return d0;}if(LENS[k])return{img:null,box:LENS[k].box,label:'',cap:cap};var F=FALLBACK[k];if(!F)return null;var b=F[0],f=AW/2400;return{img:null,box:[b[0]*f,b[1]*f,b[2]*f,b[3]*f],label:'',cap:''};}
+  // the author's spot (room.json special.lens: box + caption) comes first — with the cut detail image if one shows the same place;
+  // the other cut details of that kind follow as alternates (their own label, no caption), cycled when you make the same mark again
+  function inBox(d,b){var cx=d.box[0]+d.box[2]/2,cy=d.box[1]+d.box[3]/2;return cx>=b[0]&&cx<=b[0]+b[2]&&cy>=b[1]&&cy<=b[1]+b[3];}
+  function detList(k){var L=(DET[k]||[]).slice(),out=[];if(LENS[k]){var lb=LENS[k].box,hit=null;
+      Object.keys(DET).forEach(function(q){(DET[q]||[]).forEach(function(d){if(!hit&&inBox(d,lb))hit=d;});});
+      out.push(hit?{img:hit.img,box:hit.box,label:hit.label,cap:LENS[k].cap}:{img:null,box:lb,label:'',cap:LENS[k].cap});L=L.filter(function(d){return d!==hit;});}
+    L.forEach(function(d){out.push({img:d.img,box:d.box,label:d.label,cap:''});});return out;}
+  function det(k){var L=detList(k);if(L.length)return L[detIdx[k]%L.length];var F=FALLBACK[k];if(!F)return null;var b=F[0],f=AW/2400;return{img:null,box:[b[0]*f,b[1]*f,b[2]*f,b[3]*f],label:'',cap:''};}
   function drawMag(){var dpr=Math.min(devicePixelRatio||1,2),w=youCv.clientWidth;if(!w)return;var px=Math.round(w*dpr);
     [youCv,hisCv].forEach(function(c){if(c.width!==px){c.width=c.height=px;}});
     var yg=youCv.getContext('2d'),hg=hisCv.getContext('2d');
@@ -9057,6 +9064,7 @@ function css(){if(document.getElementById('s-syn-css'))return;var s=document.cre
   '.syn-key:focus-visible{outline:1px solid currentColor;outline-offset:3px}'+
   '@media (hover:none){.syn-key .k{display:none}}'+
   '@media (max-width:560px){.syn-keys{grid-template-columns:repeat(5,minmax(0,1fr))}.syn-key{min-height:76px}}'+
+  '.syn-src{margin:14px 0 0!important;color:var(--ink-3)}'+
   '.syn-turn{display:flex;align-items:center;gap:20px;margin:4px 0 6px}'+
   '.syn-knob{flex:0 0 auto;width:104px;height:104px;padding:0;border:0;background:transparent;color:inherit;cursor:grab;touch-action:none;border-radius:50%;-webkit-tap-highlight-color:transparent}'+
   '.syn-knob.drag{cursor:grabbing}.syn-knob:focus-visible{outline:1px solid currentColor;outline-offset:3px}'+
@@ -9208,8 +9216,10 @@ EH.special('synesthesia',function(host,room,api){
       '<g class="ticks" stroke="currentColor" stroke-width="1.2"></g>'+
       '<g class="rot"><circle r="33" fill="rgba(0,0,0,.18)" stroke="currentColor" stroke-width="1.2"/><g class="ridges" stroke="currentColor" stroke-opacity=".45" stroke-width="1"></g><line x1="0" y1="-12" x2="0" y2="-29" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></g></svg></button>'+
       '<p><b class="kl"></b>　<span class="deg">0°</span><br><span class="tt"></span></p></div>'+
-    '<p class="small syn-side" hidden></p>';
+    '<p class="small syn-side" hidden></p>'+
+    '<p class="small syn-src"></p>';
   host.appendChild(wrap);
+  (function(){var el=wrap.querySelector('.syn-src'),t=[sp.pairsSource,sp.note].filter(Boolean).join('。').replace(/。。/g,'。');if(t)el.textContent=nb(t);else el.remove();})();
   var stage=wrap.querySelector('.syn-stage'),sg=stage.getContext('2d');
   var hintEl=wrap.querySelector('.syn-hint'),nowEl=wrap.querySelector('.syn-now'),keysEl=wrap.querySelector('.syn-keys'),knob=wrap.querySelector('.syn-knob');
   var knobRot=knob.querySelector('.rot'),knobArc=knob.querySelector('.arc'),degEl=wrap.querySelector('.deg'),sideEl=wrap.querySelector('.syn-side');
