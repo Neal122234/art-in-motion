@@ -12724,7 +12724,7 @@ function css(){if(document.getElementById('s-syn-css'))return;var s=document.cre
   '.syn-key{position:relative;min-height:88px;min-width:0;padding:0 0 8px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;'+
     'border:1px solid var(--ink-3);border-radius:2px;background:transparent;color:inherit;font:400 12.5px/1.25 var(--song);cursor:pointer;touch-action:none;'+
     'user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .08s ease,border-color .15s}'+
-  '.syn-key .sw{position:absolute;left:5px;right:5px;top:5px;height:34px;border-radius:1px;transition:filter .15s,box-shadow .15s}'+
+  '.syn-key .sw{align-self:stretch;flex:0 0 34px;height:34px;margin:5px 5px auto;border-radius:1px;transition:filter .15s,box-shadow .15s}'+
   '.syn-key .k{font:400 12.5px/1 var(--didone,serif);color:var(--ink-3)}'+
   '.syn-key .n{white-space:nowrap}'+
   '.syn-key[aria-pressed="true"]{transform:translateY(2px);border-color:currentColor;font-weight:500}'+
