@@ -2188,9 +2188,8 @@ function shoe(g,ctx,S,G,t){var I=S.im||{};if(!I.shoe||!I.shoe.naturalWidth)retur
    ropes snap taut, twang, turn to steel · the rocaille curls are combed out one by one into ruled lines · the pastel drains to lime-plaster
    grey with a touch of Roman red · the page snaps to a three-part grid in three clicks (咔、咔、咔): centred, set on the line, sized to the
    middle bay; the Latin words switch to Roman capitals · the grid's lines rise into Doric columns and carry three arches (three equal bays)
-   · the steel rods lift off the page and fly into the father's fists as swords · the Swing, already lime-plaster grey, is washed
-   off the wall as one picture (girl, swing, foliage together; an even fade with a soft top-down lead, 7.4–9.0 s, over before David's
-   colour arrives) · the painting fills in behind the drawing: architecture,
+   · the steel rods lift off the page and fly into the father's fists as swords · the curves that couldn't be straightened (the whole soft
+   page) are pushed into the right-hand bay and soften into the grieving women · the painting fills in behind the drawing: architecture,
    father, sons, women · the sons' arms rise together on three drum beats · all arms and blades are ruled to one point, the swords ·
    the camera pulls back, the drawing fades to a faint grid · hand-over. Rest: that faint grid and the convergence lines, fading after
    a few seconds.
@@ -2217,7 +2216,7 @@ var T={sway:[0,1.1], snare:1.1, swap:[.75,1.1], taut:[1.1,1.34], twang:[1.1,2.0]
   curl0:2.0, curlStep:.34, curlDur:.52, drain:[2.3,4.3],
   grid:[4.3,4.72], k:[4.55,4.95,5.35], kDur:.26, font:4.95, txtOut:[6.2,7.4],
   cols:[5.7,7.2], caps:[6.9,7.5], arches:[7.2,8.4],
-  camB:[8.3,11.4], lift:[7.8,9.6], wash:[7.4,9.0],
+  camB:[8.3,11.4], lift:[7.8,9.6], pageOut:[8.2,9.7], push:[8.6,11.0], soft:[9.2,10.8], pushFade:[10.0,11.6],
   paint:[[8.3,9.9],[9.2,10.6],[9.8,11.2],[10.1,11.7]], rodOut:[9.8,10.6],
   beats:[12.0,12.7,13.4], beatDur:.26, conv:[13.45,14.3], ring:[13.9,15.2], armsReal:[13.9,14.3],
   pull:[14.3,17.8], linesOut:[15.2,17.4], wallTo:[14.4,17.6], title:17.2};
@@ -2357,27 +2356,17 @@ function framePass(g,S,r,t,fc,bc,a){if(a<=0||!fc)return;var fp=r.fp||0,fb=S.fb;g
   g.save();g.beginPath();g.rect(fb.x,fb.y,fb.w,fb.h);for(var i=0;i<4;i++){var P=cornerPoly(r,fp,i);g.moveTo(P[0][0],P[0][1]);for(var j=1;j<4;j++)g.lineTo(P[j][0],P[j][1]);g.closePath();}g.clip('evenodd');g.drawImage(fc,fb.x,fb.y,fb.w,fb.h);g.restore();
   for(i=0;i<4;i++){var ca=cornerA(t,i);if(ca<=0)continue;var Q=cornerPoly(r,fp,i);g.save();g.beginPath();g.moveTo(Q[0][0],Q[0][1]);for(j=1;j<4;j++)g.lineTo(Q[j][0],Q[j][1]);g.closePath();g.clip();g.globalAlpha=a*ca;g.drawImage(fc,fb.x,fb.y,fb.w,fb.h);g.restore();}
   g.restore();}
-// the washed-off Swing: while the wash runs the page is composed at full strength in an offscreen and taken off as ONE picture (no layer
-// shows through another); the wash is an even fade whose front leads a little from the top (plaster rinsed down the wall), fully feathered
-var WASH_LEAD=.45;
-function washU(t){return seg(t,T.wash[0],T.wash[1]);}
-function drawPageWashed(g,ctx,S,t,pg,drain){var u=washU(t);if(u>=1)return;if(u<=0){drawPage(g,ctx,S,t,pg,drain);return;}
-  var W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),cw=Math.round(W*q),ch=Math.round(H*q);if(!S.wC||S.wC.width!==cw||S.wC.height!==ch)S.wC=cv(cw,ch);
-  var o=S.wC.getContext('2d');o.setTransform(1,0,0,1,0,0);o.globalAlpha=1;o.globalCompositeOperation='source-over';o.clearRect(0,0,cw,ch);o.setTransform(q,0,0,q,0,0);
-  drawPage(o,ctx,S,t,{cx:pg.cx,cy:pg.cy,s:pg.s,a:1,cx0:pg.cx0,cy0:pg.cy0},drain);
-  // remaining strength at height yn (0 = the page's top, 1 = its foot): 1 - smoothstep(u·(1+L) − L·yn)
-  var r=ctx.from.rect,fp=(r.fp||0)+24,y0=pg.cy+(r.y-fp-pg.cy0)*pg.s,y1=pg.cy+(r.y+r.h+fp-pg.cy0)*pg.s,gr=o.createLinearGradient(0,y0,0,y1);
-  for(var i=0;i<=10;i++){var yn=i/10;gr.addColorStop(yn,'rgba(0,0,0,'+sm(u*(1+WASH_LEAD)-WASH_LEAD*yn).toFixed(4)+')');}
-  o.globalCompositeOperation='destination-out';o.fillStyle=gr;o.fillRect(0,0,W,H);o.globalCompositeOperation='source-over';
-  g.save();g.globalAlpha=pg.a;g.drawImage(S.wC,0,0,W,H);g.restore();}
 function drawPage(g,ctx,S,t,pg,drain){var F=ctx.from,r=F.rect,fp=r.fp||0,tau=TAU0+Math.min(t,T.snare),th=rocAngle(tau);ensureRoc(ctx,S);
-  var fade=1,ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=1-sm(seg(t,T.k[2],T.k[2]+1.2));
+  var fade=1-sm(seg(t,T.pageOut[0],T.pageOut[1])),soft=sm(seg(t,T.soft[0],T.soft[1])),ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=fade*(1-sm(seg(t,T.k[2],T.k[2]+1.2)));
   g.save();g.globalAlpha=pg.a;pageXform(g,pg);
   var sa=S.shA*(1-drain)*fade;if(sa>0){g.globalAlpha=pg.a*sa;g.drawImage(S.shFr.c,S.shFr.x,S.shFr.y,S.shFr.w,S.shFr.h);g.globalAlpha=pg.a;}
   if(t<T.swap[0]){g.drawImage(F.image,r.x,r.y,r.w,r.h);if(SH.rococoRest){try{SH.rococoRest(g,{W:ctx.W,H:ctx.H,rect:r,dpr:ctx.dpr||1,t:tau});}catch(e){console.error(e);}}else band(g,r,fp);}
-  else{
-    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,1);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
-    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,1);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}}
+  else{var wa=1-soft;
+    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,wa);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
+    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,wa);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}
+    // the soft remainder of the woman: what couldn't be straightened
+    if(soft>0&&S.soft){var k=r.w/RW;g.save();g.translate(r.x,r.y);g.scale(k,k);g.translate(ROC.pivot[0],ROC.pivot[1]);g.rotate(th);g.translate(-ROC.pivot[0],-ROC.pivot[1]);
+      g.globalAlpha=pg.a*soft;g.drawImage(S.soft,ROC.woman.x-60,ROC.woman.y-60,ROC.woman.w+120,ROC.woman.h+120);g.restore();}}
   g.restore();}
 // pastel → lime plaster: saturation out, the darks lifted, a warm lime tint (blend fills on what is already there; no filters)
 function plaster(g,x,y,w,h,a){if(a<=0)return;g.save();g.beginPath();g.rect(x,y,w,h);g.clip();
@@ -2393,6 +2382,9 @@ function pageAt(t,ctx){var W=ctx.W,H=ctx.H,r=ctx.from.rect,cx0=r.x+r.w/2,cy0=r.y
   var bw=(GEO.cols[1]-GEO.cols[0]-2*GEO.shaft[0])*m.s*.84,ytop=Y(m,GEO.spring)+.06*H,hmax=Math.max(60,H*.94-ytop),s1=Math.min(bw/r.w,hmax/r.h),cy1=ytop+r.h*s1/2;
   var k1=backOut(seg(t,T.k[0],T.k[0]+T.kDur)),k2=backOut(seg(t,T.k[1],T.k[1]+T.kDur)),k3=backOut(seg(t,T.k[2],T.k[2]+T.kDur));
   var cx=lerp(cx0,W/2,k1),s=lerp(1,s1,k2),cy=lerp(cy0,cy1,k3),a=1;   // click 1: centred · click 2: sized to the bay · click 3: set on the line
+  // pushed into the right-hand bay, where the women will be
+  var pu=eio(seg(t,T.push[0],T.push[1]));if(pu>0){var mm=xf(camAt(t,ctx),W,H),tx=X(mm,GEO.women[0]),ty=Y(mm,GEO.women[1]);cx=lerp(cx,tx,pu);cy=lerp(cy,ty,pu);s=s*lerp(1,.92,pu);}
+  a=1-sm(seg(t,T.pushFade[0],T.pushFade[1]));
   return{cx:cx,cy:cy,s:s,a:a,cx0:cx0,cy0:cy0};}
 function pageXform(g,pg){g.translate(pg.cx,pg.cy);g.scale(pg.s,pg.s);g.translate(-pg.cx0,-pg.cy0);}
 function pagePt(pg,x,y){return[pg.cx+(x-pg.cx0)*pg.s,pg.cy+(y-pg.cy0)*pg.s];}
@@ -2598,7 +2590,7 @@ function prewarm(ctx,S){try{var W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),c=cv(W*
   if(ok(ctx.to.image))g.drawImage(ctx.to.image,ctx.to.rect.x,ctx.to.rect.y,ctx.to.rect.w,ctx.to.rect.h);
   if(ctx.from){ensureRoc(ctx,S);var r=ctx.from.rect;paintLayers(g,S,r,S.cl,1,0,1,1,1);paintLayers(g,S,r,S.gl,1,0,0,1,1);framePass(g,S,r,0,S.fc,S.bc,1);framePass(g,S,r,0,S.gfc,S.gbc,1);}
   ARMS.forEach(function(A){if(ok(S.arm[A.id]))g.drawImage(S.arm[A.id],0,0,A.w*m.s,A.h*m.s);});
-  g.getImageData(0,0,1,1);S.wC=c;}catch(e){console.error(e);}}   // the same full-screen canvas is the wash's offscreen
+  g.getImageData(0,0,1,1);}catch(e){console.error(e);}}
 
 // ================================================================== the module
 EH.transition('neoclassical',{
@@ -2612,6 +2604,7 @@ EH.transition('neoclassical',{
     S.full=ctx.to.image;
     if(ctx.from){S.fromImg=ctx.from.image;S.roc={};['plate','ropes','woman','flowers','shoe'].forEach(function(k){S.roc[k]=ctx.fromAsset(ROC[k].f);});
       S.rocOK=['plate','ropes','woman','flowers'].every(function(k){return ok(S.roc[k]);});}
+    if(S.rocOK){var sc=.5,wc=cv(ROC.woman.w*sc+120*sc,ROC.woman.h*sc+120*sc),wg=wc.getContext('2d');wg.filter='grayscale(1) blur('+(14*sc)+'px)';wg.drawImage(S.roc.woman,60*sc,60*sc,ROC.woman.w*sc,ROC.woman.h*sc);wg.filter='none';S.soft=wc;}
     prewarm(ctx,S);},
   draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,R1=ctx.to.rect,F=ctx.from;
     if(p>=1){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink==='dark',1);g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);restHint(g,{rect:R1,t:0});domFrom(ctx,D);return;}
@@ -2626,9 +2619,9 @@ EH.transition('neoclassical',{
     var cam=camAt(t,ctx),m=xf(cam,W,H);
     // ---- the Oath fills in behind the drawing
     drawOath(g,ctx,S,t,m);
-    // ---- the page (the Swing), its snaps, then washed off the wall as one picture
+    // ---- the page (the Swing), its snaps, its push into the women's bay
     if(F){var pg=pageAt(t,ctx);
-      if(pg.a>0)drawPageWashed(g,ctx,S,t,pg,drain);
+      if(pg.a>0)drawPage(g,ctx,S,t,pg,drain);
       // ---- the curls (rococo frame scrolls) → ruled lines → the grid
       drawCurls(g,ctx,S,t,pg);}
     // ---- the drawing: grid, columns, arches (fades to the resting hint)
@@ -2651,14 +2644,11 @@ EH.transition('neoclassical',{
 /* 浪漫主义 · 雾吞掉了网格 — the passage from David's Oath of the Horatii (neoclassical) into Friedrich's Wanderer above the Sea of Fog.
    Beats (seconds of D): a first wisp of mist curls out of the middle arch, then the side arches · the mist surges out of all three,
    runs along the invisible three-part grid (the lines light up where the front passes) and floods the painting, the columns, the
-   label and the navigation (the Oath's red resting grid is swallowed by the first wisps, from each arch outward, within ~2.4 s) ·
-   the Horatii dissolve into the fog: a veil drawn from the fog's own density field eats the frame and the painting's edges first,
-   then patch by patch where the fog is thickest (3.7–7.9 s, no global fade); their arcade stays as a grey silhouette and crumbles — the voussoirs
-   fall, the columns and piers weather in place into Friedrich's sandstone crags (flutes crack into joints, edges break; uneven heights,
-   leaning, broken crowns, bedding ledges, two lesser spires and a ridge; textured with cut/rock.webp, lit from the upper left) — then sinks · wind rises from below (the fog streams upward) ·
-   where the three swords converged (no marker: the fog only thins there from 7.4 s) the fog parts: the back of a head rises from the bottom edge of the screen, a figure in a dark
+   label and the navigation · the Horatii fade into the fog; their arcade stays as a grey silhouette and crumbles — the voussoirs
+   fall, the columns and piers grow into jagged sandstone pinnacles — then sinks · wind rises from below (the fog streams upward) ·
+   where the three swords converged the fog parts: the back of a head rises from the bottom edge of the screen, a figure in a dark
    green coat walks away from the visitor up the rock (the rock continues below the frame), smaller with each step, onto the summit ·
-   the mountain layers rise with parallax (the picture's sides and top fog-feathered by a ragged mask that narrows to 0 by 17.4 s) · the fog clears from the top down to a sea of fog that drowns half of the vertical title ·
+   the mountain layers rise with parallax · the fog clears from the top down to a sea of fog that drowns half of the vertical title ·
    the sea sinks and settles into the valleys of the painting · hand-over.
    Fog: one WebGL overlay layer (ctx.layer 'fog', above the wall text and controls) at ≤ 1/4 of the device pixels, a procedural
    domain-warped field that is a pure function of t (no simulation state), occluded by the rock and the walking figure.
@@ -2668,9 +2658,9 @@ EH.transition('neoclassical',{
 'use strict';
 var D=20.6, PW=1871, PH=2400, NW=2400, NH=1871;
 var SH=window.EH_SHARED=window.EH_SHARED||{};
-var T={wisp:[0.35,1.4,1.9], surge:[2.6,7.4], grid:[3.0,6.4], hintOut:[0.8,2.4], veil:[3.7,7.9], frameOut:[3.6,6.2], thin:[7.4,9.0],
-  fromDom:[4.8,6.4], fogTint:[4.0,6.8], neoOut:[7.7,8.2],
-  arcIn:[4.6,6.0], crumble:[6.0,8.8], sink:[8.8,11.0], arcOcc:[5.6,6.8], wall:[6.0,9.0], wind:[8.0,12.5], romIn:[8.4,10.4], feather:[10.6,17.4],
+var T={wisp:[0.35,1.4,1.9], surge:[2.6,7.4], grid:[3.0,7.8], hintIn:[2.2,3.6], hintOut:[4.8,6.8], mark:[3.8,5.4], markOut:[9.3,10.3],
+  fromDom:[4.8,6.4], fogTint:[4.0,6.8], neoOut:[7.4,9.4],
+  arcIn:[4.6,6.0], crumble:[6.0,8.8], sink:[8.8,11.0], arcOcc:[5.6,6.8], wall:[6.0,9.0], wind:[8.0,12.5], romIn:[8.4,10.4], feather:[10.6,14.0],
   riseRock:[9.0,13.2], riseMid:[9.0,13.8], riseFar:[9.0,14.6], manIn:[8.5,9.2], hole:[9.0,10.2], walk:[10.1,17.0], late:[11.0,16.2], title:12.4,
   seaDown:[17.2,19.6], seaFade:[18.4,19.8], rockOcc:[9.0,10.5], occOut:[17.2,18.6], extOut:[17.6,19.4], valley:[17.0,19.8], fin:[19.4,20.4]};
 // ------------------------------------------------------------------ geometry
@@ -2749,7 +2739,7 @@ var FS=[
 'uniform vec2 uRes,uCss,uDrift;uniform float uT,uStreak,uArchR;',
 'uniform vec4 uW0,uW1,uW2;uniform vec3 uFlood;uniform float uDen;',
 'uniform vec4 uGridR,uGridL;uniform float uGridA,uGridY;uniform sampler2D uArc;uniform float uArcA;',
-'uniform vec4 uHole,uVeilR;uniform float uVeil,uMask;',
+'uniform vec4 uHole;',
 'uniform sampler2D uRock,uMan,uValley;uniform vec4 uRockXf,uManXf,uTo;uniform float uRockA,uManA,uValA;',
 'uniform float uLateY,uLateOn;uniform vec3 uSea;',
 'uniform vec4 uP[12];uniform vec4 uRead;uniform float uReadOn,uAlpha;',
@@ -2773,7 +2763,7 @@ var FS=[
 '  float nl=fbm3(qw+vec2(-.05,-.07));',
 '  float b=smoothstep(.3,.72,n);',
 // early: wisps + surge
-'  float early=0.;float gridGlow=0.;float veil=0.;',
+'  float early=0.;float gridGlow=0.;',
 '  if(uLateOn<1.||uLateY<uCss.y+400.){',
 '    early=max(max(wisp(pix,uW0,n),wisp(pix,uW1,n)),wisp(pix,uW2,n));',
 '    if(uFlood.z>0.){float dist=1e5;',
@@ -2785,12 +2775,7 @@ var FS=[
 '        float ln=max(max(max(exp(-gx.x*gx.x*.1),exp(-gx.y*gx.y*.1)),max(exp(-gx.z*gx.z*.1),exp(-gx.w*gx.w*.1))),exp(-gy*gy*.1))*(.55+.6*n);',
 '        vec2 gu=(pix-uGridR.xy)/uGridR.zw;float gin=smoothstep(-.03,.01,gu.x)*smoothstep(1.03,.99,gu.x)*smoothstep(-.04,.01,gu.y)*smoothstep(1.04,.99,gu.y);',
 '        gridGlow=ln*gin*smoothstep(-70.,0.,f)*(1.-smoothstep(10.,240.,f))*uGridA;}}',
-'    early*=uDen;',
-// the veil: how far the fog has eaten the Horatii — patch by patch where the field is densest, from the ragged edges in (mask pass only)
-'    if(uVeil>0.){vec2 dd=min(pix-uVeilR.xy,uVeilR.xy+uVeilR.zw-pix);float mdim=min(uVeilR.z,uVeilR.w),dm=min(dd.x,dd.y)+(n-.5)*mdim*.14;',
-'      float ed=1.-smoothstep(0.,.3*mdim,dm);',
-'      veil=smoothstep(0.,.35,uVeil*2.4-1.5+(n-.5)*1.1+ed);}}',
-'  if(uMask>0.){gl_FragColor=vec4(0.,0.,0.,veil);return;}',
+'    early*=uDen;}',
 // late: the sea of fog outside the painting, the painting's own fog sea inside
 '  vec2 tu=(pix-uTo.xy)/uTo.zw;float inR=smoothstep(0.,.035,tu.x)*smoothstep(1.,.965,tu.x)*smoothstep(0.,.03,tu.y)*smoothstep(1.,.97,tu.y);',
 '  float val=texture2D(uValley,clamp(tu,0.,1.)).r*box(tu);',
@@ -2800,7 +2785,7 @@ var FS=[
 '  float cov=mix(early,lateC,lm);gridGlow*=1.-lm;',
 // the wind parts it: the head, the walking figure, the rock in front of the fog
 '  vec2 hd=pix-uHole.xy;float hr=length(hd)+(n-.5)*uHole.z*.7;cov*=1.-uHole.w*smoothstep(uHole.z,uHole.z*.35,hr);',
-'  vec2 ru=(pix-uRockXf.xy)/uRockXf.zw;float ro=texture2D(uRock,clamp(ru,0.,1.)).r*box(ru)*uRockA*smoothstep(0.,.16,ru.x+(n-.5)*.12)*smoothstep(1.,.84,ru.x-(n-.5)*.12);',
+'  vec2 ru=(pix-uRockXf.xy)/uRockXf.zw;float ro=texture2D(uRock,clamp(ru,0.,1.)).r*box(ru)*uRockA;',
 '  vec2 mu=(pix-uManXf.xy)/uManXf.zw;float mo=texture2D(uMan,clamp(mu,0.,1.)).r*box(mu)*uManA;',
 '  cov*=1.-max(ro,mo);',
 '  if(uArcA>0.)cov*=1.-texture2D(uArc,pix/uCss).a*uArcA;',
@@ -2808,8 +2793,8 @@ var FS=[
 '  vec2 rd=pix-uRead.xy;cov*=1.-uReadOn*step(-8.,rd.x)*step(rd.x,uRead.z+8.)*step(-8.,rd.y)*step(rd.y,uRead.w+8.);',
 '  float a=clamp(cov*mix(mix(.42,.72,lm*(1.-inR)),1.,b),0.,1.)*uAlpha;',
 '  float sh=clamp(.62+(n-nl)*3.2,0.,1.);',
-'  vec3 col=mix(vec3(.66,.68,.745),vec3(.94,.945,.96),sh);col=mix(col,vec3(.98,.975,.965),clamp(gridGlow*.45,0.,1.));',
-'  a=max(a,clamp(gridGlow*.18,0.,1.)*uAlpha);',
+'  vec3 col=mix(vec3(.66,.68,.745),vec3(.94,.945,.96),sh);col=mix(col,vec3(.98,.975,.965),clamp(gridGlow*.7,0.,1.));',
+'  a=max(a,clamp(gridGlow*.3,0.,1.)*uAlpha);',
 '  gl_FragColor=vec4(col*a,a);}'].join('\n');
 
 function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false});
@@ -2819,7 +2804,7 @@ function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,a
   if(!gl.getProgramParameter(p,gl.LINK_STATUS)){console.warn(gl.getProgramInfoLog(p));return null;}
   gl.useProgram(p);var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   var al=gl.getAttribLocation(p,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
-  var U={};['uRes','uCss','uDrift','uT','uStreak','uArchR','uW0','uW1','uW2','uFlood','uDen','uGridR','uGridA','uGridL','uGridY','uArc','uArcA','uHole','uVeil','uVeilR','uMask','uRock','uMan','uValley','uRockXf','uManXf','uTo','uRockA','uManA','uValA','uLateY','uLateOn','uSea','uP','uRead','uReadOn','uAlpha'].forEach(function(n){U[n]=gl.getUniformLocation(p,n);});
+  var U={};['uRes','uCss','uDrift','uT','uStreak','uArchR','uW0','uW1','uW2','uFlood','uDen','uGridR','uGridA','uGridL','uGridY','uArc','uArcA','uHole','uRock','uMan','uValley','uRockXf','uManXf','uTo','uRockA','uManA','uValA','uLateY','uLateOn','uSea','uP','uRead','uReadOn','uAlpha'].forEach(function(n){U[n]=gl.getUniformLocation(p,n);});
   var tex={};
   function texFrom(unit,name,im){var t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -2836,7 +2821,7 @@ function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,a
       gl.uniform1f(U.uArcA,arcA);gl.uniform4fv(U.uGridL,o.gridL||[-1e4,-1e4,-1e4,-1e4]);gl.uniform1f(U.uGridY,o.gridY==null?-1e4:o.gridY);
       gl.uniform2f(U.uRes,cw,ch);gl.uniform2f(U.uCss,o.W,o.H);gl.uniform2f(U.uDrift,o.drift[0],o.drift[1]);gl.uniform1f(U.uT,o.t);gl.uniform1f(U.uStreak,o.streak);gl.uniform1f(U.uArchR,o.archR);
       gl.uniform4fv(U.uW0,o.w[0]);gl.uniform4fv(U.uW1,o.w[1]);gl.uniform4fv(U.uW2,o.w[2]);gl.uniform3fv(U.uFlood,o.flood);gl.uniform1f(U.uDen,o.den);
-      gl.uniform4fv(U.uGridR,o.gridR);gl.uniform1f(U.uGridA,o.gridA);gl.uniform4fv(U.uHole,o.hole);gl.uniform1f(U.uVeil,o.veil||0);gl.uniform4fv(U.uVeilR,o.veilR||[0,0,1,1]);gl.uniform1f(U.uMask,o.mask?1:0);
+      gl.uniform4fv(U.uGridR,o.gridR);gl.uniform1f(U.uGridA,o.gridA);gl.uniform4fv(U.uHole,o.hole);
       gl.uniform4fv(U.uRockXf,o.rockXf);gl.uniform4fv(U.uManXf,o.manXf);gl.uniform4fv(U.uTo,o.to);gl.uniform1f(U.uRockA,o.rockA);gl.uniform1f(U.uManA,o.manA);gl.uniform1f(U.uValA,o.valA);
       gl.uniform1f(U.uLateY,o.lateY);gl.uniform1f(U.uLateOn,o.lateOn);gl.uniform3fv(U.uSea,o.sea);
       P.fill(0);(o.ptr||[]).slice(0,12).forEach(function(h,i){P[i*4]=h[0];P[i*4+1]=h[1];P[i*4+2]=h[2];P[i*4+3]=h[3];});gl.uniform4fv(U.uP,P);
@@ -2851,91 +2836,42 @@ function restFog(W,H,rect,t,ptr,read,alpha){var z=[0,0,0,0];
 // the noise field's offset: a slow drift across the valleys, plus the gust from below (its integral: constant once the wind has passed)
 function drift(t){return[0.022*t,0.004*t+3.1*sm((t-T.wind[0])/(T.wind[1]-T.wind[0]))];}
 
-// ================================================================== the crumbling arcade → Friedrich's sandstone crags (vector silhouettes, painting px of the Horatii)
-// Each support weathers where it stands: the flutes crack into joints, the edges break, the shaft grows crooked and jagged — a
-// sandstone pinnacle of its own height (one towers and leans, one is a broken stump, one splits off a lesser spire) — then it sinks.
-// Filled with the Wanderer's own rock (cut/rock.webp), lit like the painting's middle-ground crags (light from the upper left, rim-lit tops).
-var CRAG=[ // pil: the support it grows from (-1: rises from the fog at its foot); cx: foot centre; top; wb: foot half-width; lean; tl/tr: shoulders below the top
-  {pil:0,cx:196,top:300,wb:250,lean:-120,tl:190,tr:50,teeth:[40,-6,34,0,62,20,96,70,120],ledL:[5,10],ledR:[8],cap:0.1,d:0.10},
-  {pil:1,cx:842,top:10,wb:270,lean:60,tl:70,tr:170,teeth:[90,40,58,6,0,22,-4,40,110],ledL:[6],ledR:[4,11],cap:0.3,d:0.00},
-  {pil:2,cx:1500,top:230,wb:235,lean:90,tl:20,tr:200,teeth:[20,0,14,30,46,60,84,120,160],ledL:[9],ledR:[6],cap:0.16,d:0.06},
-  {pil:3,cx:2140,top:720,wb:250,lean:-40,tl:110,tr:10,teeth:[70,20,56,40,0,24,10,50,30],ledL:[4],ledR:[7,10],cap:0,d:0.20},
-  {pil:-1,cx:600,top:830,wb:150,lean:-40,tl:120,tr:60,teeth:[50,10,0,30,20,70,90,110,120],ledL:[7],ledR:[],cap:0,d:0.30},
-  {pil:-1,cx:1800,top:960,wb:140,lean:30,tl:40,tr:130,teeth:[60,30,40,0,26,44,80,100,130],ledL:[],ledR:[6],cap:0,d:0.36}];
-var CN=16,CM=9,BASE=1640;
-function arcadePlan(){var rnd=EH.util.rng(7070),crags=CRAG.map(function(c){var P=c.pil>=0?PIL[c.pil]:null,L=[],R=[],C=[],AL=[],AR=[],AC=[],JL=[],JR=[],JC=[];
-    // B: the crag. Sides from the foot up; ledges are pairs of points at one height, stepping the side inward (bedding planes)
-    function side(sg,top,leds){var pts=[],off=0,prevY=BASE;for(var i=0;i<CN;i++){var f=i/(CN-1),fj=i&&i<CN-1?cl(f+(rnd()-.5)*0.035):f,y=BASE-(BASE-top)*fj;
-        if(leds.indexOf(i-1)>=0){y=prevY-6;off+=c.wb*(0.16+0.1*rnd());}
-        var hw=c.wb*(1-0.42*fj)*(1+c.cap*sm((fj-0.62)/0.3))-off,cx=c.cx+c.lean*Math.pow(fj,1.35)+Math.sin(fj*6.3+c.cx)*c.wb*0.07;
-        pts.push([cx+sg*Math.max(c.wb*0.12,hw)+(i&&i<CN-1?(rnd()-.5)*c.wb*0.16:0),y]);prevY=y;}return pts;}
-    L=side(-1,c.top+c.tl,c.ledL);R=side(1,c.top+c.tr,c.ledR);
-    var l=L[CN-1],r=R[CN-1];for(var j=0;j<CM;j++){var g=(j+1)/(CM+1);C.push([l[0]+(r[0]-l[0])*g+(rnd()-.5)*c.wb*0.05,c.top+c.teeth[j]*c.wb/250+rnd()*10]);}
-    // A: the column (shaft, capital) it grows from — or a sliver at its foot
-    for(var i=0;i<CN;i++){var f=i/(CN-1),cap=i===CN-1;
-      if(P){var y=cap?430:BASE-(BASE-480)*f;AL.push([cap?P.c0:P.x0,y]);AR.push([cap?P.c1:P.x1,y]);}else{AL.push([c.cx-4,BASE]);AR.push([c.cx+4,BASE]);}
-      JL.push([(rnd()-.5)*26,(rnd()-.5)*20]);JR.push([(rnd()-.5)*26,(rnd()-.5)*20]);}
-    for(j=0;j<CM;j++){g=(j+1)/(CM+1);AC.push(P?[P.c0+(P.c1-P.c0)*g,420]:[c.cx,BASE]);JC.push([(rnd()-.5)*20,(rnd()-.3)*34]);}
-    // cracks: the flutes of the column become vertical joints (u across the width), bedding lines at a few heights
-    var cracks=[-0.5,0.08,0.52].map(function(u){var z=[];for(var i=1;i<CN-2;i++)z.push((rnd()-.5)*2);return{u:u+(rnd()-.5)*0.1,z:z};});
-    var beds=[3,7,10,12].filter(function(){return rnd()<0.8;});
-    return{c:c,L:L,R:R,C:C,AL:AL,AR:AR,AC:AC,JL:JL,JR:JR,JC:JC,cracks:cracks,beds:beds,d:c.d};});
+// ================================================================== the crumbling arcade (vector silhouettes, painting px of the Horatii)
+function arcadePlan(){var rnd=EH.util.rng(7070),pil=PIL.map(function(P,k){var w=P.x1-P.x0,cx=(P.x0+P.x1)/2,N=9,M=6,A=[],B=[],top=P.top+60;
+    // A = the column (shaft + capital), B = a sandstone tower: wide foot, bedding ledges, a lumpy crown; left side bottom→top, crown left→right, right side top→bottom
+    var hw=[],led=[];for(var i=0;i<N;i++){var f=i/(N-1);hw.push(w*(1.35-0.55*f)*(0.9+0.25*rnd()));led.push((i%3===1?1:0)*w*0.16*(rnd()<.5?-1:1));}
+    for(i=0;i<N;i++){f=i/(N-1);var cap=i===N-1;A.push([cap?P.c0:P.x0,cap?420:1560-(1560-480)*f]);B.push([cx-hw[i]+led[i],1560-(1560-top)*f]);}
+    var crown=[70,6,64,0,48,96];for(var j=0;j<M;j++){var g=j/(M-1);A.push([P.c0+(P.c1-P.c0)*g,420]);B.push([cx-hw[N-1]+2*hw[N-1]*g,top-60+crown[j]+rnd()*16]);}
+    for(i=N-1;i>=0;i--){f=i/(N-1);cap=i===N-1;A.push([cap?P.c1:P.x1,cap?420:1560-(1560-480)*f]);B.push([cx+hw[i]*(0.92+0.1*rnd())-led[i]*0.6,1560-(1560-top)*f+(rnd()-.5)*24]);}
+    return{A:A,B:B,d:[0.12,0,0.06,0.18][k]};});
   var vs=[];ARCH.forEach(function(c,ai){for(var j=0;j<9;j++){var a0=Math.PI-j*Math.PI/9,a1=Math.PI-(j+1)*Math.PI/9,pts=[[RI,a0],[RO,a0],[RO,a1],[RI,a1]].map(function(q){return[c[0]+q[0]*Math.cos(q[1]),c[1]-q[0]*Math.sin(q[1])];});
     var cx=0,cy=0;pts.forEach(function(q){cx+=q[0]/4;cy+=q[1]/4;});vs.push({p:pts,c:[cx,cy],t:ai*0.22+Math.abs(j-4)*0.11+rnd()*0.06,dx:(j-4)*38+(rnd()-.5)*50,rot:(j<4?-1:j>4?1:(rnd()-.5))*(0.9+rnd()*0.9)});}});
-  // a broken rock mass rising between the crags
-  var ridge=[],n=46;for(var i=0;i<=n;i++){var x=-60+(NW+120)*i/n;ridge.push([x,1250+Math.sin(i*0.9)*50+Math.sin(i*0.31+1)*80+(rnd()-.5)*(i%3?40:120)]);}
-  return{crags:crags,vs:vs,ridge:ridge};}
-// the Wanderer's rock as a fill: an opaque crop of cut/rock.webp, lifted to the tone of the painting's middle-ground crags (seen through air)
-function rockTexture(im){if(!(im&&im.naturalWidth))return null;var c=cv(450,340),g=c.getContext('2d');g.fillStyle='rgb(49,40,28)';g.fillRect(0,0,450,340);
-  g.drawImage(im,480,40,900,680,0,0,450,340);g.globalCompositeOperation='lighter';g.fillStyle='rgb(18,18,18)';g.fillRect(0,0,450,340);
-  g.globalCompositeOperation='source-over';g.fillStyle='rgba(118,120,130,.14)';g.fillRect(0,0,450,340);return c;}
+  // a lumpy rock mass rising between the towers
+  var ridge=[],n=30;for(var i=0;i<=n;i++){var x=-60+(NW+120)*i/n;ridge.push([x,1230+Math.sin(i*1.3)*60+Math.sin(i*0.47+1)*90+(rnd()-.5)*60]);}
+  return{pil:pil,vs:vs,ridge:ridge};}
 function arcLayer(ctx){var S=ctx.state,q=0.5*Math.min(ctx.dpr||1,2),w=Math.round(ctx.W*q),h=Math.round(ctx.H*q);if(!S.arcC||S.arcC.width!==w||S.arcC.height!==h)S.arcC=cv(w,h);
   var g=S.arcC.getContext('2d');g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';g.clearRect(0,0,w,h);g.setTransform(q,0,0,q,0,0);return g;}
 function drawArcade(G,ctx,t){var S=ctx.state,R=ctx.from.rect,k=R.w/NW,A=S.arc;
   var a=sm(seg(t,T.arcIn)),sink=eio(seg(t,T.sink));a*=1-sm(seg(t,[T.sink[0]+0.6,T.sink[1]]));if(a<=0.002)return;
-  var cr=seg(t,T.crumble),dy=sink*R.h*0.34;
+  var cr=seg(t,T.crumble),rockiness=sm(seg(t,[T.crumble[0]+0.2,T.crumble[1]-0.4])),dy=sink*R.h*0.34;
   function X(x){return R.x+x*k;}function Y(y){return R.y+y*k+dy;}
+  // towers, ridge and the voussoirs still in place: one path (also traced into the fog's occluder, so the peaks stand out of the fog)
   var rr=eio(seg(t,[T.crumble[0]+0.6,T.crumble[1]+0.5])),fall=[];
   A.vs.forEach(function(v){var tau=t-(T.crumble[0]+0.35+v.t);if(tau>0)fall.push([v,tau]);});
-  // each crag this frame: m = how far it has weathered; the edges break first (jitter), then the shape grows into the crag
-  var cur=A.crags.map(function(P){var m=cl((cr-P.d)/0.62),jb=sm(m/0.3)*(1-sm((m-0.55)/0.45)),mb=eio((m-0.12)/0.88);
-    function mv(a,b,j){return[X(a[0]+(b[0]-a[0])*mb+j[0]*jb),Y(a[1]+(b[1]-a[1])*mb+j[1]*jb)];}
-    var L=[],Rr=[],C=[];for(var i=0;i<CN;i++){L.push(mv(P.AL[i],P.L[i],P.JL[i]));Rr.push(mv(P.AR[i],P.R[i],P.JR[i]));}for(var j=0;j<CM;j++)C.push(mv(P.AC[j],P.C[j],P.JC[j]));
-    return{P:P,m:m,L:L,R:Rr,C:C,rk:sm((m-0.15)/0.6)};}).filter(function(c){return c.P.c.pil>=0||c.m>0;});
-  function crag(g,c){g.moveTo(c.L[0][0],c.L[0][1]);for(var i=1;i<CN;i++)g.lineTo(c.L[i][0],c.L[i][1]);for(var j=0;j<CM;j++)g.lineTo(c.C[j][0],c.C[j][1]);for(i=CN-1;i>=0;i--)g.lineTo(c.R[i][0],c.R[i][1]);g.closePath();}
-  function trace(g){g.beginPath();cur.forEach(function(c){crag(g,c);});
+  function trace(g){g.beginPath();
+    A.pil.forEach(function(P){var m=eio(cl((cr-P.d)/0.72));P.A.forEach(function(q,i){var b=P.B[i],x=X(q[0]+(b[0]-q[0])*m),y=Y(q[1]+(b[1]-q[1])*m);if(i)g.lineTo(x,y);else g.moveTo(x,y);});g.closePath();});
     if(rr>0){g.moveTo(X(-60),Y(NH+300));A.ridge.forEach(function(q){g.lineTo(X(q[0]),Y(NH+300+(q[1]-NH-300)*rr));});g.lineTo(X(NW+60),Y(NH+300));g.closePath();}
     A.vs.forEach(function(v){if(t-(T.crumble[0]+0.35+v.t)<=0){v.p.forEach(function(q,i){if(i)g.lineTo(X(q[0]),Y(q[1]));else g.moveTo(X(q[0]),Y(q[1]));});g.closePath();}});}
-  var g=arcLayer(ctx);
-  // the texture sticks to the stone (moves with the sink, scales with the painting)
-  if(S.rockTex){if(!S.rockTexPat)S.rockTexPat=g.createPattern(S.rockTex,'repeat');try{S.rockTexPat.setTransform(new DOMMatrix([k*1.7,0,0,k*1.7,R.x,R.y+dy]));}catch(e){}}
-  // stone of the arcade (lit from the upper left) under everything
-  trace(g);var sg=g.createLinearGradient(0,Y(100),0,Y(1500));sg.addColorStop(0,S.stoneHi);sg.addColorStop(1,S.stoneCol);g.fillStyle=sg;g.fill();
-  // the ridge in Friedrich's rock
-  if(rr>0&&S.rockTexPat){g.beginPath();g.moveTo(X(-60),Y(NH+300));A.ridge.forEach(function(q){g.lineTo(X(q[0]),Y(NH+300+(q[1]-NH-300)*rr));});g.lineTo(X(NW+60),Y(NH+300));g.closePath();
-    g.globalAlpha=sm(rr/0.5);g.fillStyle=S.rockTexPat;g.fill();g.globalAlpha=1;}
-  // each crag: the rock comes in as it weathers, light on the left faces and the broken crown, shadow on the right, joints and bedding
-  cur.forEach(function(c){var x0=1e9,x1=-1e9,y0=1e9,i;for(i=0;i<CN;i++){x0=Math.min(x0,c.L[i][0]);x1=Math.max(x1,c.R[i][0]);}c.C.forEach(function(q){y0=Math.min(y0,q[1]);});
-    var y1=c.L[0][1],w=Math.max(4,x1-x0),sh=0.45+0.55*c.rk;g.save();g.beginPath();crag(g,c);g.clip();
-    if(c.rk>0&&S.rockTexPat){g.globalAlpha=c.rk;g.fillStyle=S.rockTexPat;g.fillRect(x0-2,y0-2,w+4,y1-y0+4);g.globalAlpha=1;}
-    var hg=g.createLinearGradient(x0,0,x1,0);hg.addColorStop(0,'rgba(226,220,208,'+(0.24*sh).toFixed(3)+')');hg.addColorStop(0.3,'rgba(232,226,214,0)');hg.addColorStop(0.58,'rgba(14,11,8,0)');hg.addColorStop(1,'rgba(14,11,8,'+(0.62*sh).toFixed(3)+')');
-    g.fillStyle=hg;g.fillRect(x0-2,y0-2,w+4,y1-y0+4);
-    var rim=g.createLinearGradient(0,y0,0,y0+Math.max(8,(y1-y0)*0.12));rim.addColorStop(0,'rgba(236,222,196,'+(0.18*c.rk).toFixed(3)+')');rim.addColorStop(1,'rgba(236,222,196,0)');g.fillStyle=rim;g.fillRect(x0-2,y0-2,w+4,(y1-y0)*0.12+10);
-    // flutes → joints: straight faint grooves on the column, cracked and dark on the crag
-    var ca=0.22+0.3*sm(c.m/0.5),amp=sm(c.m/0.45)*w*0.07;g.lineWidth=Math.max(0.8,k*5);g.strokeStyle='rgba(20,16,12,'+ca.toFixed(3)+')';g.beginPath();
-    c.P.cracks.forEach(function(cz){var f=(cz.u+1)/2;for(var i=1;i<CN-2;i++){var l=c.L[i],r=c.R[i],x=l[0]+(r[0]-l[0])*f+cz.z[i-1]*amp,y=l[1]+(r[1]-l[1])*f;if(i>1)g.lineTo(x,y);else g.moveTo(x,y);}});g.stroke();
-    if(c.rk>0){g.beginPath();c.P.beds.forEach(function(b){var l=c.L[b],r=c.R[b];g.moveTo(l[0],l[1]);g.lineTo((l[0]+r[0])/2,(l[1]+r[1])/2+k*10);g.lineTo(r[0],r[1]);});
-      g.strokeStyle='rgba(20,16,12,'+(0.45*c.rk).toFixed(3)+')';g.stroke();g.translate(0,-Math.max(1,k*6));g.strokeStyle='rgba(220,210,190,'+(0.28*c.rk).toFixed(3)+')';g.stroke();}
-    g.restore();
-    // the broken crown catches the light
-    if(c.rk>0){g.beginPath();g.moveTo(c.L[CN-1][0],c.L[CN-1][1]);c.C.forEach(function(q){g.lineTo(q[0],q[1]);});g.lineTo(c.R[CN-1][0],c.R[CN-1][1]);
-      g.lineWidth=Math.max(1,k*5);g.strokeStyle='rgba(214,200,176,'+(0.2*c.rk).toFixed(3)+')';g.stroke();}});
+  var g=arcLayer(ctx);trace(g);
+  // stone lit from the upper left: a vertical gradient (light crown, dark foot), the rock grain coming in as it crumbles
+  var sg=g.createLinearGradient(0,Y(100),0,Y(1500));sg.addColorStop(0,S.stoneHi);sg.addColorStop(1,S.stoneCol);g.fillStyle=sg;g.fill();
+  if(S.rockPat&&rockiness>0){g.globalAlpha=rockiness*0.9;g.fillStyle=S.rockPat;g.fill();g.globalAlpha=1;}
   // voussoirs falling into the fog
   fall.forEach(function(f){var v=f[0],tau=f[1],fa=1-sm((tau-0.15)/0.8);if(fa<=0)return;var gy=0.5*2600*tau*tau,ox=v.dx*tau,rot=v.rot*tau;
     g.save();g.globalAlpha=fa;g.translate(X(v.c[0]+ox),Y(v.c[1]+gy));g.rotate(rot);g.beginPath();v.p.forEach(function(q,i){var x=(q[0]-v.c[0])*k,y=(q[1]-v.c[1])*k;if(i)g.lineTo(x,y);else g.moveTo(x,y);});g.closePath();
-    g.fillStyle=S.stoneCol;g.fill();g.restore();});
+    g.fillStyle=S.stoneCol;g.fill();if(S.rockPat&&rockiness>0){g.globalAlpha=fa*rockiness;g.fillStyle=S.rockPat;g.fill();}g.restore();});
   // air: lighter and bluer with distance, the feet lost in the fog (alpha fades downward)
-  g.globalCompositeOperation='source-atop';var ag=g.createLinearGradient(0,Y(150),0,Y(1500));ag.addColorStop(0,rgba(FOG,0.08));ag.addColorStop(1,rgba(FOG,0.30));g.fillStyle=ag;g.fillRect(0,0,ctx.W,ctx.H);
+  g.globalCompositeOperation='source-atop';var ag=g.createLinearGradient(0,Y(150),0,Y(1500));ag.addColorStop(0,rgba(FOG,0.10));ag.addColorStop(1,rgba(FOG,0.30));g.fillStyle=ag;g.fillRect(0,0,ctx.W,ctx.H);
   g.globalCompositeOperation='destination-in';var mg=g.createLinearGradient(0,Y(700),0,Y(1650));mg.addColorStop(0,'rgba(0,0,0,1)');mg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=mg;g.fillRect(0,0,ctx.W,ctx.H);
   G.save();G.globalAlpha=a;G.drawImage(S.arcC,0,0,ctx.W,ctx.H);G.restore();
   // the occluder for the fog (at the fog's resolution): the same silhouette, its foot dissolving into the fog
@@ -2978,86 +2914,54 @@ function fogParams(ctx,t){var S=ctx.state,W=ctx.W,H=ctx.H,R1=ctx.to.rect,k1=R1.w
   var conv=convAt(ctx),ws=walkState(ctx,t),mb=ws?manBox(ctx,ws):null;
   var hr0=Math.max(40,Math.min(W,H)*0.07),hx=conv[0],hy=conv[1],hr=hr0;
   // the parting sits on the back of his head (at first exactly where the swords met), wide enough for head and shoulders
-  if(mb){var bl=sm(seg(t,T.manIn));hx+=(mb.hx-hx)*bl;hy+=(mb.hy+32*k1*ws.s-hy)*bl;hr+=(Math.max(hr0,96*k1*ws.s)*(0.75+0.25*sm(seg(t,T.hole)))-hr)*bl;}
-  // no marker: the place is found only by the fog thinning there a little before it parts
-  var holeA=Math.max(0.32*sm(seg(t,T.thin)),sm(seg(t,T.hole)))*(1-sm(seg(t,[16.8,18.4])));
-  var veil=sm(seg(t,T.veil));
+  if(mb){hx=mb.hx;hy=mb.hy+32*k1*ws.s;hr=Math.max(hr0,96*k1*ws.s)*(0.75+0.25*sm(seg(t,T.hole)));}
+  var holeA=sm(seg(t,T.hole))*(1-sm(seg(t,[16.8,18.4])));
   var rise=R1.h*0.15*(1-eo(seg(t,T.riseRock))),rockA=sm(seg(t,T.rockOcc))*(1-sm(seg(t,T.occOut)));
   var manA=ws?sm(seg(t,[T.walk[0]-0.3,T.walk[0]+1.6]))*(1-sm(seg(t,T.occOut))):0,manXf=mb?[mb.x-mb.w*0.06,mb.y-mb.h*0.03,mb.w*1.12,mb.h*1.05]:[0,0,1,1];
   var lateY=-160+(H+420)*eio(seg(t,T.late)),lateOn=t>=T.late[0]?1:0;
   var ySea=titleMid(ctx),seaY=ySea+(H+320-ySea)*eio(seg(t,T.seaDown)),sea=[seaY,64,1-sm(seg(t,T.seaFade))];
   var valA=0.85+(REST_VAL-0.85)*sm(seg(t,T.valley));
   var z=[0,0,0,0];
-  return{W:W,H:H,t:t,drift:drift(t),streak:streak,archR:archR,w:w,flood:flood,den:den,gridR:[R0.x,R0.y,R0.w,R0.h],gridA:gridA,veil:F?veil:0,veilR:F?veilBox(ctx).r:null,gridL:gridL,gridY:gridY,arcA:arcA,arcCanvas:S.arcM,hole:[hx,hy,hr,holeA],
+  return{W:W,H:H,t:t,drift:drift(t),streak:streak,archR:archR,w:w,flood:flood,den:den,gridR:[R0.x,R0.y,R0.w,R0.h],gridA:gridA,gridL:gridL,gridY:gridY,arcA:arcA,arcCanvas:S.arcM,hole:[hx,hy,hr,holeA],
     rockXf:[R1.x+OCC_ROCK[0]*k1,R1.y+OCC_ROCK[1]*k1+rise,OCC_ROCK[2]*k1,OCC_ROCK[3]*k1],manXf:manXf,rockA:rockA,manA:manA,
     to:[R1.x,R1.y,R1.w,R1.h],valA:valA,lateY:lateY,lateOn:lateOn,sea:sea,ptr:[],read:null,alpha:1};}
 function renderFog(ctx,o){var S=ctx.state;if(!S.fog)return;var fs=fogSize(ctx.W,ctx.H);try{S.fog.draw(o,fs[0],fs[1]);}catch(e){console.error(e);}
   if(window.__romTap)try{window.__romTap(S.fogCanvas);}catch(e){}}   // test hook: the fog layer is read back in the same task (tools only)
 
-// the Horatii as far as the fog has not eaten them: the fog shader renders its veil (same field as the fog) into the fog canvas first,
-// that mask is cut out of a copy of the painting, then the fog itself is drawn over it (renderFog, same task)
-function veilBox(ctx){var R0=ctx.from.rect,fp=R0.fp||0,q=ctx.dpr||1,x=Math.floor((R0.x-fp)*q)/q,y=Math.floor((R0.y-fp)*q)/q,x1=Math.ceil((R0.x+R0.w+fp)*q)/q,y1=Math.ceil((R0.y+R0.h+fp)*q)/q;
-  return{x:x,y:y,w:x1-x,h:y1-y,cw:Math.round((x1-x)*q),ch:Math.round((y1-y)*q),q:q,r:[x,y,x1-x,y1-y]};}
-function veiled(ctx,t,fdA){var S=ctx.state,F=ctx.from,im=fromArt(ctx),v=sm(seg(t,T.veil));if(v<=0||!S.fog||!(im&&(im.width||im.naturalWidth)))return null;
-  var B=veilBox(ctx);if(!S.veilC||S.veilC.width!==B.cw||S.veilC.height!==B.ch)S.veilC=cv(B.cw,B.ch);
-  var fs=fogSize(ctx.W,ctx.H),o=fogParams(ctx,t);o.mask=1;o.arcA=0;o.alpha=1;try{S.fog.draw(o,fs[0],fs[1]);}catch(e){console.error(e);return null;}
-  var R0=F.rect,vg=S.veilC.getContext('2d');vg.setTransform(1,0,0,1,0,0);vg.globalCompositeOperation='source-over';vg.globalAlpha=1;vg.clearRect(0,0,B.cw,B.ch);
-  vg.setTransform(B.q,0,0,B.q,-B.x*B.q,-B.y*B.q);frameDeco(vg,R0,F.frame,fdA);vg.globalAlpha=1;vg.drawImage(im,R0.x,R0.y,R0.w,R0.h);
-  vg.setTransform(1,0,0,1,0,0);vg.globalCompositeOperation='destination-out';
-  vg.drawImage(S.fogCanvas,B.x/ctx.W*fs[0],B.y/ctx.H*fs[1],B.w/ctx.W*fs[0],B.h/ctx.H*fs[1],0,0,B.cw,B.ch);
-  vg.globalCompositeOperation='source-over';return B;}
-
 // ================================================================== stage: the Wanderer's layers
-// while it comes out of the fog the picture has no edge yet: its sides and top are eaten by a ragged, drifting fog mask
-// (low-res alpha field, upscaled smooth) that narrows until the frame settles; at e = 0 it is drawn directly (no resampling)
-function hn(x,y){var h=Math.sin(x*127.1+y*311.7)*43758.5453;return h-Math.floor(h);}
-function vn(x,y){var ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);
-  var a=hn(ix,iy),b=hn(ix+1,iy),c=hn(ix,iy+1),d=hn(ix+1,iy+1);return a+(b-a)*fx+(c-a)*fy+(a-b-c+d)*fx*fy;}
-function featherMask(S,R,H,e,t){var mw=72,mh=Math.max(8,Math.round(mw*(H-R.y)/R.w));if(!S.fmC||S.fmC.width!==mw||S.fmC.height!==mh){S.fmC=cv(mw,mh);S.fmD=S.fmC.getContext('2d').createImageData(mw,mh);}
-  var D=S.fmD.data,md=Math.min(R.w,R.h),band=0.30*e*md,wv=1-sm(e/0.2),sx=R.w/mw,sy=(H-R.y)/mh,ns=1/(md*0.16);
-  for(var j=0;j<mh;j++){var py=(j+0.5)*sy;for(var i=0;i<mw;i++){var px=(i+0.5)*sx,d=Math.min(px,R.w-px,py);var o=(j*mw+i)*4;
-      if(d>band*1.6){D[o+3]=255;continue;}
-      var n=0.65*vn(px*ns+t*0.35,py*ns-t*0.5)+0.35*vn(px*ns*2.3-t*0.2,py*ns*2.3+7.1);
-      var a=sm((d-band*0.95*n)/Math.max(1e-3,band*0.6));a=a+(1-a)*wv;D[o+3]=Math.round(a*255);}}
-  S.fmC.getContext('2d').putImageData(S.fmD,0,0);return S.fmC;}
-function drawRom(g,ctx,t,ws){var S=ctx.state,R=ctx.to.rect,k=R.w/PW,a=sm(seg(t,T.romIn));if(a<=0&&!ws)return;
+function drawRom(g,ctx,t,ws,wall){var S=ctx.state,R=ctx.to.rect,k=R.w/PW,a=sm(seg(t,T.romIn));if(a<=0&&!ws)return;
+  function L(im,b,dy){if(im&&(im.naturalWidth||im.width))g.drawImage(im,R.x+b[0]*k,R.y+b[1]*k+(dy||0),b[2]*k,b[3]*k);}
   var dR=R.h*0.15*(1-eo(seg(t,T.riseRock))),dM=R.h*0.08*(1-eo(seg(t,T.riseMid))),dF=R.h*0.04*(1-eo(seg(t,T.riseFar)));
-  var e=1-sm(seg(t,T.feather)),H=ctx.H,q=ctx.dpr||1,dst=g,ox=0,oy=0;
-  if(a>0&&e>0.001){ox=Math.floor(R.x*q)/q;oy=Math.floor(R.y*q)/q;var cw=Math.ceil((R.x+R.w-ox)*q),ch=Math.ceil((H-oy)*q);
-    if(!S.romC||S.romC.width!==cw||S.romC.height!==ch)S.romC=cv(cw,ch);dst=S.romC.getContext('2d');dst.setTransform(1,0,0,1,0,0);dst.globalCompositeOperation='source-over';dst.globalAlpha=1;dst.clearRect(0,0,cw,ch);dst.setTransform(q,0,0,q,-ox*q,-oy*q);}
-  function L(im,b,dy){if(im&&(im.naturalWidth||im.width))dst.drawImage(im,R.x+b[0]*k,R.y+b[1]*k+(dy||0),b[2]*k,b[3]*k);}
-  if(a>0){dst.save();if(dst===g)dst.globalAlpha=a;
-    dst.save();dst.beginPath();dst.rect(R.x,R.y,R.w,R.h);dst.clip();
-    L(S.im.sky,LY.sky);L(S.im.far,LY.far,dF);L(S.im.mid,LY.mid,dM);dst.restore();
-    dst.save();dst.beginPath();dst.rect(R.x,R.y,R.w,H);dst.clip();L(S.im.rock,LY.rock,dR);dst.restore();
-    var ea=1-sm(seg(t,T.extOut));if(ea>0){dst.globalAlpha=(dst===g?a:1)*ea;L(S.im.ext,LY.ext,dR);}
-    dst.restore();
-    if(dst!==g){dst.setTransform(1,0,0,1,0,0);dst.globalCompositeOperation='destination-in';var M=featherMask(S,R,H,e,t);
-      dst.imageSmoothingEnabled=true;dst.drawImage(M,(R.x-ox)*q,(R.y-oy)*q,R.w*q,(H-R.y)*q);dst.globalCompositeOperation='source-over';
-      g.save();g.globalAlpha=a;g.drawImage(S.romC,ox,oy,S.romC.width/q,S.romC.height/q);g.restore();}}
+  g.save();g.globalAlpha=a;
+  g.save();g.beginPath();g.rect(R.x,R.y,R.w,R.h);g.clip();
+  L(S.im.sky,LY.sky);L(S.im.far,LY.far,dF);L(S.im.mid,LY.mid,dM);g.restore();
+  g.save();g.beginPath();g.rect(R.x,R.y,R.w,ctx.H);g.clip();L(S.im.rock,LY.rock,dR);g.restore();
+  var ea=1-sm(seg(t,T.extOut));if(ea>0){g.globalAlpha=a*ea;L(S.im.ext,LY.ext,dR);g.globalAlpha=a;}
+  // while it comes out of the fog the picture has no edge yet: the wall's colour feathers its sides and top in
+  var fe=1-sm(seg(t,T.feather));if(fe>0.002&&wall){var fw=Math.min(R.w,R.h)*0.2*fe,c0=wall.replace('rgb','rgba').replace(')',',1)'),c1=wall.replace('rgb','rgba').replace(')',',0)');
+    g.globalAlpha=1;var gl=g.createLinearGradient(R.x-1,0,R.x+fw,0);gl.addColorStop(0,c0);gl.addColorStop(1,c1);g.fillStyle=gl;g.fillRect(R.x-1,R.y-1,fw+1,ctx.H-R.y+1);
+    var gr=g.createLinearGradient(R.x+R.w+1,0,R.x+R.w-fw,0);gr.addColorStop(0,c0);gr.addColorStop(1,c1);g.fillStyle=gr;g.fillRect(R.x+R.w-fw,R.y-1,fw+1,ctx.H-R.y+1);
+    var gt=g.createLinearGradient(0,R.y-1,0,R.y+fw);gt.addColorStop(0,c0);gt.addColorStop(1,c1);g.fillStyle=gt;g.fillRect(R.x-1,R.y-1,R.w+2,fw+1);}
+  g.restore();
   // the walker: from where the swords met, away from the visitor, up onto the summit where the painter put him
   if(ws){var mb=manBox(ctx,ws),ma=sm(seg(t,T.manIn));g.save();g.globalAlpha=ma;g.translate(mb.X,mb.Y);g.rotate(ws.rot);g.drawImage(S.im.man,mb.x-mb.X,mb.y-mb.Y,mb.w,mb.h);g.restore();}}
 
 // ================================================================== the Oath's resting hint (grid + convergence, js/t-neoclassical.js)
-// p = 0 continues it at the strength the visitor last saw (it fades a few seconds into that room's rest); the first wisps swallow it,
-// each from its arch outward, and it is gone within ~2.4 s. No marker is left on screen: later the fog only thins where the swords met.
+// p = 0 continues it at the strength the visitor last saw (it fades a few seconds into that room's rest), then it resurfaces as the fog runs along it
 var lastRest={idx:-1,t0:0};
 (function watchRest(){try{var st=window.EH&&EH.debug&&EH.debug.state;if(st){if(st.phase==='rest'){if(lastRest.idx!==st.idx||!lastRest.on)lastRest={idx:st.idx,t0:performance.now(),on:true};}else if(lastRest.on){lastRest.on=false;lastRest.t1=performance.now();}}}catch(e){}
   requestAnimationFrame(watchRest);})();
 function entryHint(ctx){if(!ctx.from||lastRest.idx!==ctx.from.idx)return 0;var age=((lastRest.on?performance.now():lastRest.t1)-lastRest.t0)/1000;return 0.55*(1-sm((age-3.2)/3.0));}
-function hintBox(ctx){var R0=ctx.from.rect,q=ctx.dpr||1,m=40,x=Math.floor((R0.x-m)*q)/q,y=Math.floor((R0.y-m)*q)/q,w=Math.ceil((R0.w+2*m)*q)/q,h=Math.ceil((R0.h+2*m)*q)/q;
-  return{x:x,y:y,w:w,h:h,cw:Math.round(w*q),ch:Math.round(h*q),q:q};}
-function drawHint(g,ctx,t,na){var S=ctx.state,a=(S.hint0||0)*(1-sm(seg(t,T.hintOut)))*na;if(a<=0.002||!ctx.from||typeof SH.neoclassicalRest!=='function')return;
-  var R0=ctx.from.rect,k0=R0.w/NW,B=hintBox(ctx);if(!S.hintC||S.hintC.width!==B.cw||S.hintC.height!==B.ch)S.hintC=cv(B.cw,B.ch);
-  var hg=S.hintC.getContext('2d');hg.setTransform(1,0,0,1,0,0);hg.globalCompositeOperation='source-over';hg.globalAlpha=1;hg.clearRect(0,0,B.cw,B.ch);
-  hg.setTransform(B.q,0,0,B.q,-B.x*B.q,-B.y*B.q);
-  try{SH.neoclassicalRest(hg,{W:ctx.W,H:ctx.H,rect:R0,dpr:ctx.dpr,alpha:a});}catch(e){console.error(e);}
-  // the mist eats the lines from each arch outward (the middle arch first: the swords' point goes with the first wisp)
-  hg.globalCompositeOperation='destination-out';hg.globalAlpha=1;
-  ARCH.forEach(function(c,i){var age=t-T.wisp[i];if(age<=0)return;var x=R0.x+c[0]*k0,y=R0.y+(c[1]+150)*k0,r=RI*k0*(0.35+1.7*age);
-    var gr=hg.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(.5,'rgba(0,0,0,.85)');gr.addColorStop(1,'rgba(0,0,0,0)');hg.fillStyle=gr;hg.fillRect(x-r,y-r,2*r,2*r);});
-  hg.globalCompositeOperation='source-over';hg.setTransform(1,0,0,1,0,0);
-  g.drawImage(S.hintC,B.x,B.y,B.w,B.h);}
+function hintAt(ctx,t){var S=ctx.state,h0=(S.hint0||0)*(1-sm(seg(t,[0.2,1.8])));return Math.max(h0,0.5*sm(seg(t,T.hintIn)))*(1-sm(seg(t,T.hintOut)));}
+// the swords' convergence stays where it was when everything else has drowned: a small Roman-red ring and cross above the fog (layer 'mark'),
+// until the fog parts there and it becomes the back of a head
+function drawMark(ctx,t){var S=ctx.state;if(!S.markC)return;var g=S.markC.__g,dpr=ctx.dpr||1,a=0.9*sm(seg(t,T.mark))*(1-sm(seg(t,T.markOut)));
+  if(S.markDirty){g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,S.markC.width,S.markC.height);S.markDirty=false;}
+  if(a<=0.002||!ctx.from)return;
+  var P=convAt(ctx),ms=ctx.from.rect.w/NW,R=Math.max(5,14*ms/.5)*(1+0.9*eo(seg(t,T.markOut))),lw=Math.max(.9,Math.min(1.6,ms*2.4));
+  g.setTransform(dpr,0,0,dpr,0,0);g.globalAlpha=a;g.strokeStyle='#8f2e22';g.lineWidth=lw;g.lineCap='round';
+  g.beginPath();g.arc(P[0],P[1],R,0,Math.PI*2);g.stroke();g.beginPath();g.moveTo(P[0]-R*1.8,P[1]);g.lineTo(P[0]+R*1.8,P[1]);g.moveTo(P[0],P[1]-R*1.8);g.lineTo(P[0],P[1]+R*1.8);g.stroke();
+  g.globalAlpha=1;S.markDirty=true;}
 
 // ================================================================== warm-up
 function prewarm(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),R1=ctx.to.rect;
@@ -3066,9 +2970,8 @@ function prewarm(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),R
     // the walker at the scales he is drawn at (mip levels)
     [1,1.6,2.4,3.2,4.2].forEach(function(s){if(S.im.man&&S.im.man.naturalWidth)g.drawImage(S.im.man,0,0,LY.man[2]*R1.w/PW*s,LY.man[3]*R1.w/PW*s);});
     if(ctx.to.image&&ctx.to.image.naturalWidth)g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);
-    if(ctx.from){var R0=ctx.from.rect;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);var B=hintBox(ctx);if(!S.hintC||S.hintC.width!==B.cw||S.hintC.height!==B.ch)S.hintC=cv(B.cw,B.ch);g.drawImage(S.hintC,0,0,4,4);var VB=veilBox(ctx);if(!S.veilC||S.veilC.width!==VB.cw||S.veilC.height!==VB.ch)S.veilC=cv(VB.cw,VB.ch);g.drawImage(S.veilC,0,0,4,4);}
+    if(ctx.from){var R0=ctx.from.rect;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);}
     if(S.rockPat){g.fillStyle=S.rockPat;g.fillRect(0,0,50,50);}
-    if(S.rockTex){g.fillStyle=g.createPattern(S.rockTex,'repeat');g.fillRect(0,0,50,50);}
     g.getImageData(0,0,1,1);
   }catch(e){console.error(e);}}
 
@@ -3081,14 +2984,14 @@ EH.transition('romanticism',{
     // the rock's continuation below the frame dissolves downward (on tall screens it ends above the bottom edge: no hard cut)
     var ex=S.im.ext;if(ex&&ex.naturalWidth){var ec=cv(ex.naturalWidth,ex.naturalHeight),eg=ec.getContext('2d');eg.drawImage(ex,0,0);eg.globalCompositeOperation='destination-in';
       var gy=eg.createLinearGradient(0,0,0,ec.height);gy.addColorStop(0,'#000');gy.addColorStop(0.45,'#000');gy.addColorStop(1,'rgba(0,0,0,0)');eg.fillStyle=gy;eg.fillRect(0,0,ec.width,ec.height);S.im.ext=ec;}
-    S.arc=arcadePlan();S.rockTex=rockTexture(S.im.rock);S.rockTexPat=null;
+    S.arc=arcadePlan();
     var rp=ctx.asset('t_rockpat.webp');if(rp&&rp.naturalWidth){var pc=cv(360,360),pg=pc.getContext('2d');pg.drawImage(rp,0,0);
       // cooler and paler: rock seen through air
       pg.globalCompositeOperation='source-atop';pg.fillStyle='rgba(110,114,126,.18)';pg.fillRect(0,0,360,360);S.rockPat=pg.createPattern(pc,'repeat');}
     S.stoneCol='rgb(58,54,52)';S.stoneHi='rgb(120,116,112)';
     if(ctx.from){S.fromImg=ctx.from.frame==='fade'?fadeMasked(ctx.from.image):ctx.from.image;}
     S.toImg=ctx.to.frame==='fade'?fadeMasked(ctx.to.image):ctx.to.image;
-    S.fogCanvas=ctx.layer('fog',{z:8,type:'webgl'});fogEl=S.fogCanvas;
+    S.fogCanvas=ctx.layer('fog',{z:8,type:'webgl'});fogEl=S.fogCanvas;S.markC=ctx.layer('mark',{z:9});S.markDirty=true;
     if(!S.fogCanvas.__fog){S.fogCanvas.__fog=Fog(S.fogCanvas);if(S.fogCanvas.__fog)S.fogCanvas.__fog.textures(ctx.asset('t_occ_rock.webp'),ctx.asset('t_occ_man.webp'),ctx.asset('t_valley.webp'));}
     S.fog=S.fogCanvas.__fog;
     // clear the layer until the transition draws (it may be created during the previous room's rest)
@@ -3098,27 +3001,27 @@ EH.transition('romanticism',{
   draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,R1=ctx.to.rect,F=ctx.from;myIdx=ctx.to.idx;S.restT0=null;S.ptr=[];
     domFrom(ctx,t);domTitle(ctx,t);
     if(ctx.lastP==null)S.hint0=entryHint(ctx);
-    if(p>=1){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink,1);g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);renderFog(ctx,restFog(W,H,R1,D,[],null,1));return;}
+    if(p>=1){drawMark(ctx,D);g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink,1);g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);renderFog(ctx,restFog(W,H,R1,D,[],null,1));return;}
     // ---------------- the wall: the Horatii's, darkening into the Wanderer's under the fog
     var wl=sm(seg(t,T.wall)),fw=F?rgb(F.wall):rgb(ctx.to.wall),tw=rgb(ctx.to.wall);
     g.fillStyle=mixc(fw,tw,wl);g.fillRect(0,0,W,H);
     if(F)wash(g,W,H,F.rect,F.ink,1-wl);wash(g,W,H,R1,ctx.to.ink,wl);
     // ---------------- the Horatii, drowned in fog, and their arcade crumbling into rock
-    if(F&&t<T.neoOut[1]){var R0=F.rect,na=(1-0.3*sm(seg(t,T.fogTint)))*(1-sm(seg(t,T.neoOut)));
-      var fdA=1-sm(seg(t,T.frameOut)),shc=frameShadow(S,R0,F.frame);g.save();
+    if(F&&t<T.neoOut[1]){var R0=F.rect,na=(1-0.55*sm(seg(t,T.fogTint)))*(1-sm(seg(t,T.neoOut)));
+      var fdA=1-sm(seg(t,[3.0,5.4])),shc=frameShadow(S,R0,F.frame);g.save();
       if(shc&&fdA>0){g.globalAlpha=na*fdA;g.drawImage(shc,R0.x-(R0.fp||0)-shc.pad,R0.y-(R0.fp||0)-shc.pad);}
-      // painting + frame, eaten by the fog's veil (null before the veil starts: drawn directly, identical to the hung painting)
-      g.globalAlpha=na;var VB=veiled(ctx,t,fdA);if(VB)g.drawImage(S.veilC,VB.x,VB.y,VB.w,VB.h);else{frameDeco(g,R0,F.frame,fdA);g.globalAlpha=na;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);}
-      g.restore();drawHint(g,ctx,t,na);}
+      g.globalAlpha=na;frameDeco(g,R0,F.frame,fdA);g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);
+      if(typeof SH.neoclassicalRest==='function'){var ha=hintAt(ctx,t)*na;if(ha>0.002){try{SH.neoclassicalRest(g,{W:W,H:H,rect:R0,dpr:ctx.dpr,alpha:ha});}catch(e){console.error(e);}}}
+      g.restore();}
     if(F)drawArcade(g,ctx,t);
     // ---------------- the Wanderer: layers rising with parallax, the walker
-    var ws=walkState(ctx,t);drawRom(g,ctx,t,ws);
+    var ws=walkState(ctx,t);drawRom(g,ctx,t,ws,mixc(fw,tw,wl));
     var fa=sm(seg(t,T.fin));if(fa>0){g.save();g.globalAlpha=fa;g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);g.restore();}
     // ---------------- the fog above everything
-    renderFog(ctx,fogParams(ctx,t));
+    renderFog(ctx,fogParams(ctx,t));drawMark(ctx,t);
   },
   done:function(ctx){ctx.state.restT0=performance.now();},
-  rest:function(ctx){restBody(ctx);}
+  rest:function(ctx){if(ctx.state.markDirty)drawMark(ctx,D);restBody(ctx);}
 });
 
 // ================================================================== rest: the cursor is the wind
