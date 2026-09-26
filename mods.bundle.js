@@ -3429,54 +3429,45 @@ EH.transition('realism',MOD);
 
 ;
 /* 印象派 · 最后一笔是太阳 — the passage from Millet's Gleaners (realism) into Monet's Impression, Sunrise.
-   Beats (seconds of D, see T): the realism room goes dark, one spotlight stays on the Gleaners (the frame glides to the new size) ·
-   the picture is repainted stroke by stroke in Monet's strokes (Hertzmann-style layered strokes, coarse → fine, painted with the
-   target's real pixels; the stroke list is precomputed: rooms/impressionism/t_strokes.bin, fetched in init): grey-blue water rises
-   from the bottom and mist comes down from the top and drown the brown earth; the three gleaners are left standing in it · they are
-   painted INTO the water like everything else: horizontal water strokes sweep across each woman, band by band, and drag her dark
-   paint sideways into a few dark ripples; the next water strokes thin the ripples until they are grey-blue water (nothing moves or
-   morphs — left woman first, the standing woman last) · the boats are painted the way Monet did them, two or three quick dark strokes
-   each, far boats first, the near boat with its standing rower last (the strokes reveal Monet's own boat pixels) · a held breath: the
-   harbour complete, no sun · the LAST stroke: the orange sun, one loaded round stroke, then its short reflections dab by dab down the water · the picture
-   settles and slowly drains to black-and-white — the sun (same lightness as the sky, L* 47.1 vs 47.3 measured on main.webp) vanishes ·
-   the sun jumps back in colour a beat before the rest of the colour returns · morning light spills out of the sun over the dark room,
-   tinting walls, label and title grey-blue and orange; the wall comes up to the room's colour · "印象" lifts off the label and floats
-   up into the vertical title 印象派 · hand-over. Rest: a faint morning glow on the wall round the picture (never on the work/panel).
-   Pure function of p: the stroke list carries one timestamp per stroke; draw() paints strokes 0..N(p) incrementally on a paint canvas
-   and redraws from the base when seeking backwards.
-   Assets (rooms/impressionism/): t_clean.webp (main.webp with sun and reflections inpainted and the boats' dark strokes replaced by the
-   water beside them — r4, gen_anim.py; the old pale inpainted blobs are in _wip/backup_r4 — what the "sunless" strokes paint),
-   t_grey.webp (L*-matched greyscale of main.webp), t_masks.png (offline source only: R sun disc, G reflections, B boats, main.webp px),
-   t_women.png (offline source only: R/G/B = the three gleaners, rooms/realism/main.webp px), t_sunalpha.png (alpha = max(R,G) of t_masks,
-   blurred 2 px), t_strokes.bin (the precomputed stroke schedule, see below), t_anim_m.png + t_anim_s.webp (the drag / water / boat
-   strokes, baked by _wip/r4-impressionism/gen_anim.py: LA masks at 0.5× and RGBA ripples at 0.75× picture px; table ANIM below).
-   Smoothness (Retina, dpr 2): everything is prepared once per page and size in small tasks during the realism rest (module-level caches
-   shared by every init): images decoded off the main thread (fetch → blob → createImageBitmap), all canvases (incl. checkpoints and the
-   scratch canvas) allocated up front, and every kind of draw the transition makes (patterned strokes, gradients, clips, composite modes)
-   executed once on a warm-up canvas, and the flying word's glyph sprites built, so no GPU program, texture upload, image decode or
-   font rasterisation happens first during playback. Stroke painting has a per-frame
-   time budget (the paint catches up over the next frames instead of blocking one). */
+   Beats (seconds of D, see T): the realism room goes dark, one spotlight stays on the Gleaners (the frame glides to the new size) and,
+   as the lights dim, the Gleaners drain to black-and-white (L*-matched grey: grey = sRGB(Y), so every pixel keeps its lightness) ·
+   the WHOLE repaint happens in black-and-white, stroke by stroke in Monet's strokes (Hertzmann-style layered strokes, coarse → fine):
+   grey water rises from the bottom and mist comes down from the top and drown the earth; the three gleaners are painted INTO the water
+   by horizontal strokes that drag each woman's dark paint into ripples which the next strokes thin away (no morph; left woman first,
+   the standing woman last) · the boats in two or three quick dark strokes each, far boats first, the near boat with its standing rower
+   last · a held breath: the grey harbour complete, no sun · the LAST stroke, the ONE colour: the orange sun, one loaded round stroke,
+   then its short reflections dab by dab down the water — in grey it would be invisible (sun L* 47.1 vs sky 47.3 on main.webp), in
+   colour it leaps out of the grey picture · the colour spreads from the sun across the whole painting (a soft radial bloom, ~2 s) ·
+   morning light spills out of the sun over the dark room, tinting walls, label and title grey-blue and orange; the wall comes up to the
+   room's colour · "印象" lifts off the label and floats up into the vertical title 印象派 · hand-over. Rest: a faint morning glow on the
+   wall round the picture (never on the work/panel).
+   Smoothness (r5, 2026-09-26): the owner's Retina MacBook played the old real-time stroke painting at less than half speed (frames of
+   0.2–1 s; the core clamps dt to 1/24 s → slow motion). So nothing is painted stroke by stroke at runtime any more: the grey repaint
+   (2.6 s → 14.53 s, everything that is stroke painting) is a pre-rendered video, rooms/impressionism/t_repaint.mp4 (1600×1242, 30 fps,
+   H.264, 0.5 s keyframes; baked by _wip/r5-impressionism/bake.html — the r4 stroke engine run headlessly on the painting area only,
+   converted to L*-matched grey — and encode.py), a muted playsinline <video> preloaded during the realism rest and kept in step with the
+   transition clock (drift > 0.15 s → currentTime; paused/seeking → paused and seeked). Each frame draws: ≤ 4 full-screen layers (the
+   dark room / the lit wall / the light spill, all pre-rendered canvases or sprites), one drawImage of the video (or of a cached picture)
+   into the art rect, and small sprites (the orange sun and its reflections, the flying word). The colour bloom is main.webp through a
+   pre-rendered radial mask (one scratch composite, clipped to the bloom's bounding box). No stroke drawing, no pattern fills, no
+   full-screen filters, no getImageData at runtime. Before the video can play (a cold jump straight in), the repaint falls back to a
+   cross-fade grey Gleaners → grey harbour (t_repaint_end.webp = the video's last frame): never a freeze.
+   Assets (rooms/impressionism/): t_repaint.mp4, t_repaint_end.webp, t_ggrey.webp (realism/main.webp in L*-matched grey),
+   t_sunalpha.png (alpha of the sun disc + reflections, blurred 2 px). The r4 stroke sources (t_strokes.bin, t_clean.webp, t_anim_*,
+   t_grey.webp) are only read by the offline bake now. */
 (function(){
 'use strict';
-var D=24, PW=2400, PH=1862, GW=2400, GH=1796, CW=1000;
-var T={fromDom:[0.2,1.9], dim:[0.3,2.6], geo:[0.6,2.6],
-  L:[[2.6,5.6],[4.3,7.6],[6.4,9.8],[8.4,11.4]],
-  // 9.95–13.1 the gleaners are painted into the water (drags + water passes, ANIM); 12.95–14.27 the boats, 2–3 strokes each (ANIM)
-  sunIn:[14.5,15.45], refl:[15.15,16.4], halo:[14.6,16.6], settle:[15.9,16.9],
-  grey:[16.9,19.0], jump:[19.5,19.66], colour:[19.66,20.5],
-  bloom:[19.5,21.8], spill:[19.8,22.4], wall:[20.3,23.3], spot:[20.6,23.3], tintIn:[20.2,21.4], tintOut:[22.3,23.6],
-  label:20.7, ink:21.8, lift:[21.3,21.8], word:[21.6,23.1], pai:[22.7,23.2], title:[23.0,23.5], wordOut:[23.1,23.55]};
+var D=21.2, PW=2400, PH=1862, GW=2400, GH=1796;
+// the repaint video: frame f shows t = V0 + f/30, f = 0..357 (the r4 stroke timeline, unchanged); VEND = its last frame
+var V0=2.6, VFPS=30, VN=358, VDUR=VN/VFPS, VEND=V0+(VN-1)/VFPS, VURL='rooms/impressionism/t_repaint.mp4';
+var T={fromDom:[0.2,1.9], dim:[0.3,2.6], geo:[0.6,2.6], drain:[0.5,2.4], vIn:[2.6,2.85],
+  sunIn:[14.5,15.45], refl:[15.15,16.4], halo:[14.6,16.6],
+  bloom:[16.6,18.9], spill:[17.0,19.6], wall:[17.5,20.5], spot:[17.8,20.5], tintIn:[17.4,18.6], tintOut:[19.5,20.8],
+  label:17.9, ink:19.0, lift:[18.5,19.0], word:[18.8,20.3], pai:[19.9,20.4], title:[20.2,20.7], wordOut:[20.3,20.75],
+  glowA:[18.4,20.6]};
 // main.webp px (impressionism): the sun, the reflection column
 var SUN=[1460,576,40], REFL=[1340,960,1605,1800];
 var NIGHT=[14,12,11];
-// the animated strokes (gen_anim.py): [t0, t1, dir (0 → right, 1 → left, 2 down), box x0,y0,x1,y1 (main px), mask atlas x,y,w,h,
-// colour source (0 clean plate, 1 the real picture), alpha, ripple atlas x,y,w,h (x = −1: none)]. Sorted by t1. Rows 0–15: each gleaner
-// swept band by band (clean water over her + the dark ripples her paint makes), then two uneven water passes that thin the ripples away;
-// rows 16–23: the boats, far → near, the standing rower last.
-var ANIM=[[9.95,10.27,1,59,671,1053,980,1022,1166,497,154,0,1,766,802,746,232],[10.2,10.52,1,59,880,1053,1189,1521,1166,497,154,0,1,0,1058,746,232],[10.45,10.77,1,59,1089,1053,1398,0,1337,497,154,0,1,748,1058,746,232],[10.55,10.87,1,522,717,1540,1055,0,1166,509,169,0,1,0,546,764,254],[10.8,11.12,1,522,955,1540,1293,511,1166,509,169,0,1,766,546,764,254],[11.05,11.37,1,522,1193,1540,1532,1457,984,509,170,0,1,0,802,764,254],[11.15,11.47,1,1150,535,2152,895,1509,574,501,180,0,1,714,273,752,270],[11.15,11.57,0,59,671,1053,1398,511,574,497,364,0,1,-1,0,0,0],[11.38,11.7,0,1450,795,2400,1156,0,984,475,180,0,1,0,0,712,271],[11.61,11.93,1,1150,1056,2152,1417,477,984,501,180,0,1,714,0,752,271],[11.7,12.12,0,522,717,1540,1532,1254,0,509,408,0,1,-1,0,0,0],[11.72,12.14,1,59,671,1053,1398,1010,574,497,364,0,1,-1,0,0,0],[11.84,12.16,0,1450,1317,2400,1678,980,984,475,180,0,1,0,273,712,271],[12.25,12.67,1,522,717,1540,1532,0,574,509,408,0,1,-1,0,0,0],[12.3,12.72,0,1150,535,2400,1678,0,0,625,572,0,1,-1,0,0,0],[12.66,13.08,1,1150,535,2400,1678,627,0,625,572,0,1,-1,0,0,0],[12.95,13.11,0,303,1044,560,1115,946,1337,128,36,1,1,-1,0,0,0],[13.13,13.26,0,303,986,542,1053,1220,1337,120,34,1,1,-1,0,0,0],[13.32,13.46,0,563,1134,848,1205,1076,1337,142,36,1,1,-1,0,0,0],[13.47,13.59,0,580,1076,837,1143,1342,1337,128,34,1,1,-1,0,0,0],[13.6,13.72,1,572,1196,830,1255,1472,1337,129,30,1,1,-1,0,0,0],[13.8,13.97,0,1003,1308,1288,1410,802,1337,142,51,1,1,-1,0,0,0],[13.99,14.12,2,995,1401,1305,1540,499,1337,155,70,1,1,-1,0,0,0],[14.13,14.27,2,999,1186,1286,1317,656,1337,144,66,1,1,-1,0,0,0]];
-// the gleaners' own strokes (class k 1..3 of t_strokes.bin) land while the water sweeps her: retimed from the old lift-off windows
-// (each starts once her last band has begun: dabbed earlier they break the still-standing figure into blotches)
-var KWIN=[null,[10.6,11.4],[11.2,12.0],[11.95,12.75]];
 var SH=window.EH_SHARED=window.EH_SHARED||{};
 
 function cl(x){return x<0?0:x>1?1:x;}
@@ -3500,10 +3491,11 @@ function shadowCache(dpr,r){var oy=26,blur=60,spread=-26,M=Math.ceil(1.6*blur+oy
   return{c:c,x:dx/dpr,y:dy/dpr,w:c.width/dpr,h:c.height/dpr};}
 function drawShadow(g,sh,a){if(!sh||a<=0)return;g.save();g.globalAlpha=a;g.drawImage(sh.c,sh.x,sh.y,sh.w,sh.h);g.restore();}
 function artCanvas(im,r,dpr,src){var w=Math.min(Math.round(r.w*dpr),2600),h=Math.round(w*(im.naturalHeight||1)/(im.naturalWidth||1)),c=cv(w,h);if(ok(im))c.getContext('2d').drawImage(src||im,0,0,w,h);return c;}
-// the hung painting's pixels: Chrome composites the DOM art canvas into the device-pixel rect ENCLOSED by its CSS box (measured at
-// 1389×713 dpr 2: left edge 363.53 px → the DOM image starts one device pixel in and is 2 px narrower); drawing the cached canvas into
-// that same rect makes the settled picture and the hand-over pixel-identical (art-rect mean diff 3.4 → 0.09)
-function encl(r,dpr){var x0=Math.ceil(r.x*dpr-1e-3),x1=Math.floor((r.x+r.w)*dpr+1e-3),y0=Math.ceil(r.y*dpr-1e-3),y1=Math.floor((r.y+r.h)*dpr+1e-3);return[x0/dpr,y0/dpr,(x1-x0)/dpr,(y1-y0)/dpr];}
+// the hung painting's pixels: Chrome composites the DOM art canvas into the device-pixel rect ENCLOSING its CSS box (measured 2026-09-26,
+// Chrome 153, 1389×833 dpr 2: realism y 150.56 → 1343.38 shows on rows 150–1343, Monet x 572.38 → 2085.56 on columns 572–2085; the r4
+// note measured the inner rect at 1389×713 in an older Chrome); drawing the cached canvas into that same rect makes the settled picture
+// and the hand-over pixel-identical
+function encl(r,dpr){var x0=Math.floor(r.x*dpr+1e-3),x1=Math.ceil((r.x+r.w)*dpr-1e-3),y0=Math.floor(r.y*dpr+1e-3),y1=Math.ceil((r.y+r.h)*dpr-1e-3);return[x0/dpr,y0/dpr,(x1-x0)/dpr,(y1-y0)/dpr];}
 function artAt(g,c,to,dpr){var e=encl(to,dpr);g.drawImage(c,e[0],e[1],e[2],e[3]);}
 // the Gleaners cropped to Impression's proportions (cover), as a source rect in Gleaners px
 function coverCrop(at){var ag=GW/GH;if(ag>at){var w=GH*at;return[(GW-w)/2,0,w,GH];}var h=GW/at;return[0,(GH-h)/2,GW,h];}
@@ -3519,79 +3511,33 @@ var REST_A=.42;
 function restA(el){return REST_A*(1-.12*(1-Math.cos(2*Math.PI*(el||0)/9))/2);}
 SH.impressionismRest=function(g,o){glow(g,o.W,o.H,o.rect,restA(o.t||0));};
 
-// ---------------------------------------------------------------- the stroke list (precomputed offline, fetched in init)
-// rooms/impressionism/t_strokes.bin = the exact schedule the page used to compute at runtime in a Web Worker (Hertzmann-style layered
-// strokes ported from ../gallery2.template.html + ../worker.part.js, seed 20251; run A on t_clean, run B on main.webp inside the boat
-// masks; class k: 0 normal · 1..3 inside gleaner k-1 · 4..6 boat k-4; timestamps = the choreography: layers overlap, inside a layer the
-// tide comes from the top and bottom edges towards the horizon; at load the gleaners' strokes are retimed into KWIN and the boat classes
-// are dropped, see merge()). Dumped from that run in headless Chrome and packed by _wip/r3-impressionism/enc.py (the worker took ~10 s live: the stall).
-// Layout, little-endian, sorted by time: 'IMS1', u32 N, u32 D, u32 0 · u16 t[N] (t/D·65535) · u16 w[N] (w·CW·2048) · u16 pts[6N]
-// (x,y ×3, ·CW·64) · u8 meta[N] (L | k<<2 | comp<<5 | (points−1)<<6) · u8 rgb[3N]. Lengths are in units of the picture width.
 function mark(n){try{performance.mark(n);}catch(e){}}
-var BIN_URL='rooms/impressionism/t_strokes.bin',STROKES=null,LOADING=null;
-function decode(buf,done){var dv=new DataView(buf),N=dv.getUint32(4,true),Dd=dv.getUint32(8,true),o=16;
-  var tq=new Uint16Array(buf,o,N);o+=2*N;var wq=new Uint16Array(buf,o,N);o+=2*N;var pq=new Uint16Array(buf,o,6*N);o+=12*N;var mt=new Uint8Array(buf,o,N);o+=N;var cb=new Uint8Array(buf,o,3*N);
-  var out=new Array(N),ts=new Float32Array(N),i=0,KP=1/(CW*64),KW=1/(CW*2048);
-  // a few thousand strokes per task: no long task during the realism rest
-  (function chunk(){var end=Math.min(N,i+4000);for(;i<end;i++){var m=mt[i],L=m&3,np=(m>>6)+1,p=new Array(2*np);for(var j=0;j<2*np;j++)p[j]=pq[6*i+j]*KP;
-      var s={L:L,k:(m>>2)&7,a:(m>>5)&1?.7:.9,w:wq[i]*KW,p:p};
-      if(L<2){var r=cb[3*i],g=cb[3*i+1],b=cb[3*i+2];s.c0='rgb('+r+','+g+','+b+')';s.c1='rgb('+Math.min(255,r+10)+','+Math.min(255,g+10)+','+Math.min(255,b+10)+')';s.c2='rgb('+Math.max(0,r-11)+','+Math.max(0,g-11)+','+Math.max(0,b-11)+')';}
-      out[i]=s;ts[i]=tq[i]/65535*Dd;}
-    if(i<N)setTimeout(chunk,0);else setTimeout(function(){done(merge(out,ts));},0);})();}
-// the gleaners' fine strokes (layers 2–3, the clean plate's own pixels) retimed into their sweep windows — their coarse flat-colour
-// strokes are dropped (the sweeps already lay the water; the coarse ones read as blotches there) — the old boat strokes (class 4..6) dropped — Monet's boats are the ANIM strokes —
-// and one entry per ANIM row (baked into the paint canvas at its t1): a k-way merge of already sorted lists
-function merge(out,ts){var L=[[],[],[],[]],lo=[1e9,1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9,-1e9],i,k;
-  for(i=0;i<out.length;i++){k=out[i].k;if(k>=4||(k>0&&out[i].L<2))continue;L[k].push(i);if(ts[i]<lo[k])lo[k]=ts[i];if(ts[i]>hi[k])hi[k]=ts[i];}
-  var lists=L.map(function(ix,k){return{s:ix.map(function(j){return out[j];}),t:ix.map(function(j){var t=ts[j];if(k>0){var w=KWIN[k];t=w[0]+(t-lo[k])/Math.max(1e-6,hi[k]-lo[k])*(w[1]-w[0]);}return t;})};});
-  lists.push({s:ANIM.map(function(a,j){return{an:a,j:j};}),t:ANIM.map(function(a){return a[1];})});
-  var n=lists.reduce(function(a,l){return a+l.s.length;},0),s=new Array(n),t=new Float32Array(n),h=lists.map(function(){return 0;}),o=0,ai=new Int32Array(ANIM.length);
-  while(o<n){var b=-1,bt=1e9;for(k=0;k<lists.length;k++){if(h[k]<lists[k].s.length&&lists[k].t[h[k]]<bt){bt=lists[k].t[h[k]];b=k;}}
-    var e=lists[b].s[h[b]++];if(e.an)ai[e.j]=o;s[o]=e;t[o++]=bt;}
-  return{s:s,ts:t,ai:ai};}
-// fetched and decoded once per page (init runs during the realism rest), reused by every later init (re-entering the room, replays)
-function loadStrokes(S){if(S.job)return;S.job='load';
-  if(!LOADING)LOADING=fetch(BIN_URL).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();})
-    .then(function(b){mark('imp:fetched');return new Promise(function(res){decode(b,res);});}).then(function(sc){STROKES=sc;return sc;});
-  LOADING.then(function(sc){S.strokes=sc.s;S.ts=sc.ts;S.ai=sc.ai;S.ready=true;S.job='done';window.__impReady=true;mark('imp:strokes');},
-    function(e){console.warn('impressionism: stroke list failed',e);S.job='fail';LOADING=null;});}
-function countAt(ts,t){var lo=0,hi=ts.length;while(lo<hi){var m=(lo+hi)>>1;if(ts[m]<=t)lo=m+1;else hi=m;}return lo;}
 
-function pathOf(c,p,S,ox,oy){c.beginPath();c.moveTo(p[0]*S+ox,p[1]*S+oy);if(p.length===2){c.lineTo(p[0]*S+ox+.01,p[1]*S+oy);return;}
-  for(var i=2;i<p.length-2;i+=2){var mx=(p[i]+p[i+2])/2*S,my=(p[i+1]+p[i+3])/2*S;c.quadraticCurveTo(p[i]*S+ox,p[i+1]*S+oy,mx+ox,my+oy);}
-  c.lineTo(p[p.length-2]*S+ox,p[p.length-1]*S+oy);}
-function drawStroke(c,s,S,pA,pB,C){if(s.an){drawAnim(c,s.an,1,0,0,C.k,C);c.lineCap='round';c.lineJoin='round';return;}var p=s.p,w=s.w*S;
-  if(s.L>=2){c.globalAlpha=1;c.strokeStyle=s.k>=4?pB:pA;c.lineWidth=w*1.25;pathOf(c,p,S,0,0);c.stroke();return;}
-  var nx=.7,ny=.7;if(p.length>=4){var dx=p[2]-p[0],dy=p[3]-p[1],n=Math.hypot(dx,dy)||1;nx=-dy/n;ny=dx/n;}
-  c.globalAlpha=s.a;c.strokeStyle=s.c0;c.lineWidth=w;pathOf(c,p,S,0,0);c.stroke();
-  c.globalAlpha=s.a*.42;c.lineWidth=w*.26;c.strokeStyle=s.c1;pathOf(c,p,S,nx*w*.28,ny*w*.28);c.stroke();
-  c.strokeStyle=s.c2;pathOf(c,p,S,-nx*w*.3,-ny*w*.3);c.stroke();c.globalAlpha=1;}
-// the animated strokes: the mask (atlas) wiped along the stroke's direction up to f, filled with the clean plate / the real picture in the
-// scratch canvas at paint resolution, then the ripples (RGBA atlas) wiped the same way. A lighter tip leads the wipe.
-function part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,u0,u1){if(u1<=u0)return;
-  if(d===0)c.drawImage(im,sx+sw*u0,sy,sw*(u1-u0),sh,dx+dw*u0,dy,dw*(u1-u0),dh);
-  else if(d===1){var a0=1-u1,a1=1-u0;c.drawImage(im,sx+sw*a0,sy,sw*(a1-a0),sh,dx+dw*a0,dy,dw*(a1-a0),dh);}
-  else c.drawImage(im,sx,sy+sh*u0,sw,sh*(u1-u0),dx,dy+dh*u0,dw,dh*(u1-u0));}
-function wipe(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,f){if(f>=1){c.drawImage(im,sx,sy,sw,sh,dx,dy,dw,dh);return;}var a=c.globalAlpha;
-  part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,0,f);c.globalAlpha=a*.45;part(c,im,sx,sy,sw,sh,dx,dy,dw,dh,d,f,Math.min(1,f+.07));c.globalAlpha=a;}
-function drawAnim(c,A,f,X0,Y0,sc,C){if(f<=0)return;var k=C.k,bx=A[3],by=A[4],bw=A[5]-A[3],bh=A[6]-A[4],sw=Math.min(C.scr.width,Math.ceil(bw*k)),sh=Math.min(C.scr.height,Math.ceil(bh*k)),q=C.sq;
-  q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.clearRect(0,0,sw+2,sh+2);
-  wipe(q,C.am,A[7],A[8],A[9],A[10],0,0,bw*k,bh*k,A[2],f);
-  q.globalCompositeOperation='source-in';q.drawImage(A[11]?C.real:C.clean,bx*k,by*k,sw,sh,0,0,sw,sh);q.globalCompositeOperation='source-over';
-  c.globalAlpha=A[12];c.drawImage(C.scr,0,0,sw,sh,X0+bx*sc,Y0+by*sc,sw/k*sc,sh/k*sc);
-  if(A[13]>=0)wipe(c,C.as,A[13],A[14],A[15],A[16],X0+bx*sc,Y0+by*sc,bw*sc,bh*sc,A[2],f);c.globalAlpha=1;}
-// bring the paint canvas to strokes 0..n (forward: incremental; backward: from the base or the nearest checkpoint)
-// Seeking backwards restores the nearest checkpoint (a copy of the paint canvas taken when forward painting crossed it: canvases allocated
-// up front) and paints on from there. Forward painting stops after ~BUDGET ms and goes on in the next frame, so a late frame never
-// turns into a long one (at 60 fps the schedule needs ≤ ~150 strokes per frame, well inside the budget).
-var NCP=8,BUDGET=5;
-function paintTo(C,S,n,budget){var q=C.pq,Wc=C.paint.width,N=S.strokes.length,step=Math.ceil(N/NCP);
-  if(C.drawn<0||n<C.drawn){var k=Math.min(NCP-1,Math.floor(n/step));while(k>0&&!C.cpOk[k])k--;q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='copy';
-    if(k>0){q.drawImage(C.cp[k],0,0);C.drawn=k*step;}else{q.drawImage(C.base,0,0);C.drawn=0;}q.globalCompositeOperation='source-over';}
-  if(n>C.drawn){q.lineCap='round';q.lineJoin='round';var t0=performance.now(),i=C.drawn;
-    for(;i<n;i++){drawStroke(q,S.strokes[i],Wc,C.patA,C.patB,C);var j=i+1;if(j%step===0&&j/step<NCP&&!C.cpOk[j/step]){q.globalAlpha=1;var cq=C.cp[j/step].getContext('2d');cq.globalCompositeOperation='copy';cq.drawImage(C.paint,0,0);cq.globalCompositeOperation='source-over';C.cpOk[j/step]=true;}
-      if(budget&&(j&15)===0&&performance.now()-t0>budget){i++;break;}}
-    C.drawn=i;q.globalAlpha=1;}}
+// ---------------------------------------------------------------- the repaint video (one element per page, shared by every init)
+// muted + playsinline so play() needs no gesture; kept in the DOM (1 px, invisible) so no browser treats it as a detached/background video
+var VID=null;
+function video(){if(VID)return VID;var v=document.createElement('video');v.muted=true;v.defaultMuted=true;v.playsInline=true;
+  v.setAttribute('muted','');v.setAttribute('playsinline','');v.setAttribute('aria-hidden','true');v.preload='auto';v.disablePictureInPicture=true;
+  v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;z-index:-1';
+  var V=VID={el:v,ready:false,err:false,big:false,warm:false,prim:false};
+  v.addEventListener('canplaythrough',function(){V.ready=true;mark('imp:video');prime();});
+  v.addEventListener('loadeddata',function(){prime();});
+  v.addEventListener('seeked',function(){V.big=false;});
+  v.addEventListener('error',function(){V.err=true;console.warn('impressionism: repaint video failed',v.error&&v.error.code);});
+  v.src=VURL;(document.body||document.documentElement).appendChild(v);try{v.load();}catch(e){}
+  return V;}
+// the first frame drawn once to a tiny canvas (GPU video path set up now) and the decoder woken by a short muted play (then back to 0),
+// during the realism rest instead of at 2.6 s of the transition
+function prime(){var V=VID;if(!V||V.prim||V.el.readyState<2)return;V.prim=true;try{warmCanvas().drawImage(V.el,0,0,16,12);V.warm=true;}catch(e){}
+  if(!V.el.paused||V.owner)return;var pr=V.el.play();if(pr&&pr.then)pr.then(function(){if(!V.owner){V.el.pause();V.el.currentTime=0;}},function(){});}
+// keep the video on the transition clock. Playing: play() from V0 (measured: no start latency to speak of), re-sync when it drifts > 0.15 s. Paused / seeking / cost():
+// paused on the wanted frame (the core redraws every frame, so the frame shows as soon as 'seeked' fires).
+function syncVideo(t,playing){var V=VID;if(!V||V.err)return;var v=V.el,want=Math.min(Math.max(t-V0,0),VDUR-.02),on=t>=V0&&t<VEND+.05;V.owner=true;
+  if(playing&&on){var d=v.currentTime-want;if(Math.abs(d)>.15){if(Math.abs(d)>.5)V.big=true;v.currentTime=want;}if(v.paused){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}}
+  else{if(!v.paused)v.pause();if(t>=V0-.5&&t<=VEND+1&&Math.abs(v.currentTime-want)>.02&&!(v.seeking&&Math.abs(V.seekTo-want)<.02)){if(Math.abs(v.currentTime-want)>.5)V.big=true;V.seekTo=want;v.currentTime=want;}}}
+function stopVideo(){var V=VID;if(V){V.owner=false;if(!V.el.paused)V.el.pause();}}
+// a frame of the video is on screen-worthy terms: data for the current position and not in the middle of a long seek (stale frame)
+function vidOk(){var V=VID;return !!(V&&!V.err&&V.el.readyState>=2&&!V.big);}
 
 // ---------------------------------------------------------------- caches (module level: built once per page and size, in small tasks)
 // K = {key, C (the canvases), steps, n (steps done), ready}. Every init (the realism rest's pre-init, a cold enter, a replay) shares it.
@@ -3605,62 +3551,62 @@ function bitmap(im){var u=im&&im.src;if(!u)return Promise.resolve(null);if(BM[u]
   return(BM[u]=p);}
 function pix(S,im){var b=im&&S.bmv&&S.bmv[im.src];return b||im;}
 var WARM=null;function warmCanvas(){if(!WARM){WARM=cv(300,300);}var q=WARM.getContext('2d');q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.filter='none';return q;}
-function cacheSteps(ctx,S,k){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,C={key:k,drawn:-1,cpOk:[]},aw,ah,pw,ph,ma,cr=coverCrop(PW/PH),I=ctx.to.image,Fi=ctx.from&&ctx.from.image;
+// the glow gradient (rest glow stops × GLOWMAX) and the bloom mask as sprites: drawn scaled with globalAlpha, no gradient per frame
+var GLOWMAX=2.8;
+function glowSprite(){var n=512,c=cv(n,n),q=c.getContext('2d'),gr=q.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2),m=GLOWMAX;
+  gr.addColorStop(0,'rgba(255,164,96,'+(.30*m)+')');gr.addColorStop(.22,'rgba(236,150,104,'+(.17*m)+')');gr.addColorStop(.5,'rgba(130,156,176,'+(.10*m)+')');gr.addColorStop(1,'rgba(110,140,160,0)');
+  q.fillStyle=gr;q.fillRect(0,0,n,n);return c;}
+var MCORE=.62;
+function maskSprite(){var n=256,c=cv(n,n),q=c.getContext('2d'),gr=q.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);
+  for(var i=0;i<=12;i++){var u=i/12,a=1-sm(u);gr.addColorStop(MCORE+(1-MCORE)*u,'rgba(255,255,255,'+a.toFixed(4)+')');}gr.addColorStop(0,'#fff');
+  q.fillStyle=gr;q.fillRect(0,0,n,n);return c;}
+function cacheSteps(ctx,S,k){var W=ctx.W,H=ctx.H,dpr=ctx.dpr||1,to=ctx.to.rect,fr=ctx.from?ctx.from.rect:null,C={key:k},aw,ah,ma,cr=coverCrop(PW/PH),I=ctx.to.image,Fi=ctx.from&&ctx.from.image,F=ctx.from;
+  var full=function(){var c=cv(W*dpr,H*dpr),q=c.getContext('2d');q.setTransform(dpr,0,0,dpr,0,0);return{c:c,q:q};};
   var steps=[
-  // first what the opening beats draw (the realism picture, its shadow, the dark room), then the rest
-  function(){if(ctx.from){C.fromArt=artCanvas(Fi,fr,dpr,pix(S,Fi));C.shFr=shadowCache(dpr,fr);}},
+  // first what the opening beats draw (the realism picture, its shadow, the lit realism room, the dark room), then the rest
+  function(){if(F){C.fromArt=artCanvas(Fi,fr,dpr,pix(S,Fi));C.shFr=shadowCache(dpr,fr);}},
+  // the realism room as it rests (wall, wash, shadow) and this room's lit wall, pre-composited at device resolution: one draw each
+  function(){if(!F)return;var o=full();o.q.fillStyle=F.wall;o.q.fillRect(0,0,W,H);wash(o.q,W,H,fr,F.ink==='dark',1);if(F.frame==='none')drawShadow(o.q,C.shFr,.6);C.litFrom=o.c;},
   function(){var hq=.5;C.room=cv(W*hq,H*hq);var rq=C.room.getContext('2d');rq.scale(hq,hq);rq.fillStyle=mixc(NIGHT,NIGHT,0);rq.fillRect(0,0,W,H);
     rq.save();rq.translate(to.x+to.w/2,to.y+to.h/2);rq.scale(to.w*.95,to.h*1.05);var pg=rq.createRadialGradient(0,0,0,0,0,1);pg.addColorStop(0,'rgba(255,236,210,.13)');pg.addColorStop(.55,'rgba(255,236,210,.06)');pg.addColorStop(1,'rgba(255,236,210,0)');
     rq.fillStyle=pg;rq.fillRect(-2,-2,4,4);rq.restore();},
   function(){C.art=artCanvas(I,to,dpr,pix(S,I));aw=C.art.width;ah=C.art.height;C.shTo=shadowCache(dpr,to);},
-  // paint canvas (≤ 2000 px), its base (the Gleaners cropped to Impression) and the two stroke patterns (clean plate / real picture)
-  // the whole Gleaners pre-scaled so that its Impression-shaped crop is exactly the paint canvas: the gliding frame (geo beat) and the base
-  // the strokes paint over are the same pixels, so the hand-over from gliding to painting is seamless
-  function(){pw=Math.min(aw,2000);ph=Math.round(pw*PH/PW);C.k=pw/PW;C.paint=cv(pw,ph);C.pq=C.paint.getContext('2d');C.base=cv(pw,ph);
-    var fw=Math.round(pw*GW/cr[2]),fh=Math.round(fw*GH/GW);C.fromFull=cv(fw,fh);C.kf=fw/GW;
-    if(ctx.from&&ok(Fi)){var ff=C.fromFull.getContext('2d');ff.imageSmoothingQuality='high';ff.drawImage(pix(S,Fi),0,0,fw,fh);}},
-  function(){C.base.getContext('2d').drawImage(C.fromFull,cr[0]*C.kf,cr[1]*C.kf,cr[2]*C.kf,cr[3]*C.kf,0,0,pw,ph);},
-  function(){var pc=cv(pw,ph);if(ok(S.clean))pc.getContext('2d').drawImage(pix(S,S.clean),0,0,pw,ph);C.patA=C.pq.createPattern(pc,'no-repeat');C.clean=pc;},
-  function(){var pr=cv(pw,ph);pr.getContext('2d').drawImage(pix(S,I),0,0,pw,ph);C.patB=C.pq.createPattern(pr,'no-repeat');C.real=pr;},
-  // checkpoints and the scratch canvas of the animated strokes, allocated (and touched) now, not during playback
-  function(){C.cp=[];for(var j=0;j<NCP;j++){var c=cv(pw,ph);c.getContext('2d').fillRect(0,0,1,1);C.cp.push(c);}C.scr=cv(pw,ph);C.sq=C.scr.getContext('2d');C.sq.fillRect(0,0,1,1);},
-  function(){C.am=cv(S.animM.naturalWidth||1,S.animM.naturalHeight||1);if(ok(S.animM))C.am.getContext('2d').drawImage(pix(S,S.animM),0,0);
-    C.as=cv(S.animS.naturalWidth||1,S.animS.naturalHeight||1);if(ok(S.animS))C.as.getContext('2d').drawImage(pix(S,S.animS),0,0);},
-  // grey: whole, with the sun+reflections cut out, and the sun+reflections alone (so the sun can come back first)
-  function(){C.grey=cv(aw,ah);if(ok(S.grey))C.grey.getContext('2d').drawImage(pix(S,S.grey),0,0,aw,ah);},
-  // sun + reflections as alpha: t_sunalpha.png = max(R, G) of t_masks, Gaussian-blurred 2 px (baked offline: no pixel loop here)
-  function(){ma=cv(aw,ah);var mq=ma.getContext('2d');if(ok(S.sunA))mq.drawImage(pix(S,S.sunA),0,0,aw,ah);
-    C.greyHole=cv(aw,ah);var gh=C.greyHole.getContext('2d');gh.drawImage(C.grey,0,0);gh.globalCompositeOperation='destination-out';gh.drawImage(ma,0,0);},
-  function(){C.greySun=cv(aw,ah);var gs=C.greySun.getContext('2d');gs.drawImage(ma,0,0);gs.globalCompositeOperation='source-in';gs.drawImage(C.grey,0,0);},
-  // the sun disc and the reflection column as sprites of the real picture (exact pixels)
+  function(){var o=full();o.q.fillStyle=ctx.to.wall;o.q.fillRect(0,0,W,H);wash(o.q,W,H,to,ctx.to.ink==='dark',1);if(ctx.to.frame==='none')drawShadow(o.q,C.shTo,.6);C.lit=o.c;},
+  // the whole Gleaners (colour and L*-grey) pre-scaled so that its Impression-shaped crop is exactly the art canvas: the gliding frame
+  // and the repaint's first frame are the same picture
+  function(){var fw=Math.round(aw*GW/cr[2]),fh=Math.round(fw*GH/GW);C.kf=fw/GW;C.fromFull=cv(fw,fh);if(F&&ok(Fi)){var ff=C.fromFull.getContext('2d');ff.imageSmoothingQuality='high';ff.drawImage(pix(S,Fi),0,0,fw,fh);}},
+  function(){var c=C.fromFull;C.gFull=cv(c.width,c.height);if(ok(S.gg)){var q=C.gFull.getContext('2d');q.imageSmoothingQuality='high';q.drawImage(pix(S,S.gg),0,0,c.width,c.height);}},
+  // the grey harbour the repaint ends on (the video's last frame, lossless-ish still), and the bloom's scratch
+  function(){C.gEnd=cv(aw,ah);if(ok(S.gEnd)){var q=C.gEnd.getContext('2d');q.imageSmoothingQuality='high';q.drawImage(pix(S,S.gEnd),0,0,aw,ah);}},
+  function(){C.scr=cv(aw,ah);C.sq=C.scr.getContext('2d');C.sq.fillRect(0,0,1,1);C.mask=maskSprite();C.glow=glowSprite();},
+  // sun + reflections as alpha: t_sunalpha.png = max(R, G) of t_masks, Gaussian-blurred 2 px (baked offline: no pixel loop here);
+  // the sun disc and the reflection column as sprites of the real picture (exact colour pixels on the grey)
+  function(){ma=cv(aw,ah);var mq=ma.getContext('2d');if(ok(S.sunA))mq.drawImage(pix(S,S.sunA),0,0,aw,ah);},
   function(){var sk=aw/PW,sr=(SUN[2]+10)*sk;C.sun=cv(Math.ceil(2*sr),Math.ceil(2*sr));var s2=C.sun.getContext('2d');s2.drawImage(ma,SUN[0]*sk-sr,SUN[1]*sk-sr,2*sr,2*sr,0,0,2*sr,2*sr);
     s2.globalCompositeOperation='source-in';s2.drawImage(C.art,SUN[0]*sk-sr,SUN[1]*sk-sr,2*sr,2*sr,0,0,2*sr,2*sr);C.sunR=sr/sk;
     C.sunBrush=cv(C.sun.width,C.sun.height);
     var rx=REFL[0]*sk,ry=REFL[1]*sk,rw=(REFL[2]-REFL[0])*sk,rh=(REFL[3]-REFL[1])*sk;C.refl=cv(rw,rh);var r2=C.refl.getContext('2d');r2.drawImage(ma,rx,ry,rw,rh,0,0,rw,rh);
     r2.globalCompositeOperation='source-in';r2.drawImage(C.art,rx,ry,rw,rh,0,0,rw,rh);ma=null;},
-  // ---- warm-up: every canvas drawn once, every kind of draw made once (GPU uploads and program compiles happen now, not at 0.3 s / 6.5 s)
-  function(){var q=warmCanvas();['fromArt','room','art','paint','base','fromFull','clean','real','grey','greyHole','greySun','sun','refl','am','as','scr','sunBrush'].forEach(function(n){var c=C[n];if(!c)return;q.globalAlpha=.5;q.drawImage(c,0,0,c.width,c.height,0,0,8,8);q.drawImage(c,0,0,Math.min(40,c.width),Math.min(40,c.height),10,10,60,60);});
-    q.globalAlpha=1;C.cp.forEach(function(c){q.drawImage(c,0,0,4,4);});if(C.shTo)q.drawImage(C.shTo.c,0,0,8,8);if(C.shFr)q.drawImage(C.shFr.c,0,0,8,8);},
-  // the paint canvas: a flat stroke, a patterned stroke of each pattern, a checkpoint copy and the reset ('copy'), an animated stroke
-  function(){var q=C.pq,s0={L:0,a:.9,w:.02,p:[.3,.3,.35,.32,.4,.3],c0:'rgb(90,110,110)',c1:'rgb(100,120,120)',c2:'rgb(80,100,100)'},s1={L:2,k:0,w:.01,p:[.3,.4,.36,.41,.42,.4]},s2={L:3,k:4,w:.01,p:[.3,.5,.36,.51]};
-    q.lineCap='round';q.lineJoin='round';drawStroke(q,s0,pw,C.patA,C.patB,C);drawStroke(q,s1,pw,C.patA,C.patB,C);drawStroke(q,s2,pw,C.patA,C.patB,C);q.globalAlpha=1;},
-  function(){var q=C.pq;drawAnim(q,ANIM[0],.5,0,0,C.k,C);drawAnim(q,ANIM[ANIM.length-1],1,0,0,C.k,C);var cq=C.cp[0].getContext('2d');cq.globalCompositeOperation='copy';cq.drawImage(C.paint,0,0);cq.globalCompositeOperation='source-over';
-    q.setTransform(1,0,0,1,0,0);q.globalCompositeOperation='copy';q.drawImage(C.base,0,0);q.globalCompositeOperation='source-over';C.drawn=0;},
+  // ---- warm-up: every canvas drawn once, every kind of draw made once (GPU uploads and program compiles happen now, not in playback)
+  function(){var q=warmCanvas();['fromArt','litFrom','room','art','lit','fromFull','gFull','gEnd','scr','mask','glow','sun','refl','sunBrush'].forEach(function(n){var c=C[n];if(!c)return;q.globalAlpha=.5;q.drawImage(c,0,0,c.width,c.height,0,0,8,8);q.drawImage(c,0,0,Math.min(40,c.width),Math.min(40,c.height),10,10,60,60);});
+    q.globalAlpha=1;if(C.shTo)q.drawImage(C.shTo.c,0,0,8,8);if(C.shFr)q.drawImage(C.shFr.c,0,0,8,8);},
   // the stage's kinds of draw, on the warm canvas: gradients (plain, 'lighter', inside an even-odd clip), the sun brush (source-in spiral),
-  // the grey layers, an animated stroke at stage scale, blurred warm text (the flying word's sprites)
+  // the bloom composite (mask, source-in), blurred warm text (the flying word's sprites)
   function(){var q=warmCanvas();wash(q,300,300,{x:50,y:50,w:100,h:80},true,1);wash(q,300,300,{x:50,y:50,w:100,h:80},false,1);glow(q,300,300,{x:60,y:60,w:120,h:90},.5,200);
     q.save();q.globalCompositeOperation='lighter';var hg=q.createRadialGradient(150,150,0,150,150,80);hg.addColorStop(0,'rgba(255,120,50,.2)');hg.addColorStop(1,'rgba(255,120,50,0)');q.fillStyle=hg;q.fillRect(70,70,160,160);q.restore();
     q.fillStyle='rgb(14,12,11)';q.globalAlpha=.5;q.fillRect(0,0,300,300);q.globalAlpha=1;},
   function(){var q=warmCanvas(),bq=C.sunBrush.getContext('2d'),bw=C.sunBrush.width;bq.clearRect(0,0,bw,bw);bq.lineCap='round';bq.lineWidth=bw*.4;bq.strokeStyle='#fff';bq.beginPath();bq.moveTo(bw*.2,bw*.5);bq.lineTo(bw*.6,bw*.4);bq.stroke();
-    bq.globalCompositeOperation='source-in';bq.drawImage(C.sun,0,0);bq.globalCompositeOperation='source-over';q.drawImage(C.sunBrush,0,0,40,40);},
-  function(){var q=warmCanvas();q.save();q.globalCompositeOperation='lighter';q.globalAlpha=.2;q.drawImage(C.sun,0,0,40,40);q.restore();
-    q.globalAlpha=.5;q.drawImage(C.greyHole,0,0,60,50);q.drawImage(C.greySun,0,0,60,50);q.drawImage(C.refl,0,0,20,40,0,0,20,40);q.globalAlpha=1;},
-  function(){var q=warmCanvas();drawAnim(q,ANIM[1],.5,-ANIM[1][3]*.1,-ANIM[1][4]*.1,.1,C);},
-  function(){var q=warmCanvas();drawAnim(q,ANIM[20],.6,-ANIM[20][3]*.1,-ANIM[20][4]*.1,.1,C);},
-  function(){var q=warmCanvas();q.save();q.beginPath();q.rect(0,0,300,300);q.rect(20,20,100,100);q.clip('evenodd');q.fillStyle='rgba(0,0,0,.1)';q.fillRect(0,0,300,300);q.restore();}];
+    bq.globalCompositeOperation='source-in';bq.drawImage(C.sun,0,0);bq.globalCompositeOperation='source-over';q.drawImage(C.sunBrush,0,0,40,40);
+    q.save();q.globalCompositeOperation='lighter';q.globalAlpha=.2;q.drawImage(C.sun,0,0,40,40);q.restore();q.drawImage(C.refl,0,0,20,40,0,0,20,40);},
+  function(){bloomTo(C.sq,C,aw*.5,ah*.3,aw*.2);C.sq.globalCompositeOperation='source-over';C.sq.clearRect(0,0,aw,ah);warmCanvas().drawImage(C.scr,0,0,40,30);}];
   // the flying word's glyph sprites, built now from the DOM's computed fonts (no layout needed), one glyph per step
   preSprites(ctx).forEach(function(f){steps.push(f);});
   return{C:C,steps:steps};}
+// the colour bloom into the scratch canvas (art-canvas px): the mask sprite at radius R round (cx, cy), main.webp source-in. Only the
+// bloom's bounding box is touched; returns it [x, y, w, h] (or null when empty)
+function bloomTo(q,C,cx,cy,R){var aw=C.art.width,ah=C.art.height,x0=Math.max(0,Math.floor(cx-R)),y0=Math.max(0,Math.floor(cy-R)),x1=Math.min(aw,Math.ceil(cx+R)),y1=Math.min(ah,Math.ceil(cy+R));
+  if(x1<=x0||y1<=y0)return null;var w=x1-x0,h=y1-y0;q.setTransform(1,0,0,1,0,0);q.globalAlpha=1;q.globalCompositeOperation='source-over';q.clearRect(x0,y0,w,h);
+  q.drawImage(C.mask,cx-R,cy-R,2*R,2*R);q.globalCompositeOperation='source-in';q.drawImage(C.art,x0,y0,w,h,x0,y0,w,h);q.globalCompositeOperation='source-over';return[x0,y0,w,h];}
 // all at once (draw() after a resize): cancels an incremental build in progress
 function ensure(ctx,S){var k=cacheKey(ctx);if(K&&K.key===k&&K.ready)return K.C;var t0=performance.now();var j=cacheSteps(ctx,S,k);j.steps.forEach(function(f){f();});K={key:k,C:j.C,ready:true,n:j.steps.length};
   console.warn('impressionism: caches rebuilt in draw ('+(performance.now()-t0).toFixed(0)+' ms)');return K.C;}
@@ -3675,13 +3621,14 @@ var dirty=[],watching=false,myIdx=-1;
 function setCss(el,prop,val){if(!el)return;if(el.style[prop]!==val)el.style[prop]=val;if(dirty.indexOf(el)<0){dirty.push(el);watch();}}
 function clean(){dirty.forEach(function(el){el.style.opacity='';el.style.transition='';});dirty=[];}
 function watch(){if(watching)return;watching=true;(function loop(){var st=window.EH&&EH.debug&&EH.debug.state;
-  if(!st||st.idx!==myIdx||(st.phase!=='enter'&&st.phase!=='rest')){clean();fromLayers(null);watching=false;return;}requestAnimationFrame(loop);})();}
+  if(!st||st.idx!==myIdx||(st.phase!=='enter'&&st.phase!=='rest')){clean();fromLayers(null);stopVideo();watching=false;return;}requestAnimationFrame(loop);})();}
 // the previous room's overlay layers (if any: the realism floor) go dark with its room. Through CSS filter, not opacity: the realism
 // module's own watcher rewrites its floor's style.opacity every frame while the next room enters.
 var fromL=[];
-function fromLayers(a,ctx){if(a==null){fromL.forEach(function(el){el.style.filter='';});fromL=[];return;}
+function fromLayers(a,ctx){if(a==null){fromL.forEach(function(el){el.style.filter='';el.style.visibility='';});fromL=[];return;}
   if(ctx&&ctx.S){var mine=[ctx.S.tint,ctx.S.word];Array.prototype.forEach.call(document.querySelectorAll('canvas.ovl'),function(el){if(mine.indexOf(el)<0&&el.style.display!=='none'&&fromL.indexOf(el)<0)fromL.push(el);});}
-  var v=a>=.999?'':'opacity('+a.toFixed(3)+')';fromL.forEach(function(el){if(el.style.filter!==v)el.style.filter=v;});if(fromL.length)watch();}
+  // once dark, the layer is hidden outright: a full-screen canvas under an opacity(0) filter would still be composited every frame
+  var v=a>=.999||a<=.001?'':'opacity('+a.toFixed(3)+')',vis=a<=.001?'hidden':'';fromL.forEach(function(el){if(el.style.filter!==v)el.style.filter=v;if(el.style.visibility!==vis)el.style.visibility=vis;});if(fromL.length)watch();}
 
 var labKey=null;
 function placeLabel(ctx){var l=document.getElementById('lab'+ctx.to.idx);if(!l)return;var r=ctx.to.rect,lk=[innerWidth,innerHeight,r.x,r.y,r.w,r.h,l.textContent.length].join('/');if(lk===labKey&&l.style.left)return;labKey=lk;var fp=r.fp||0,f={left:r.x-fp,right:r.x+r.w+fp,bottom:r.y+r.h+fp};
@@ -3747,107 +3694,127 @@ function drawWord(g,ctx,S,t){var G=wordGeo(ctx,S);if(!G)return;var src=G.src,dst
   g.restore();}
 
 // ---------------------------------------------------------------- the frame
+// full-screen draws per frame (besides the core's clear): dark phase 1 (the room) · opening ≤ 2 (the lit realism room, the room) ·
+// light spill ≤ 4 (night, room, lit wall, glow sprite) · the p = 1 frame 4. Plus art-rect draws (video / pictures) and small sprites.
 var MOD={
   duration:D,
-  assets:['t_clean.webp','t_grey.webp','t_sunalpha.png','t_anim_m.png','t_anim_s.webp'],
+  musicAt:.70,
+  assets:['t_ggrey.webp','t_repaint_end.webp','t_sunalpha.png'],
   fromAssets:[],
   init:function(ctx){var S=ctx.state;myIdx=ctx.to.idx;mark('imp:init');
-    S.clean=ctx.asset('t_clean.webp');S.grey=ctx.asset('t_grey.webp');S.sunA=ctx.asset('t_sunalpha.png');S.animM=ctx.asset('t_anim_m.png');S.animS=ctx.asset('t_anim_s.webp');
-    S.tint=ctx.layer('tint',{z:8,blend:'color'});S.word=ctx.layer('word',{z:9});
-    // the core paints the hung picture from this <img> at the hand-over: ask for its decode early (off the main thread; a warm-up draw
-    // was tried and dropped — Chrome's canvas decode cache did not reliably keep it until the hand-over, and a late pre-init put the
-    // ~120 ms decode into the opening seconds instead)
+    S.gg=ctx.asset('t_ggrey.webp');S.gEnd=ctx.asset('t_repaint_end.webp');S.sunA=ctx.asset('t_sunalpha.png');
+    S.tint=ctx.layer('tint',{z:8,blend:'color'});S.word=ctx.layer('word',{z:9});layerVis(S.tint,false);layerVis(S.word,false);
+    // the repaint video: requested now (during the realism rest), primed when it can play through — never waited for
+    video();
+    // the core paints the hung picture from this <img> at the hand-over: ask for its decode early (off the main thread)
     try{if(ctx.to.image&&ctx.to.image.decode)ctx.to.image.decode().catch(function(){});}catch(e){}
-    // the stroke list: fetched now, in parallel with the image decoding
-    loadStrokes(S);
     if(K&&K.key===cacheKey(ctx)&&K.ready){S.decoded=true;return;}
     // decode every image off the main thread (fetch → blob → createImageBitmap), the opening beats' images first; then the caches in small tasks
-    var ims=[ctx.from&&ctx.from.image,ctx.to.image,S.clean,S.grey,S.sunA,S.animM,S.animS].filter(Boolean);S.bmv={};
+    var ims=[ctx.from&&ctx.from.image,ctx.to.image,S.gg,S.gEnd,S.sunA].filter(Boolean);S.bmv={};
     Promise.all(ims.map(function(im){return bitmap(im).then(function(b){if(b)S.bmv[im.src]=b;});})).then(function(){
       S.decoded=true;mark('imp:decoded');ensureSteps(ctx,S,function(){
-        // the bitmaps (~18 MB each) are only needed to build the caches; a later resize rebuilds from the <img>s
+        // the bitmaps are only needed to build the caches; a later resize rebuilds from the <img>s
         if(S.bmv){for(var u in S.bmv){try{S.bmv[u].close();}catch(e){}delete BM[u];}S.bmv=null;}});});},
-  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,dpr0=ctx.dpr||1,to=ctx.to.rect,F=ctx.from,fr=F?F.rect:null;myIdx=ctx.to.idx;S.restT0=null;
+  draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,dpr=ctx.dpr||1,to=ctx.to.rect,F=ctx.from,fr=F?F.rect:null;myIdx=ctx.to.idx;S.restT0=null;
     if(!S.tint){S.tint=ctx.layer('tint',{z:8,blend:'color'});S.word=ctx.layer('word',{z:9});}
+    if(!VID)video();
     // cold start only (images still decoding, caches still being built by init): hold the previous room's frame, then the plain hand-over frame
     // (the previous picture from the core's hung-art canvas, which still holds it: drawing the <img> here would decode it synchronously)
-    var key=cacheKey(ctx);if(!K||K.key!==key||!K.ready){if(!S.decoded||(K&&K.key===key)){if(F&&t<D/2){g.fillStyle=F.wall;g.fillRect(0,0,W,H);var ac=document.getElementById('art');if(ac&&ac.width===Math.min(Math.round(fr.w*dpr0),2600))artAt(g,ac,fr,dpr0);else g.drawImage(F.image,fr.x,fr.y,fr.w,fr.h);}else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);g.drawImage(ctx.to.image,to.x,to.y,to.w,to.h);}return;}}
-    var C=ensure(ctx,S);if(!S.job)loadStrokes(S);var toWall=hex(ctx.to.wall),dpr=ctx.dpr||1;
+    var key=cacheKey(ctx);if(!K||K.key!==key||!K.ready){if(!S.decoded||(K&&K.key===key)){if(F&&t<D/2){g.fillStyle=F.wall;g.fillRect(0,0,W,H);var ac=document.getElementById('art');if(ac&&ac.width===Math.min(Math.round(fr.w*dpr),2600))artAt(g,ac,fr,dpr);else g.drawImage(F.image,fr.x,fr.y,fr.w,fr.h);}else{g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);g.drawImage(ctx.to.image,to.x,to.y,to.w,to.h);}return;}}
+    var C=ensure(ctx,S);
+    syncVideo(t,!!ctx.playing&&p<1);
     // ===== DOM
-    if(!S.warm){
-      var fd=1-sm(seg(t,T.fromDom));if(F){['era'+F.idx,'lab'+F.idx].forEach(function(id){var el=document.getElementById(id);if(!el)return;
-        if(fd>.001){el.classList.add('on');setCss(el,'transition','none');setCss(el,'opacity',fd.toFixed(3));}else{el.classList.remove('on');setCss(el,'transition','none');setCss(el,'opacity','0');}});}
-      fromLayers(1-eio(seg(t,T.dim)),{S:S});
-      var ink=t<T.fromDom[1]&&F?F.ink:(t<T.ink?'light':ctx.to.ink);if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}
-      var wc=t<T.fromDom[1]&&F?F.wall:(t<T.ink?'#0e0c0b':ctx.to.wall);if(S.wallNow!==wc){ctx.ui.wall(wc);S.wallNow=wc;}
-      var labOn=t>=T.label;ctx.ui.label(ctx.to.idx,labOn);if(labOn)placeLabel(ctx);
-      var e=document.getElementById('era'+ctx.to.idx),ta=sm(seg(t,T.title));if(e){if(ta>0){e.classList.add('on');setCss(e,'transition','none');setCss(e,'opacity',ta.toFixed(3));}else{e.classList.remove('on');setCss(e,'transition','none');setCss(e,'opacity','0');}}
-    }
+    var fd=1-sm(seg(t,T.fromDom));if(F){['era'+F.idx,'lab'+F.idx].forEach(function(id){var el=document.getElementById(id);if(!el)return;
+      if(fd>.001){el.classList.add('on');setCss(el,'transition','none');setCss(el,'opacity',fd.toFixed(3));}else{el.classList.remove('on');setCss(el,'transition','none');setCss(el,'opacity','0');}});}
+    fromLayers(1-eio(seg(t,T.dim)),{S:S});
+    var ink=t<T.fromDom[1]&&F?F.ink:(t<T.ink?'light':ctx.to.ink);if(S.inkNow!==ink){ctx.ui.ink(ink);S.inkNow=ink;}
+    var wc=t<T.fromDom[1]&&F?F.wall:(t<T.ink?'#0e0c0b':ctx.to.wall);if(S.wallNow!==wc){ctx.ui.wall(wc);S.wallNow=wc;}
+    var labOn=t>=T.label;ctx.ui.label(ctx.to.idx,labOn);if(labOn)placeLabel(ctx);
+    var e=document.getElementById('era'+ctx.to.idx),ta=sm(seg(t,T.title));if(e){if(ta>0){e.classList.add('on');setCss(e,'transition','none');setCss(e,'opacity',ta.toFixed(3));}else{e.classList.remove('on');setCss(e,'transition','none');setCss(e,'opacity','0');}}
+    var E=encl(to,dpr);
+    if(t>=D-1e-6){
+      // ===== the hand-over frame: exactly what the rest shows (wall, wash, the hung picture in its device-pixel box, the glow)
+      g.drawImage(C.lit,0,0,W,H);artAt(g,C.art,to,dpr);glow(g,W,H,to,restA(0));}
+    else{
     // ===== 1. the room: realism rest → dark room with a spotlight → (light spill) → this room's wall
     var dk=eio(seg(t,T.dim)),wu=sm(seg(t,T.wall)),spotA=1-sm(seg(t,T.spot));
-    if(F&&dk<1){g.fillStyle=F.wall;g.fillRect(0,0,W,H);wash(g,W,H,fr,F.ink==='dark',1);if(F.frame==='none')drawShadow(g,C.shFr,.6*(1-dk));
-      /* the realism floor stays on its own layer (z 4, above the stage) and goes dark with the room via fromLayers() */}
-    // the night is laid over the old room by dk and stays opaque under the new wall (the stage must never let the DOM wall show through:
-    // the core's wall colour changes with a CSS transition that is not a function of p)
-    if(dk>0&&wu<1){g.globalAlpha=(F&&dk<1)?dk:1;g.fillStyle=mixc(NIGHT,NIGHT,0);g.fillRect(0,0,W,H);g.globalAlpha=dk*spotA*(1-wu);g.drawImage(C.room,0,0,W,H);g.globalAlpha=1;}
-    if(wu>0){g.globalAlpha=wu;g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);g.globalAlpha=1;wash(g,W,H,to,ctx.to.ink==='dark',wu);if(ctx.to.frame==='none')drawShadow(g,C.shTo,.6*wu);}
-    // the light spilling out of the sun onto the walls, settling to the rest glow
-    var sp=seg(t,T.spill);if(sp>0){var s=sunAt(to),R=lerp(to.w*.18,Math.max(W,H)*.95,eo(sp)),A=lerp(0,2.4,sm(seg(t,[T.spill[0],T.spill[0]+1.1])))*(1-sm(seg(t,[21.2,23.4])))+REST_A*sm(seg(t,[21.0,23.4]));
-      glow(g,W,H,to,A,R);}
+    if(wu<1){
+      if(F&&dk<1){g.drawImage(C.litFrom,0,0,W,H);g.globalAlpha=dk;g.drawImage(C.room,0,0,W,H);g.globalAlpha=1;}
+      // the night stays opaque under the new wall (the stage must never let the DOM wall show through: the core's wall colour changes with a
+      // CSS transition that is not a function of p); the spotlight fades out with the light spill
+      else if(spotA>=1)g.drawImage(C.room,0,0,W,H);
+      else{g.fillStyle=mixc(NIGHT,NIGHT,0);g.fillRect(0,0,W,H);var ra=spotA*(1-wu);if(ra>0){g.globalAlpha=ra;g.drawImage(C.room,0,0,W,H);g.globalAlpha=1;}}}
+    if(wu>0){g.globalAlpha=wu;g.drawImage(C.lit,0,0,W,H);g.globalAlpha=1;}
+    // the light spilling out of the sun onto the walls, settling to the rest glow (the picture covers its centre)
+    var sp=seg(t,T.spill);if(sp>0){var s=sunAt(to),R=lerp(to.w*.18,Math.max(W,H)*.95,eo(sp)),A=lerp(0,2.4,sm(seg(t,[T.spill[0],T.spill[0]+1.1])))*(1-sm(seg(t,[T.glowA[0]+.2,T.glowA[1]])))+REST_A*sm(seg(t,T.glowA));
+      if(A>.001){g.globalAlpha=Math.min(1,A/GLOWMAX);g.drawImage(C.glow,s[0]-R,s[1]-R,2*R,2*R);g.globalAlpha=1;}}
     // ===== 2. the picture
-    var geo=eio(seg(t,T.geo)),rx,ry,rw,rh;
-    if(t<T.geo[1]){rx=lerp(fr.x,to.x,geo);ry=lerp(fr.y,to.y,geo);rw=lerp(fr.w,to.w,geo);rh=lerp(fr.h,to.h,geo);var cr=coverCrop(PW/PH),kf=C.kf;
-      g.drawImage(C.fromFull,lerp(0,cr[0],geo)*kf,lerp(0,cr[1],geo)*kf,lerp(GW,cr[2],geo)*kf,lerp(GH,cr[3],geo)*kf,rx,ry,rw,rh);
+    if(t<T.geo[1]){
+      // the frame glides from the Gleaners' rect to Monet's; the Gleaners drain to L*-grey as the lights dim
+      var geo=eio(seg(t,T.geo)),rx=lerp(fr.x,to.x,geo),ry=lerp(fr.y,to.y,geo),rw=lerp(fr.w,to.w,geo),rh=lerp(fr.h,to.h,geo),cr=coverCrop(PW/PH),kf=C.kf;
+      var sx=lerp(0,cr[0],geo)*kf,sy=lerp(0,cr[1],geo)*kf,sw=lerp(GW,cr[2],geo)*kf,sh=lerp(GH,cr[3],geo)*kf,gr=sm(seg(t,T.drain));
+      if(gr<1)g.drawImage(C.fromFull,sx,sy,sw,sh,rx,ry,rw,rh);
+      if(gr>0){g.globalAlpha=gr;g.drawImage(C.gFull,sx,sy,sw,sh,rx,ry,rw,rh);g.globalAlpha=1;}
       // p = 0 is the realism room's own hung pixels; they hand over to the pre-scaled copy while the frame is still in place
-      var fa=1-sm(seg(t,[.02,T.geo[0]]));if(fa>0&&ok(C.fromArt)){g.globalAlpha=fa;g.drawImage(C.fromArt,fr.x,fr.y,fr.w,fr.h);g.globalAlpha=1;}}
+      var fa=1-sm(seg(t,[.02,T.geo[0]]));if(fa>0&&ok(C.fromArt)){g.globalAlpha=fa;artAt(g,C.fromArt,fr,dpr);g.globalAlpha=1;}}
     else{
-      var set=sm(seg(t,T.settle));
-      if(set<1){
-        if(S.ready){paintTo(C,S,countAt(S.ts,t),BUDGET);g.drawImage(C.paint,to.x,to.y,to.w,to.h);
-          // the animated strokes still being laid (or laid but not yet baked into the paint canvas: it may be a frame behind)
-          for(var ai=0;ai<ANIM.length;ai++){var A=ANIM[ai];if(A[0]>t)continue;if(S.ai[ai]<C.drawn)continue;drawAnim(g,A,cl((t-A[0])/(A[1]-A[0])),to.x,to.y,to.w/PW,C);}}
-        else{g.drawImage(C.base,to.x,to.y,to.w,to.h);var fb=sm(seg(t,[T.L[0][0],13.9]));if(fb>0){g.globalAlpha=fb;g.drawImage(C.real,to.x,to.y,to.w,to.h);g.globalAlpha=1;}}
-        // the last stroke: the sun (one loaded round stroke of the real pixels), with a wet highlight that dries
-        var su=seg(t,T.sunIn);if(su>0){var sk=to.w/PW,sr=C.sunR*sk,sx=to.x+SUN[0]*sk,sy=to.y+SUN[1]*sk;
-          var hal=Math.sin(Math.PI*seg(t,T.halo))*(1-set);if(hal>0){g.save();g.globalCompositeOperation='lighter';var hg=g.createRadialGradient(sx,sy,0,sx,sy,sr*3.2);hg.addColorStop(0,'rgba(255,120,50,'+(.22*hal).toFixed(3)+')');hg.addColorStop(1,'rgba(255,120,50,0)');g.fillStyle=hg;g.fillRect(sx-sr*3.2,sy-sr*3.2,sr*6.4,sr*6.4);g.restore();}
-          if(su>=1)g.drawImage(C.sun,sx-sr,sy-sr,2*sr,2*sr);
+      var bl=seg(t,T.bloom);
+      if(bl<1){
+        // the grey repaint: the video (or, until it can play, a cross-fade of the grey Gleaners into the grey harbour)
+        if(t<=VEND){var cr2=coverCrop(PW/PH),kf2=C.kf,vi=sm(seg(t,T.vIn)),vok=vidOk();
+          if(vi<1||!vok){g.drawImage(C.gFull,cr2[0]*kf2,cr2[1]*kf2,cr2[2]*kf2,cr2[3]*kf2,E[0],E[1],E[2],E[3]);
+            if(!vok){var fu=sm(seg(t,[V0+1,VEND-.5]));if(fu>0){g.globalAlpha=fu;g.drawImage(C.gEnd,E[0],E[1],E[2],E[3]);g.globalAlpha=1;}}}
+          if(vok&&vi>0){g.globalAlpha=vi;g.drawImage(VID.el,E[0],E[1],E[2],E[3]);g.globalAlpha=1;}}
+        else g.drawImage(C.gEnd,E[0],E[1],E[2],E[3]);
+        // the last stroke, the one colour: the orange sun (one loaded round stroke of the real pixels), with a wet highlight that dries
+        var su=seg(t,T.sunIn);if(su>0){var sk=to.w/PW,sr=C.sunR*sk,sx2=to.x+SUN[0]*sk,sy2=to.y+SUN[1]*sk;
+          var hal=Math.sin(Math.PI*seg(t,T.halo))*(1-bl);if(hal>0){g.save();g.globalCompositeOperation='lighter';var hg=g.createRadialGradient(sx2,sy2,0,sx2,sy2,sr*3.2);hg.addColorStop(0,'rgba(255,120,50,'+(.22*hal).toFixed(3)+')');hg.addColorStop(1,'rgba(255,120,50,0)');g.fillStyle=hg;g.fillRect(sx2-sr*3.2,sy2-sr*3.2,sr*6.4,sr*6.4);g.restore();}
+          if(su>=1)g.drawImage(C.sun,sx2-sr,sy2-sr,2*sr,2*sr);
           else{var bq=C.sunBrush.getContext('2d'),bw=C.sunBrush.width,bs=bw/2,Rr=SUN[2]/C.sunR;bq.setTransform(1,0,0,1,0,0);bq.globalCompositeOperation='source-over';bq.clearRect(0,0,bw,bw);
             // a spiral from the left rim inward, 1.25 turns; the brush is wide enough to close the disc
             var f=eio(su),n=Math.max(2,Math.round(64*f));bq.lineCap='round';bq.lineJoin='round';bq.lineWidth=bs*Rr*.95;bq.strokeStyle='#fff';bq.beginPath();
             for(var j=0;j<=n;j++){var q=j/64,a=Math.PI*1.1+q*Math.PI*2.5,rad=bs*Rr*lerp(.62,.08,q);var px=bs+Math.cos(a)*rad,py=bs+Math.sin(a)*rad;if(j)bq.lineTo(px,py);else bq.moveTo(px,py);}bq.stroke();
-            bq.globalCompositeOperation='source-in';bq.drawImage(C.sun,0,0);g.drawImage(C.sunBrush,sx-sr,sy-sr,2*sr,2*sr);}
-          var wet=(1-sm(seg(t,[15.4,16.6])))*sm(seg(su,[.05,.4]));if(wet>0){g.save();g.globalCompositeOperation='lighter';g.globalAlpha=.22*wet;g.drawImage(su>=1?C.sun:C.sunBrush,sx-sr-sr*.05,sy-sr-sr*.08,2*sr,2*sr);g.restore();}}
+            bq.globalCompositeOperation='source-in';bq.drawImage(C.sun,0,0);g.drawImage(C.sunBrush,sx2-sr,sy2-sr,2*sr,2*sr);}
+          var wet=(1-sm(seg(t,[15.4,16.6])))*sm(seg(su,[.05,.4]));if(wet>0){g.save();g.globalCompositeOperation='lighter';g.globalAlpha=.22*wet;g.drawImage(su>=1?C.sun:C.sunBrush,sx2-sr-sr*.05,sy2-sr-sr*.08,2*sr,2*sr);g.restore();}}
         // … and its short reflections, dab by dab down the water, each laid left to right
         var rf=seg(t,T.refl);if(rf>0){var rk=to.w/PW,X=to.x+REFL[0]*rk,Y=to.y+REFL[1]*rk,RW=(REFL[2]-REFL[0])*rk,RH=(REFL[3]-REFL[1])*rk,NB=11,cw=C.refl.width,chh=C.refl.height;
-          for(var b2=0;b2<NB;b2++){var bf=eo(seg(t,[T.refl[0]+b2*.085,T.refl[0]+b2*.085+.3]));if(bf<=0)break;var yy0=b2/NB,yy1=(b2+1)/NB,ww=bf;
-            g.drawImage(C.refl,0,yy0*chh,cw*ww,(yy1-yy0)*chh,X,Y+yy0*RH,RW*ww,(yy1-yy0)*RH);}}
-      }
-      // settle: the painted picture becomes the picture (tiny differences at the boat and sun edges)
-      if(set>0){g.globalAlpha=set;artAt(g,C.art,to,dpr);g.globalAlpha=1;}
-      // the colour drains away — the sun vanishes into the sky of the same lightness — then comes back, the sun first
-      var gA=eio(seg(t,T.grey))*(1-eo(seg(t,T.colour))),gS=eio(seg(t,T.grey))*(1-eo(seg(t,T.jump)));
-      if(gA>0||gS>0){g.globalAlpha=gA;artAt(g,C.greyHole,to,dpr);g.globalAlpha=gS;artAt(g,C.greySun,to,dpr);g.globalAlpha=1;}
-      var bl=seg(t,T.bloom);if(bl>0&&bl<1){var s2=sunAt(to),bk=Math.pow(1-bl,1.6)*sm(seg(bl,[0,.06])),br=to.w*(.06+.5*eo(bl));g.save();g.globalCompositeOperation='lighter';
-        var bg=g.createRadialGradient(s2[0],s2[1],0,s2[0],s2[1],br);bg.addColorStop(0,'rgba(255,150,70,'+(.5*bk).toFixed(3)+')');bg.addColorStop(.4,'rgba(240,140,90,'+(.18*bk).toFixed(3)+')');bg.addColorStop(1,'rgba(150,170,190,0)');
-        g.fillStyle=bg;g.fillRect(s2[0]-br,s2[1]-br,2*br,2*br);g.restore();}
-    }
-    if(t>=D-1e-6){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,to,ctx.to.ink==='dark',1);if(ctx.to.frame==='none')drawShadow(g,C.shTo,.6);artAt(g,C.art,to,dpr);glow(g,W,H,to,restA(0));}
-    // ===== overlay layers: colour tint of walls/label/title ('color' blend), the floating word
-    if(!S.warm){var tg=S.tint.__g,wg=S.word.__g;tg.setTransform(dpr,0,0,dpr,0,0);tg.clearRect(0,0,W,H);wg.setTransform(dpr,0,0,dpr,0,0);wg.clearRect(0,0,W,H);
-      var ti=sm(seg(t,T.tintIn))*(1-sm(seg(t,T.tintOut)));if(ti>0){var s3=sunAt(to),R3=Math.max(W,H)*lerp(.4,1.1,eo(sp));tg.save();tg.beginPath();tg.rect(0,0,W,H);tg.rect(to.x,to.y,to.w,to.h);tg.clip('evenodd');
-        var tgr=tg.createRadialGradient(s3[0],s3[1],0,s3[0],s3[1],R3);tgr.addColorStop(0,'rgba(240,140,70,'+(.85*ti).toFixed(3)+')');tgr.addColorStop(.35,'rgba(214,150,110,'+(.6*ti).toFixed(3)+')');tgr.addColorStop(.7,'rgba(110,146,172,'+(.55*ti).toFixed(3)+')');tgr.addColorStop(1,'rgba(110,146,172,'+(.35*ti).toFixed(3)+')');
-        tg.fillStyle=tgr;tg.fillRect(0,0,W,H);tg.restore();}
-      if(t>T.lift[0]&&t<T.wordOut[1])drawWord(wg,ctx,S,t);else if(t>=T.label&&t<=T.lift[0]){var G0=wordGeo(ctx,S);if(G0)sprites(G0,dpr,ctx.to.ink);}}
+          for(var b2=0;b2<NB;b2++){var bf=eo(seg(t,[T.refl[0]+b2*.085,T.refl[0]+b2*.085+.3]));if(bf<=0)break;var yy0=b2/NB,yy1=(b2+1)/NB;
+            g.drawImage(C.refl,0,yy0*chh,cw*bf,(yy1-yy0)*chh,X,Y+yy0*RH,RW*bf,(yy1-yy0)*RH);}}
+        // the colour spreads from the sun: main.webp through the radial mask, growing until its opaque core holds the whole picture
+        if(bl>0){var aw=C.art.width,ah=C.art.height,cx=SUN[0]/PW*aw,cy=SUN[1]/PH*ah,dm=Math.max(Math.hypot(cx,cy),Math.hypot(aw-cx,cy),Math.hypot(cx,ah-cy),Math.hypot(aw-cx,ah-cy)),
+            r0=C.sunR*aw/PW*1.6,Rb=lerp(r0,dm/MCORE+2,sm(bl)),bb=bloomTo(C.sq,C,cx,cy,Rb);
+          if(bb){var kx=E[2]/aw,ky=E[3]/ah;g.drawImage(C.scr,bb[0],bb[1],bb[2],bb[3],E[0]+bb[0]*kx,E[1]+bb[1]*ky,bb[2]*kx,bb[3]*ky);}
+          // a warm breath at the sun as the colour starts to move
+          var bk=Math.pow(1-bl,1.6)*sm(seg(bl,[0,.08]));if(bk>0){var s2=sunAt(to),br=to.w*(.06+.3*eo(bl));g.save();g.globalCompositeOperation='lighter';
+            var bg=g.createRadialGradient(s2[0],s2[1],0,s2[0],s2[1],br);bg.addColorStop(0,'rgba(255,150,70,'+(.35*bk).toFixed(3)+')');bg.addColorStop(.4,'rgba(240,140,90,'+(.12*bk).toFixed(3)+')');bg.addColorStop(1,'rgba(150,170,190,0)');
+            g.fillStyle=bg;g.fillRect(s2[0]-br,s2[1]-br,2*br,2*br);g.restore();}}}
+      else artAt(g,C.art,to,dpr);}}
+    // ===== overlay layers: colour tint of walls/label/title ('color' blend), the floating word — shown only while they carry something
+    // (a hidden layer costs the compositor nothing; a transparent full-screen 'color'-blend layer would be blended every frame)
+    var tg=S.tint.__g,wg=S.word.__g,ti=sm(seg(t,T.tintIn))*(1-sm(seg(t,T.tintOut)));
+    if(ti>0){layerVis(S.tint,true);tg.setTransform(dpr,0,0,dpr,0,0);tg.clearRect(0,0,W,H);var s3=sunAt(to),R3=Math.max(W,H)*lerp(.4,1.1,eo(seg(t,T.spill)));tg.save();tg.beginPath();tg.rect(0,0,W,H);tg.rect(to.x,to.y,to.w,to.h);tg.clip('evenodd');
+      var tgr=tg.createRadialGradient(s3[0],s3[1],0,s3[0],s3[1],R3);tgr.addColorStop(0,'rgba(240,140,70,'+(.85*ti).toFixed(3)+')');tgr.addColorStop(.35,'rgba(214,150,110,'+(.6*ti).toFixed(3)+')');tgr.addColorStop(.7,'rgba(110,146,172,'+(.55*ti).toFixed(3)+')');tgr.addColorStop(1,'rgba(110,146,172,'+(.35*ti).toFixed(3)+')');
+      tg.fillStyle=tgr;tg.fillRect(0,0,W,H);tg.restore();}
+    else if(layerVis(S.tint,false)){tg.setTransform(1,0,0,1,0,0);tg.clearRect(0,0,S.tint.width,S.tint.height);}
+    if(t>T.lift[0]&&t<T.wordOut[1]){layerVis(S.word,true);wg.setTransform(dpr,0,0,dpr,0,0);wg.clearRect(0,0,W,H);drawWord(wg,ctx,S,t);}
+    else{if(layerVis(S.word,false)){wg.setTransform(1,0,0,1,0,0);wg.clearRect(0,0,S.word.width,S.word.height);}if(t>=T.label&&t<=T.lift[0]){var G0=wordGeo(ctx,S);if(G0)sprites(G0,dpr,ctx.to.ink);}}
+    if(p>=1)stopVideo();
   },
-  done:function(ctx){var S=ctx.state;S.restT0=performance.now()/1000;[S.tint,S.word].forEach(function(c){if(c&&c.__g){c.__g.setTransform(1,0,0,1,0,0);c.__g.clearRect(0,0,c.width,c.height);}});},
+  done:function(ctx){var S=ctx.state;S.restT0=performance.now()/1000;S.hoKey=K&&K.ready&&K.key===cacheKey(ctx)?K.key:null;stopVideo();[S.tint,S.word].forEach(function(c){if(c&&c.__g){c.__g.setTransform(1,0,0,1,0,0);c.__g.clearRect(0,0,c.width,c.height);layerVis(c,false);}});},
   rest:function(ctx){var S=ctx.state,now=performance.now()/1000;myIdx=ctx.to.idx;if(S.restT0==null)S.restT0=now;var el=now-S.restT0;
     // the title/label were already fully on at the hand-over: hold them through the core's own fade-in window, then hand the styles back
     if(el<1.5&&!ctx.reading){ctx.ui.title(ctx.to.idx,true);ctx.ui.label(ctx.to.idx,true);}else if(dirty.length)clean();
-    var g=ctx.g,r=ctx.to.rect;glow(g,ctx.W,ctx.H,r,restA(el));
+    var g=ctx.g,r=ctx.to.rect;
+    // the first 0.45 s: the stage's last picture (the cached canvas in our device-pixel box) dissolves over the DOM's — the compositor's
+    // own snapping of the hung canvas differs by a device pixel at some window sizes (inner vs enclosing box), so no size can pop
+    var hf=1-sm(el/.45);if(hf>0&&!ctx.reading&&!ctx.tool&&K&&K.ready&&K.C.art&&S.hoKey===K.key){g.globalAlpha=hf;artAt(g,K.C.art,r,ctx.dpr||1);g.globalAlpha=1;}
+    glow(g,ctx.W,ctx.H,r,restA(el));
     if(ctx.reading&&ctx.readRect){var R=ctx.readRect;g.clearRect(R.x,R.y,R.w,R.h);}}
 };
+// a layer's visibility (returns true when it changed); the core's own display:none (room left) is left alone
+function layerVis(c,on){if(!c)return false;var v=on?'':'hidden';if(c.style.visibility===v)return false;c.style.visibility=v;return true;}
 // debugging hook for the test scripts (read-only)
-SH.impDebug=function(){return{K:K,SL:STROKES,ANIM:ANIM,drawAnim:drawAnim,SPR:SPR};};
+SH.impDebug=function(){return{K:K,VID:VID,T:T,SPR:SPR};};
 EH.transition('impressionism',MOD);
 })();
 
