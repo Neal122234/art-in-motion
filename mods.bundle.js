@@ -2188,9 +2188,10 @@ function shoe(g,ctx,S,G,t){var I=S.im||{};if(!I.shoe||!I.shoe.naturalWidth)retur
    ropes snap taut, twang, turn to steel · the rocaille curls are combed out one by one into ruled lines · the pastel drains to lime-plaster
    grey with a touch of Roman red · the page snaps to a three-part grid in three clicks (咔、咔、咔): centred, set on the line, sized to the
    middle bay; the Latin words switch to Roman capitals · the grid's lines rise into Doric columns and carry three arches (three equal bays)
-   · the steel rods lift off the page and fly into the father's fists as swords · the curves that couldn't be straightened (the whole soft
-   page) are pushed into the right-hand bay and soften into the grieving women · the painting fills in behind the drawing: architecture,
-   father, sons, women · the sons' arms rise together on three drum beats · all arms and blades are ruled to one point, the swords ·
+   · the steel rods lift off the page and fly into the father's fists as swords · the Swing, already lime-plaster grey, is washed
+   off the wall as one picture (girl, swing, foliage together; an even fade with a soft top-down lead, 7.4–9.0 s, over before David's
+   colour arrives) · the painting fills in behind the drawing as one soft wash (8.7–11.9 s),
+   spreading from the architecture down to the figures · the sons' arms rise together on three drum beats · all arms and blades are ruled to one point, the swords ·
    the camera pulls back, the drawing fades to a faint grid · hand-over. Rest: that faint grid and the convergence lines, fading after
    a few seconds.
    Painting space = main.webp pixels (2400 × 1871). Rococo space = rococo main.webp pixels (1912 × 2400), layers from rooms/rococo/cut. */
@@ -2216,8 +2217,8 @@ var T={sway:[0,1.1], snare:1.1, swap:[.75,1.1], taut:[1.1,1.34], twang:[1.1,2.0]
   curl0:2.0, curlStep:.34, curlDur:.52, drain:[2.3,4.3],
   grid:[4.3,4.72], k:[4.55,4.95,5.35], kDur:.26, font:4.95, txtOut:[6.2,7.4],
   cols:[5.7,7.2], caps:[6.9,7.5], arches:[7.2,8.4],
-  camB:[8.3,11.4], lift:[7.8,9.6], pageOut:[8.2,9.7], push:[8.6,11.0], soft:[9.2,10.8], pushFade:[10.0,11.6],
-  paint:[[8.3,9.9],[9.2,10.6],[9.8,11.2],[10.1,11.7]], rodOut:[9.8,10.6],
+  camB:[8.3,11.4], lift:[7.8,9.6], wash:[7.4,9.0],
+  fill:[8.7,11.9], rodOut:[9.8,10.6],
   beats:[12.0,12.7,13.4], beatDur:.26, conv:[13.45,14.3], ring:[13.9,15.2], armsReal:[13.9,14.3],
   pull:[14.3,17.8], linesOut:[15.2,17.4], wallTo:[14.4,17.6], title:17.2};
 var HINT_A=.55;                                   // strength of the resting grid hint at hand-over (then it fades, see restHint)
@@ -2356,17 +2357,27 @@ function framePass(g,S,r,t,fc,bc,a){if(a<=0||!fc)return;var fp=r.fp||0,fb=S.fb;g
   g.save();g.beginPath();g.rect(fb.x,fb.y,fb.w,fb.h);for(var i=0;i<4;i++){var P=cornerPoly(r,fp,i);g.moveTo(P[0][0],P[0][1]);for(var j=1;j<4;j++)g.lineTo(P[j][0],P[j][1]);g.closePath();}g.clip('evenodd');g.drawImage(fc,fb.x,fb.y,fb.w,fb.h);g.restore();
   for(i=0;i<4;i++){var ca=cornerA(t,i);if(ca<=0)continue;var Q=cornerPoly(r,fp,i);g.save();g.beginPath();g.moveTo(Q[0][0],Q[0][1]);for(j=1;j<4;j++)g.lineTo(Q[j][0],Q[j][1]);g.closePath();g.clip();g.globalAlpha=a*ca;g.drawImage(fc,fb.x,fb.y,fb.w,fb.h);g.restore();}
   g.restore();}
+// the washed-off Swing: while the wash runs the page is composed at full strength in an offscreen and taken off as ONE picture (no layer
+// shows through another); the wash is an even fade whose front leads a little from the top (plaster rinsed down the wall), fully feathered
+var WASH_LEAD=.45;
+function washU(t){return seg(t,T.wash[0],T.wash[1]);}
+function drawPageWashed(g,ctx,S,t,pg,drain){var u=washU(t);if(u>=1)return;if(u<=0){drawPage(g,ctx,S,t,pg,drain);return;}
+  var W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),cw=Math.round(W*q),ch=Math.round(H*q);if(!S.wC||S.wC.width!==cw||S.wC.height!==ch)S.wC=cv(cw,ch);
+  var o=S.wC.getContext('2d');o.setTransform(1,0,0,1,0,0);o.globalAlpha=1;o.globalCompositeOperation='source-over';o.clearRect(0,0,cw,ch);o.setTransform(q,0,0,q,0,0);
+  drawPage(o,ctx,S,t,{cx:pg.cx,cy:pg.cy,s:pg.s,a:1,cx0:pg.cx0,cy0:pg.cy0},drain);
+  // remaining strength at height yn (0 = the page's top, 1 = its foot): 1 - smoothstep(u·(1+L) − L·yn)
+  var r=ctx.from.rect,fp=(r.fp||0)+24,y0=pg.cy+(r.y-fp-pg.cy0)*pg.s,y1=pg.cy+(r.y+r.h+fp-pg.cy0)*pg.s,gr=o.createLinearGradient(0,y0,0,y1);
+  for(var i=0;i<=10;i++){var yn=i/10;gr.addColorStop(yn,'rgba(0,0,0,'+sm(u*(1+WASH_LEAD)-WASH_LEAD*yn).toFixed(4)+')');}
+  o.globalCompositeOperation='destination-out';o.fillStyle=gr;o.fillRect(0,0,W,H);o.globalCompositeOperation='source-over';
+  g.save();g.globalAlpha=pg.a;g.drawImage(S.wC,0,0,W,H);g.restore();}
 function drawPage(g,ctx,S,t,pg,drain){var F=ctx.from,r=F.rect,fp=r.fp||0,tau=TAU0+Math.min(t,T.snare),th=rocAngle(tau);ensureRoc(ctx,S);
-  var fade=1-sm(seg(t,T.pageOut[0],T.pageOut[1])),soft=sm(seg(t,T.soft[0],T.soft[1])),ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=fade*(1-sm(seg(t,T.k[2],T.k[2]+1.2)));
+  var fade=1,ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=1-sm(seg(t,T.k[2],T.k[2]+1.2));
   g.save();g.globalAlpha=pg.a;pageXform(g,pg);
   var sa=S.shA*(1-drain)*fade;if(sa>0){g.globalAlpha=pg.a*sa;g.drawImage(S.shFr.c,S.shFr.x,S.shFr.y,S.shFr.w,S.shFr.h);g.globalAlpha=pg.a;}
   if(t<T.swap[0]){g.drawImage(F.image,r.x,r.y,r.w,r.h);if(SH.rococoRest){try{SH.rococoRest(g,{W:ctx.W,H:ctx.H,rect:r,dpr:ctx.dpr||1,t:tau});}catch(e){console.error(e);}}else band(g,r,fp);}
-  else{var wa=1-soft;
-    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,wa);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
-    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,wa);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}
-    // the soft remainder of the woman: what couldn't be straightened
-    if(soft>0&&S.soft){var k=r.w/RW;g.save();g.translate(r.x,r.y);g.scale(k,k);g.translate(ROC.pivot[0],ROC.pivot[1]);g.rotate(th);g.translate(-ROC.pivot[0],-ROC.pivot[1]);
-      g.globalAlpha=pg.a*soft;g.drawImage(S.soft,ROC.woman.x-60,ROC.woman.y-60,ROC.woman.w+120,ROC.woman.h+120);g.restore();}}
+  else{
+    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,1);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
+    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,1);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}}
   g.restore();}
 // pastel → lime plaster: saturation out, the darks lifted, a warm lime tint (blend fills on what is already there; no filters)
 function plaster(g,x,y,w,h,a){if(a<=0)return;g.save();g.beginPath();g.rect(x,y,w,h);g.clip();
@@ -2382,9 +2393,6 @@ function pageAt(t,ctx){var W=ctx.W,H=ctx.H,r=ctx.from.rect,cx0=r.x+r.w/2,cy0=r.y
   var bw=(GEO.cols[1]-GEO.cols[0]-2*GEO.shaft[0])*m.s*.84,ytop=Y(m,GEO.spring)+.06*H,hmax=Math.max(60,H*.94-ytop),s1=Math.min(bw/r.w,hmax/r.h),cy1=ytop+r.h*s1/2;
   var k1=backOut(seg(t,T.k[0],T.k[0]+T.kDur)),k2=backOut(seg(t,T.k[1],T.k[1]+T.kDur)),k3=backOut(seg(t,T.k[2],T.k[2]+T.kDur));
   var cx=lerp(cx0,W/2,k1),s=lerp(1,s1,k2),cy=lerp(cy0,cy1,k3),a=1;   // click 1: centred · click 2: sized to the bay · click 3: set on the line
-  // pushed into the right-hand bay, where the women will be
-  var pu=eio(seg(t,T.push[0],T.push[1]));if(pu>0){var mm=xf(camAt(t,ctx),W,H),tx=X(mm,GEO.women[0]),ty=Y(mm,GEO.women[1]);cx=lerp(cx,tx,pu);cy=lerp(cy,ty,pu);s=s*lerp(1,.92,pu);}
-  a=1-sm(seg(t,T.pushFade[0],T.pushFade[1]));
   return{cx:cx,cy:cy,s:s,a:a,cx0:cx0,cy0:cy0};}
 function pageXform(g,pg){g.translate(pg.cx,pg.cy);g.scale(pg.s,pg.s);g.translate(-pg.cx0,-pg.cy0);}
 function pagePt(pg,x,y){return[pg.cx+(x-pg.cx0)*pg.s,pg.cy+(y-pg.cy0)*pg.s];}
@@ -2488,37 +2496,38 @@ function drawArcade(g,ctx,t,m,alpha){if(alpha<=0)return;var W=ctx.W,H=ctx.H,gk=e
         g.beginPath();g.moveTo(cx+Math.cos(a)*GEO.rIn[0]*m.s,cy+Math.sin(a)*GEO.rIn[1]*m.s);g.lineTo(cx+Math.cos(a)*GEO.rOut[0]*m.s,cy+Math.sin(a)*GEO.rOut[1]*m.s);g.stroke();}g.restore();});}
   g.restore();}
 
-// ------------------------------------------------------------------ the Oath: region layers (cumulative, feathered), arms, convergence lines
-var REG=[   // polygons in painting px; the painting is laid in this order (architecture, father, sons, women)
-  null,
-  [[930,520],[1260,520],[1500,690],[1530,1100],[1500,1760],[1100,1790],[930,1760],[905,1150],[905,700]],
-  [[0,600],[560,590],[720,640],[905,690],[905,1150],[930,1760],[0,1871],[0,600]],
-  [[1470,990],[2400,960],[2400,1871],[1440,1871],[1480,1400]]];
-var SPEAR=[[40,265],[118,265],[200,1760],[150,1760]];
-function buildRegions(ctx,S){var src=S.plateOK?S.plate:ctx.to.image;if(!ok(src))return;
-  var q=Math.min(2,ctx.dpr||1),w=Math.min(1700,Math.round(PW*Math.max(camA(ctx.W,ctx.H).s,camB(ctx.W,ctx.H).s)*q)),h=Math.round(w*PH/PW),k=w/PW,mw=240,mh=Math.round(mw*PH/PW),km=mw/PW;
-  S.reg=[];var lab=cv(mw,mh),lg=lab.getContext('2d');
-  for(var i=0;i<4;i++){lg.clearRect(0,0,mw,mh);lg.fillStyle='#000';
-    if(i===3){lg.fillRect(0,0,mw,mh);}
-    else{// cumulative: architecture = everything that is not a later region; then add the regions one by one
-      lg.fillRect(0,0,mw,mh);lg.globalCompositeOperation='destination-out';
-      for(var j=i+1;j<4;j++){lg.beginPath();REG[j].forEach(function(p,n){if(n)lg.lineTo(p[0]*km,p[1]*km);else lg.moveTo(p[0]*km,p[1]*km);});lg.closePath();lg.fill();
-        if(j===2){lg.beginPath();SPEAR.forEach(function(p,n){if(n)lg.lineTo(p[0]*km,p[1]*km);else lg.moveTo(p[0]*km,p[1]*km);});lg.closePath();lg.fill();}}
-      lg.globalCompositeOperation='source-over';}
-    var c=cv(w,h),g=c.getContext('2d');
-    if(i<3){g.filter='blur('+(w/PW*26).toFixed(1)+'px)';g.drawImage(lab,0,0,w,h);g.filter='none';g.globalCompositeOperation='source-in';}
-    g.drawImage(src,0,0,w,h);S.reg.push(c);}
-  S.regKey=w;}
+// ------------------------------------------------------------------ the Oath: one soft wash (no regions), arms, convergence lines
+// The whole painting arrives as ONE picture behind the drawing: a wide, low-frequency wash that spreads from the architecture down to the
+// figures. Mask strength at a point = smoothstep((u·(1+FILL_L) − d)/FILL_L), d = mostly the height in the painting plus the distance from the centre line, bent by a slow noise so
+// the front is never a straight line; FILL_L is the feather (≈ half the painting's height → hundreds of px on screen).
+var FILL_L=.55, FILL_N=.22, FILL_E=.26, FILL_B=.14, MW=160, MH=Math.round(MW*PH/PW);
+function fillU(t){return seg(t,T.fill[0],T.fill[1]);}
+function buildOath(ctx,S){var src=S.plateOK?S.plate:ctx.to.image;if(!ok(src))return;
+  var q=Math.min(2,ctx.dpr||1),w=Math.min(1700,Math.round(PW*Math.max(camA(ctx.W,ctx.H).s,camB(ctx.W,ctx.H).s)*q)),h=Math.round(w*PH/PW);
+  var c=cv(w,h);c.getContext('2d').drawImage(src,0,0,w,h);S.oathImg=c;S.oathC=cv(w,h);S.regKey=w;
+  if(!S.fillD){// the front's shape, fixed: height + a slow value noise (7×6 lattice, smooth interpolation, deterministic)
+    var GX=7,GY=6,lat=[],seed=7;for(var i=0;i<GX*GY;i++){seed=(seed*16807)%2147483647;lat.push(seed/2147483647);}
+    var d=new Float32Array(MW*MH);for(var y=0;y<MH;y++)for(var x=0;x<MW;x++){var fx=x/(MW-1)*(GX-1),fy=y/(MH-1)*(GY-1),ix=Math.min(GX-2,fx|0),iy=Math.min(GY-2,fy|0),
+      ux=sm(fx-ix),uy=sm(fy-iy),n=lerp(lerp(lat[iy*GX+ix],lat[iy*GX+ix+1],ux),lerp(lat[(iy+1)*GX+ix],lat[(iy+1)*GX+ix+1],ux),uy);
+      d[y*MW+x]=(1-FILL_N-FILL_E)*(y/(MH-1))+FILL_E*Math.abs(x/(MW-1)-.5)*2+FILL_N*n;}   // the painting's side edges arrive last, so no hard vertical edge shows mid-wash
+    // the painting's own frame edge stays feathered until the wash is nearly done (no hard-edged band mid-way)
+    var bd=new Float32Array(MW*MH);for(var y2=0;y2<MH;y2++)for(var x2=0;x2<MW;x2++){var ex=Math.min(x2,MW-1-x2)/(MW*FILL_B),ey=Math.min(y2,MH-1-y2)/(MH*FILL_B);bd[y2*MW+x2]=sm(Math.min(ex,ey));}
+    S.fillB=bd;S.fillD=d;S.fillM=cv(MW,MH);S.fillMd=S.fillM.getContext('2d').createImageData(MW,MH);S.fillMu=-1;}}
+function fillMask(S,u){if(S.fillMu===u)return S.fillM;var d=S.fillD,px=S.fillMd.data,v=u*(1+FILL_L);
+  var bk=sm((u-.62)/.38),bd=S.fillB;for(var i=0;i<d.length;i++){var a=sm((v-d[i])/FILL_L)*lerp(bd[i],1,bk);px[i*4+3]=Math.round(a*255);}
+  S.fillM.getContext('2d').putImageData(S.fillMd,0,0);S.fillMu=u;return S.fillM;}
 function drawArm(g,S,A,ang,m,al){var im=S.arm[A.id];if(!ok(im)||al<=0)return;g.save();g.globalAlpha=al;g.translate(X(m,A.piv[0]),Y(m,A.piv[1]));g.rotate(ang);g.translate(-X(m,A.piv[0]),-Y(m,A.piv[1]));
   g.drawImage(im,X(m,A.x),Y(m,A.y),A.w*m.s,A.h*m.s);g.restore();}
 function armAngle(t){var a=ARM_LOW;for(var i=0;i<3;i++){var e=backOut(seg(t,T.beats[i],T.beats[i]+T.beatDur));a-=ARM_LOW/3*e;}return a;}
-function drawOath(g,ctx,S,t,m){var al=T.paint.map(function(p){return sm(seg(t,p[0],p[1]));});if(!(al[0]>0))return;
-  var key=Math.min(1700,Math.round(PW*Math.max(camA(ctx.W,ctx.H).s,camB(ctx.W,ctx.H).s)*Math.min(2,ctx.dpr||1)));if(!S.reg||S.regKey!==key)buildRegions(ctx,S);if(!S.reg)return;
+function drawOath(g,ctx,S,t,m){var u=fillU(t);if(!(u>0))return;
+  var key=Math.min(1700,Math.round(PW*Math.max(camA(ctx.W,ctx.H).s,camB(ctx.W,ctx.H).s)*Math.min(2,ctx.dpr||1)));if(!S.oathImg||S.regKey!==key)buildOath(ctx,S);if(!S.oathImg)return;
   var x=X(m,0),y=Y(m,0),w=PW*m.s,h=PH*m.s,real=ARM_OK?sm(seg(t,T.armsReal[0],T.armsReal[1])):0;
-  var fu=ARM_OK?0:sm(seg(t,T.paint[3][1],T.paint[3][1]+.5));if(fu>=1){g.drawImage(S.full||ctx.to.image,x,y,w,h);return;}
-  if(real<1){for(var i=0;i<4;i++){if(al[i]<=0)continue;g.globalAlpha=al[i];g.drawImage(S.reg[i],x,y,w,h);}g.globalAlpha=1;
-    if(ARM_OK){var ang=armAngle(t);ARMS.forEach(function(A){drawArm(g,S,A,ang,m,al[2]);});}}
-  if(real>0||fu>0){g.globalAlpha=Math.max(real,fu);g.drawImage(S.full||ctx.to.image,x,y,w,h);g.globalAlpha=1;}}
+  if(u>=1&&!ARM_OK){g.drawImage(S.full||ctx.to.image,x,y,w,h);return;}
+  if(real<1){var o=S.oathC,og=o.getContext('2d');og.globalCompositeOperation='copy';og.drawImage(S.oathImg,0,0);
+    og.globalCompositeOperation='destination-in';og.imageSmoothingEnabled=true;og.imageSmoothingQuality='high';og.drawImage(fillMask(S,u),0,0,o.width,o.height);
+    og.globalCompositeOperation='source-over';g.drawImage(o,x,y,w,h);
+    if(ARM_OK){var ang=armAngle(t);ARMS.forEach(function(A){drawArm(g,S,A,ang,m,u);});}}
+  if(real>0){g.globalAlpha=real;g.drawImage(S.full||ctx.to.image,x,y,w,h);g.globalAlpha=1;}}
 // convergence: each arm (shoulder → hand → on to the grip) and each blade (tip → grip), ruled in Roman red
 function drawConv(g,ctx,t,m,alpha,restMode){if(alpha<=0)return;var P=[X(m,GEO.P[0]),Y(m,GEO.P[1])],lw=Math.max(1.2,Math.min(2.2,m.s*4));
   // every ruled line gets a pale plaster halo so the Roman red reads on the dark painting
@@ -2586,11 +2595,11 @@ function fromLayers(ctx,t){var room=document.getElementById('room');if(!room)ret
 
 // ------------------------------------------------------------------ warm-up
 function prewarm(ctx,S){try{var W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),c=cv(W*q,H*q),g=c.getContext('2d');g.setTransform(q,0,0,q,0,0);
-  buildRegions(ctx,S);var m=xf(camA(W,H),W,H);if(S.reg)S.reg.forEach(function(r){g.drawImage(r,X(m,0),Y(m,0),PW*m.s,PH*m.s);});
+  buildOath(ctx,S);var m=xf(camA(W,H),W,H);if(S.oathImg){fillMask(S,.5);g.drawImage(S.oathImg,X(m,0),Y(m,0),PW*m.s,PH*m.s);}
   if(ok(ctx.to.image))g.drawImage(ctx.to.image,ctx.to.rect.x,ctx.to.rect.y,ctx.to.rect.w,ctx.to.rect.h);
   if(ctx.from){ensureRoc(ctx,S);var r=ctx.from.rect;paintLayers(g,S,r,S.cl,1,0,1,1,1);paintLayers(g,S,r,S.gl,1,0,0,1,1);framePass(g,S,r,0,S.fc,S.bc,1);framePass(g,S,r,0,S.gfc,S.gbc,1);}
   ARMS.forEach(function(A){if(ok(S.arm[A.id]))g.drawImage(S.arm[A.id],0,0,A.w*m.s,A.h*m.s);});
-  g.getImageData(0,0,1,1);}catch(e){console.error(e);}}
+  g.getImageData(0,0,1,1);S.wC=c;}catch(e){console.error(e);}}   // the same full-screen canvas is the wash's offscreen
 
 // ================================================================== the module
 EH.transition('neoclassical',{
@@ -2604,7 +2613,6 @@ EH.transition('neoclassical',{
     S.full=ctx.to.image;
     if(ctx.from){S.fromImg=ctx.from.image;S.roc={};['plate','ropes','woman','flowers','shoe'].forEach(function(k){S.roc[k]=ctx.fromAsset(ROC[k].f);});
       S.rocOK=['plate','ropes','woman','flowers'].every(function(k){return ok(S.roc[k]);});}
-    if(S.rocOK){var sc=.5,wc=cv(ROC.woman.w*sc+120*sc,ROC.woman.h*sc+120*sc),wg=wc.getContext('2d');wg.filter='grayscale(1) blur('+(14*sc)+'px)';wg.drawImage(S.roc.woman,60*sc,60*sc,ROC.woman.w*sc,ROC.woman.h*sc);wg.filter='none';S.soft=wc;}
     prewarm(ctx,S);},
   draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,R1=ctx.to.rect,F=ctx.from;
     if(p>=1){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink==='dark',1);g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);restHint(g,{rect:R1,t:0});domFrom(ctx,D);return;}
@@ -2619,9 +2627,9 @@ EH.transition('neoclassical',{
     var cam=camAt(t,ctx),m=xf(cam,W,H);
     // ---- the Oath fills in behind the drawing
     drawOath(g,ctx,S,t,m);
-    // ---- the page (the Swing), its snaps, its push into the women's bay
+    // ---- the page (the Swing), its snaps, then washed off the wall as one picture
     if(F){var pg=pageAt(t,ctx);
-      if(pg.a>0)drawPage(g,ctx,S,t,pg,drain);
+      if(pg.a>0)drawPageWashed(g,ctx,S,t,pg,drain);
       // ---- the curls (rococo frame scrolls) → ruled lines → the grid
       drawCurls(g,ctx,S,t,pg);}
     // ---- the drawing: grid, columns, arches (fades to the resting hint)
@@ -2645,7 +2653,8 @@ EH.transition('neoclassical',{
    Beats (seconds of D): a first wisp of mist curls out of the middle arch, then the side arches · the mist surges out of all three,
    runs along the invisible three-part grid (the lines light up where the front passes) and floods the painting, the columns, the
    label and the navigation · the Horatii fade into the fog; their arcade stays as a grey silhouette and crumbles — the voussoirs
-   fall, the columns and piers grow into jagged sandstone pinnacles — then sinks · wind rises from below (the fog streams upward) ·
+   fall, the columns and piers weather in place into Friedrich's sandstone crags (flutes crack into joints, edges break; uneven heights,
+   leaning, broken crowns, bedding ledges, two lesser spires and a ridge; textured with cut/rock.webp, lit from the upper left) — then sinks · wind rises from below (the fog streams upward) ·
    where the three swords converged the fog parts: the back of a head rises from the bottom edge of the screen, a figure in a dark
    green coat walks away from the visitor up the rock (the rock continues below the frame), smaller with each step, onto the summit ·
    the mountain layers rise with parallax · the fog clears from the top down to a sea of fog that drowns half of the vertical title ·
@@ -2836,42 +2845,91 @@ function restFog(W,H,rect,t,ptr,read,alpha){var z=[0,0,0,0];
 // the noise field's offset: a slow drift across the valleys, plus the gust from below (its integral: constant once the wind has passed)
 function drift(t){return[0.022*t,0.004*t+3.1*sm((t-T.wind[0])/(T.wind[1]-T.wind[0]))];}
 
-// ================================================================== the crumbling arcade (vector silhouettes, painting px of the Horatii)
-function arcadePlan(){var rnd=EH.util.rng(7070),pil=PIL.map(function(P,k){var w=P.x1-P.x0,cx=(P.x0+P.x1)/2,N=9,M=6,A=[],B=[],top=P.top+60;
-    // A = the column (shaft + capital), B = a sandstone tower: wide foot, bedding ledges, a lumpy crown; left side bottom→top, crown left→right, right side top→bottom
-    var hw=[],led=[];for(var i=0;i<N;i++){var f=i/(N-1);hw.push(w*(1.35-0.55*f)*(0.9+0.25*rnd()));led.push((i%3===1?1:0)*w*0.16*(rnd()<.5?-1:1));}
-    for(i=0;i<N;i++){f=i/(N-1);var cap=i===N-1;A.push([cap?P.c0:P.x0,cap?420:1560-(1560-480)*f]);B.push([cx-hw[i]+led[i],1560-(1560-top)*f]);}
-    var crown=[70,6,64,0,48,96];for(var j=0;j<M;j++){var g=j/(M-1);A.push([P.c0+(P.c1-P.c0)*g,420]);B.push([cx-hw[N-1]+2*hw[N-1]*g,top-60+crown[j]+rnd()*16]);}
-    for(i=N-1;i>=0;i--){f=i/(N-1);cap=i===N-1;A.push([cap?P.c1:P.x1,cap?420:1560-(1560-480)*f]);B.push([cx+hw[i]*(0.92+0.1*rnd())-led[i]*0.6,1560-(1560-top)*f+(rnd()-.5)*24]);}
-    return{A:A,B:B,d:[0.12,0,0.06,0.18][k]};});
+// ================================================================== the crumbling arcade → Friedrich's sandstone crags (vector silhouettes, painting px of the Horatii)
+// Each support weathers where it stands: the flutes crack into joints, the edges break, the shaft grows crooked and jagged — a
+// sandstone pinnacle of its own height (one towers and leans, one is a broken stump, one splits off a lesser spire) — then it sinks.
+// Filled with the Wanderer's own rock (cut/rock.webp), lit like the painting's middle-ground crags (light from the upper left, rim-lit tops).
+var CRAG=[ // pil: the support it grows from (-1: rises from the fog at its foot); cx: foot centre; top; wb: foot half-width; lean; tl/tr: shoulders below the top
+  {pil:0,cx:196,top:300,wb:250,lean:-120,tl:190,tr:50,teeth:[40,-6,34,0,62,20,96,70,120],ledL:[5,10],ledR:[8],cap:0.1,d:0.10},
+  {pil:1,cx:842,top:10,wb:270,lean:60,tl:70,tr:170,teeth:[90,40,58,6,0,22,-4,40,110],ledL:[6],ledR:[4,11],cap:0.3,d:0.00},
+  {pil:2,cx:1500,top:230,wb:235,lean:90,tl:20,tr:200,teeth:[20,0,14,30,46,60,84,120,160],ledL:[9],ledR:[6],cap:0.16,d:0.06},
+  {pil:3,cx:2140,top:720,wb:250,lean:-40,tl:110,tr:10,teeth:[70,20,56,40,0,24,10,50,30],ledL:[4],ledR:[7,10],cap:0,d:0.20},
+  {pil:-1,cx:600,top:830,wb:150,lean:-40,tl:120,tr:60,teeth:[50,10,0,30,20,70,90,110,120],ledL:[7],ledR:[],cap:0,d:0.30},
+  {pil:-1,cx:1800,top:960,wb:140,lean:30,tl:40,tr:130,teeth:[60,30,40,0,26,44,80,100,130],ledL:[],ledR:[6],cap:0,d:0.36}];
+var CN=16,CM=9,BASE=1640;
+function arcadePlan(){var rnd=EH.util.rng(7070),crags=CRAG.map(function(c){var P=c.pil>=0?PIL[c.pil]:null,L=[],R=[],C=[],AL=[],AR=[],AC=[],JL=[],JR=[],JC=[];
+    // B: the crag. Sides from the foot up; ledges are pairs of points at one height, stepping the side inward (bedding planes)
+    function side(sg,top,leds){var pts=[],off=0,prevY=BASE;for(var i=0;i<CN;i++){var f=i/(CN-1),fj=i&&i<CN-1?cl(f+(rnd()-.5)*0.035):f,y=BASE-(BASE-top)*fj;
+        if(leds.indexOf(i-1)>=0){y=prevY-6;off+=c.wb*(0.16+0.1*rnd());}
+        var hw=c.wb*(1-0.42*fj)*(1+c.cap*sm((fj-0.62)/0.3))-off,cx=c.cx+c.lean*Math.pow(fj,1.35)+Math.sin(fj*6.3+c.cx)*c.wb*0.07;
+        pts.push([cx+sg*Math.max(c.wb*0.12,hw)+(i&&i<CN-1?(rnd()-.5)*c.wb*0.16:0),y]);prevY=y;}return pts;}
+    L=side(-1,c.top+c.tl,c.ledL);R=side(1,c.top+c.tr,c.ledR);
+    var l=L[CN-1],r=R[CN-1];for(var j=0;j<CM;j++){var g=(j+1)/(CM+1);C.push([l[0]+(r[0]-l[0])*g+(rnd()-.5)*c.wb*0.05,c.top+c.teeth[j]*c.wb/250+rnd()*10]);}
+    // A: the column (shaft, capital) it grows from — or a sliver at its foot
+    for(var i=0;i<CN;i++){var f=i/(CN-1),cap=i===CN-1;
+      if(P){var y=cap?430:BASE-(BASE-480)*f;AL.push([cap?P.c0:P.x0,y]);AR.push([cap?P.c1:P.x1,y]);}else{AL.push([c.cx-4,BASE]);AR.push([c.cx+4,BASE]);}
+      JL.push([(rnd()-.5)*26,(rnd()-.5)*20]);JR.push([(rnd()-.5)*26,(rnd()-.5)*20]);}
+    for(j=0;j<CM;j++){g=(j+1)/(CM+1);AC.push(P?[P.c0+(P.c1-P.c0)*g,420]:[c.cx,BASE]);JC.push([(rnd()-.5)*20,(rnd()-.3)*34]);}
+    // cracks: the flutes of the column become vertical joints (u across the width), bedding lines at a few heights
+    var cracks=[-0.5,0.08,0.52].map(function(u){var z=[];for(var i=1;i<CN-2;i++)z.push((rnd()-.5)*2);return{u:u+(rnd()-.5)*0.1,z:z};});
+    var beds=[3,7,10,12].filter(function(){return rnd()<0.8;});
+    return{c:c,L:L,R:R,C:C,AL:AL,AR:AR,AC:AC,JL:JL,JR:JR,JC:JC,cracks:cracks,beds:beds,d:c.d};});
   var vs=[];ARCH.forEach(function(c,ai){for(var j=0;j<9;j++){var a0=Math.PI-j*Math.PI/9,a1=Math.PI-(j+1)*Math.PI/9,pts=[[RI,a0],[RO,a0],[RO,a1],[RI,a1]].map(function(q){return[c[0]+q[0]*Math.cos(q[1]),c[1]-q[0]*Math.sin(q[1])];});
     var cx=0,cy=0;pts.forEach(function(q){cx+=q[0]/4;cy+=q[1]/4;});vs.push({p:pts,c:[cx,cy],t:ai*0.22+Math.abs(j-4)*0.11+rnd()*0.06,dx:(j-4)*38+(rnd()-.5)*50,rot:(j<4?-1:j>4?1:(rnd()-.5))*(0.9+rnd()*0.9)});}});
-  // a lumpy rock mass rising between the towers
-  var ridge=[],n=30;for(var i=0;i<=n;i++){var x=-60+(NW+120)*i/n;ridge.push([x,1230+Math.sin(i*1.3)*60+Math.sin(i*0.47+1)*90+(rnd()-.5)*60]);}
-  return{pil:pil,vs:vs,ridge:ridge};}
+  // a broken rock mass rising between the crags
+  var ridge=[],n=46;for(var i=0;i<=n;i++){var x=-60+(NW+120)*i/n;ridge.push([x,1250+Math.sin(i*0.9)*50+Math.sin(i*0.31+1)*80+(rnd()-.5)*(i%3?40:120)]);}
+  return{crags:crags,vs:vs,ridge:ridge};}
+// the Wanderer's rock as a fill: an opaque crop of cut/rock.webp, lifted to the tone of the painting's middle-ground crags (seen through air)
+function rockTexture(im){if(!(im&&im.naturalWidth))return null;var c=cv(450,340),g=c.getContext('2d');g.fillStyle='rgb(49,40,28)';g.fillRect(0,0,450,340);
+  g.drawImage(im,480,40,900,680,0,0,450,340);g.globalCompositeOperation='lighter';g.fillStyle='rgb(18,18,18)';g.fillRect(0,0,450,340);
+  g.globalCompositeOperation='source-over';g.fillStyle='rgba(118,120,130,.14)';g.fillRect(0,0,450,340);return c;}
 function arcLayer(ctx){var S=ctx.state,q=0.5*Math.min(ctx.dpr||1,2),w=Math.round(ctx.W*q),h=Math.round(ctx.H*q);if(!S.arcC||S.arcC.width!==w||S.arcC.height!==h)S.arcC=cv(w,h);
   var g=S.arcC.getContext('2d');g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';g.clearRect(0,0,w,h);g.setTransform(q,0,0,q,0,0);return g;}
 function drawArcade(G,ctx,t){var S=ctx.state,R=ctx.from.rect,k=R.w/NW,A=S.arc;
   var a=sm(seg(t,T.arcIn)),sink=eio(seg(t,T.sink));a*=1-sm(seg(t,[T.sink[0]+0.6,T.sink[1]]));if(a<=0.002)return;
-  var cr=seg(t,T.crumble),rockiness=sm(seg(t,[T.crumble[0]+0.2,T.crumble[1]-0.4])),dy=sink*R.h*0.34;
+  var cr=seg(t,T.crumble),dy=sink*R.h*0.34;
   function X(x){return R.x+x*k;}function Y(y){return R.y+y*k+dy;}
-  // towers, ridge and the voussoirs still in place: one path (also traced into the fog's occluder, so the peaks stand out of the fog)
   var rr=eio(seg(t,[T.crumble[0]+0.6,T.crumble[1]+0.5])),fall=[];
   A.vs.forEach(function(v){var tau=t-(T.crumble[0]+0.35+v.t);if(tau>0)fall.push([v,tau]);});
-  function trace(g){g.beginPath();
-    A.pil.forEach(function(P){var m=eio(cl((cr-P.d)/0.72));P.A.forEach(function(q,i){var b=P.B[i],x=X(q[0]+(b[0]-q[0])*m),y=Y(q[1]+(b[1]-q[1])*m);if(i)g.lineTo(x,y);else g.moveTo(x,y);});g.closePath();});
+  // each crag this frame: m = how far it has weathered; the edges break first (jitter), then the shape grows into the crag
+  var cur=A.crags.map(function(P){var m=cl((cr-P.d)/0.62),jb=sm(m/0.3)*(1-sm((m-0.55)/0.45)),mb=eio((m-0.12)/0.88);
+    function mv(a,b,j){return[X(a[0]+(b[0]-a[0])*mb+j[0]*jb),Y(a[1]+(b[1]-a[1])*mb+j[1]*jb)];}
+    var L=[],Rr=[],C=[];for(var i=0;i<CN;i++){L.push(mv(P.AL[i],P.L[i],P.JL[i]));Rr.push(mv(P.AR[i],P.R[i],P.JR[i]));}for(var j=0;j<CM;j++)C.push(mv(P.AC[j],P.C[j],P.JC[j]));
+    return{P:P,m:m,L:L,R:Rr,C:C,rk:sm((m-0.15)/0.6)};}).filter(function(c){return c.P.c.pil>=0||c.m>0;});
+  function crag(g,c){g.moveTo(c.L[0][0],c.L[0][1]);for(var i=1;i<CN;i++)g.lineTo(c.L[i][0],c.L[i][1]);for(var j=0;j<CM;j++)g.lineTo(c.C[j][0],c.C[j][1]);for(i=CN-1;i>=0;i--)g.lineTo(c.R[i][0],c.R[i][1]);g.closePath();}
+  function trace(g){g.beginPath();cur.forEach(function(c){crag(g,c);});
     if(rr>0){g.moveTo(X(-60),Y(NH+300));A.ridge.forEach(function(q){g.lineTo(X(q[0]),Y(NH+300+(q[1]-NH-300)*rr));});g.lineTo(X(NW+60),Y(NH+300));g.closePath();}
     A.vs.forEach(function(v){if(t-(T.crumble[0]+0.35+v.t)<=0){v.p.forEach(function(q,i){if(i)g.lineTo(X(q[0]),Y(q[1]));else g.moveTo(X(q[0]),Y(q[1]));});g.closePath();}});}
-  var g=arcLayer(ctx);trace(g);
-  // stone lit from the upper left: a vertical gradient (light crown, dark foot), the rock grain coming in as it crumbles
-  var sg=g.createLinearGradient(0,Y(100),0,Y(1500));sg.addColorStop(0,S.stoneHi);sg.addColorStop(1,S.stoneCol);g.fillStyle=sg;g.fill();
-  if(S.rockPat&&rockiness>0){g.globalAlpha=rockiness*0.9;g.fillStyle=S.rockPat;g.fill();g.globalAlpha=1;}
+  var g=arcLayer(ctx);
+  // the texture sticks to the stone (moves with the sink, scales with the painting)
+  if(S.rockTex){if(!S.rockTexPat)S.rockTexPat=g.createPattern(S.rockTex,'repeat');try{S.rockTexPat.setTransform(new DOMMatrix([k*1.7,0,0,k*1.7,R.x,R.y+dy]));}catch(e){}}
+  // stone of the arcade (lit from the upper left) under everything
+  trace(g);var sg=g.createLinearGradient(0,Y(100),0,Y(1500));sg.addColorStop(0,S.stoneHi);sg.addColorStop(1,S.stoneCol);g.fillStyle=sg;g.fill();
+  // the ridge in Friedrich's rock
+  if(rr>0&&S.rockTexPat){g.beginPath();g.moveTo(X(-60),Y(NH+300));A.ridge.forEach(function(q){g.lineTo(X(q[0]),Y(NH+300+(q[1]-NH-300)*rr));});g.lineTo(X(NW+60),Y(NH+300));g.closePath();
+    g.globalAlpha=sm(rr/0.5);g.fillStyle=S.rockTexPat;g.fill();g.globalAlpha=1;}
+  // each crag: the rock comes in as it weathers, light on the left faces and the broken crown, shadow on the right, joints and bedding
+  cur.forEach(function(c){var x0=1e9,x1=-1e9,y0=1e9,i;for(i=0;i<CN;i++){x0=Math.min(x0,c.L[i][0]);x1=Math.max(x1,c.R[i][0]);}c.C.forEach(function(q){y0=Math.min(y0,q[1]);});
+    var y1=c.L[0][1],w=Math.max(4,x1-x0),sh=0.45+0.55*c.rk;g.save();g.beginPath();crag(g,c);g.clip();
+    if(c.rk>0&&S.rockTexPat){g.globalAlpha=c.rk;g.fillStyle=S.rockTexPat;g.fillRect(x0-2,y0-2,w+4,y1-y0+4);g.globalAlpha=1;}
+    var hg=g.createLinearGradient(x0,0,x1,0);hg.addColorStop(0,'rgba(226,220,208,'+(0.24*sh).toFixed(3)+')');hg.addColorStop(0.3,'rgba(232,226,214,0)');hg.addColorStop(0.58,'rgba(14,11,8,0)');hg.addColorStop(1,'rgba(14,11,8,'+(0.62*sh).toFixed(3)+')');
+    g.fillStyle=hg;g.fillRect(x0-2,y0-2,w+4,y1-y0+4);
+    var rim=g.createLinearGradient(0,y0,0,y0+Math.max(8,(y1-y0)*0.12));rim.addColorStop(0,'rgba(236,222,196,'+(0.18*c.rk).toFixed(3)+')');rim.addColorStop(1,'rgba(236,222,196,0)');g.fillStyle=rim;g.fillRect(x0-2,y0-2,w+4,(y1-y0)*0.12+10);
+    // flutes → joints: straight faint grooves on the column, cracked and dark on the crag
+    var ca=0.22+0.3*sm(c.m/0.5),amp=sm(c.m/0.45)*w*0.07;g.lineWidth=Math.max(0.8,k*5);g.strokeStyle='rgba(20,16,12,'+ca.toFixed(3)+')';g.beginPath();
+    c.P.cracks.forEach(function(cz){var f=(cz.u+1)/2;for(var i=1;i<CN-2;i++){var l=c.L[i],r=c.R[i],x=l[0]+(r[0]-l[0])*f+cz.z[i-1]*amp,y=l[1]+(r[1]-l[1])*f;if(i>1)g.lineTo(x,y);else g.moveTo(x,y);}});g.stroke();
+    if(c.rk>0){g.beginPath();c.P.beds.forEach(function(b){var l=c.L[b],r=c.R[b];g.moveTo(l[0],l[1]);g.lineTo((l[0]+r[0])/2,(l[1]+r[1])/2+k*10);g.lineTo(r[0],r[1]);});
+      g.strokeStyle='rgba(20,16,12,'+(0.45*c.rk).toFixed(3)+')';g.stroke();g.translate(0,-Math.max(1,k*6));g.strokeStyle='rgba(220,210,190,'+(0.28*c.rk).toFixed(3)+')';g.stroke();}
+    g.restore();
+    // the broken crown catches the light
+    if(c.rk>0){g.beginPath();g.moveTo(c.L[CN-1][0],c.L[CN-1][1]);c.C.forEach(function(q){g.lineTo(q[0],q[1]);});g.lineTo(c.R[CN-1][0],c.R[CN-1][1]);
+      g.lineWidth=Math.max(1,k*5);g.strokeStyle='rgba(214,200,176,'+(0.2*c.rk).toFixed(3)+')';g.stroke();}});
   // voussoirs falling into the fog
   fall.forEach(function(f){var v=f[0],tau=f[1],fa=1-sm((tau-0.15)/0.8);if(fa<=0)return;var gy=0.5*2600*tau*tau,ox=v.dx*tau,rot=v.rot*tau;
     g.save();g.globalAlpha=fa;g.translate(X(v.c[0]+ox),Y(v.c[1]+gy));g.rotate(rot);g.beginPath();v.p.forEach(function(q,i){var x=(q[0]-v.c[0])*k,y=(q[1]-v.c[1])*k;if(i)g.lineTo(x,y);else g.moveTo(x,y);});g.closePath();
-    g.fillStyle=S.stoneCol;g.fill();if(S.rockPat&&rockiness>0){g.globalAlpha=fa*rockiness;g.fillStyle=S.rockPat;g.fill();}g.restore();});
+    g.fillStyle=S.stoneCol;g.fill();g.restore();});
   // air: lighter and bluer with distance, the feet lost in the fog (alpha fades downward)
-  g.globalCompositeOperation='source-atop';var ag=g.createLinearGradient(0,Y(150),0,Y(1500));ag.addColorStop(0,rgba(FOG,0.10));ag.addColorStop(1,rgba(FOG,0.30));g.fillStyle=ag;g.fillRect(0,0,ctx.W,ctx.H);
+  g.globalCompositeOperation='source-atop';var ag=g.createLinearGradient(0,Y(150),0,Y(1500));ag.addColorStop(0,rgba(FOG,0.08));ag.addColorStop(1,rgba(FOG,0.30));g.fillStyle=ag;g.fillRect(0,0,ctx.W,ctx.H);
   g.globalCompositeOperation='destination-in';var mg=g.createLinearGradient(0,Y(700),0,Y(1650));mg.addColorStop(0,'rgba(0,0,0,1)');mg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=mg;g.fillRect(0,0,ctx.W,ctx.H);
   G.save();G.globalAlpha=a;G.drawImage(S.arcC,0,0,ctx.W,ctx.H);G.restore();
   // the occluder for the fog (at the fog's resolution): the same silhouette, its foot dissolving into the fog
@@ -2972,6 +3030,7 @@ function prewarm(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),R
     if(ctx.to.image&&ctx.to.image.naturalWidth)g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);
     if(ctx.from){var R0=ctx.from.rect;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);}
     if(S.rockPat){g.fillStyle=S.rockPat;g.fillRect(0,0,50,50);}
+    if(S.rockTex){g.fillStyle=g.createPattern(S.rockTex,'repeat');g.fillRect(0,0,50,50);}
     g.getImageData(0,0,1,1);
   }catch(e){console.error(e);}}
 
@@ -2984,7 +3043,7 @@ EH.transition('romanticism',{
     // the rock's continuation below the frame dissolves downward (on tall screens it ends above the bottom edge: no hard cut)
     var ex=S.im.ext;if(ex&&ex.naturalWidth){var ec=cv(ex.naturalWidth,ex.naturalHeight),eg=ec.getContext('2d');eg.drawImage(ex,0,0);eg.globalCompositeOperation='destination-in';
       var gy=eg.createLinearGradient(0,0,0,ec.height);gy.addColorStop(0,'#000');gy.addColorStop(0.45,'#000');gy.addColorStop(1,'rgba(0,0,0,0)');eg.fillStyle=gy;eg.fillRect(0,0,ec.width,ec.height);S.im.ext=ec;}
-    S.arc=arcadePlan();
+    S.arc=arcadePlan();S.rockTex=rockTexture(S.im.rock);S.rockTexPat=null;
     var rp=ctx.asset('t_rockpat.webp');if(rp&&rp.naturalWidth){var pc=cv(360,360),pg=pc.getContext('2d');pg.drawImage(rp,0,0);
       // cooler and paler: rock seen through air
       pg.globalCompositeOperation='source-atop';pg.fillStyle='rgba(110,114,126,.18)';pg.fillRect(0,0,360,360);S.rockPat=pg.createPattern(pc,'repeat');}
