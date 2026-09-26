@@ -2188,8 +2188,9 @@ function shoe(g,ctx,S,G,t){var I=S.im||{};if(!I.shoe||!I.shoe.naturalWidth)retur
    ropes snap taut, twang, turn to steel · the rocaille curls are combed out one by one into ruled lines · the pastel drains to lime-plaster
    grey with a touch of Roman red · the page snaps to a three-part grid in three clicks (咔、咔、咔): centred, set on the line, sized to the
    middle bay; the Latin words switch to Roman capitals · the grid's lines rise into Doric columns and carry three arches (three equal bays)
-   · the steel rods lift off the page and fly into the father's fists as swords · the curves that couldn't be straightened (the whole soft
-   page) are pushed into the right-hand bay and soften into the grieving women · the painting fills in behind the drawing: architecture,
+   · the steel rods lift off the page and fly into the father's fists as swords · the page slides one bay right as that bay closes; its
+   foliage and plate drain into the wall, but the girl, the one curve the ruler can't straighten, keeps her line: she steps forward out of
+   it (back wall → foreground, so she grows) onto the grieving women's place, box to box, and becomes them as David's colour fills in · the painting fills in behind the drawing: architecture,
    father, sons, women · the sons' arms rise together on three drum beats · all arms and blades are ruled to one point, the swords ·
    the camera pulls back, the drawing fades to a faint grid · hand-over. Rest: that faint grid and the convergence lines, fading after
    a few seconds.
@@ -2216,8 +2217,11 @@ var T={sway:[0,1.1], snare:1.1, swap:[.75,1.1], taut:[1.1,1.34], twang:[1.1,2.0]
   curl0:2.0, curlStep:.34, curlDur:.52, drain:[2.3,4.3],
   grid:[4.3,4.72], k:[4.55,4.95,5.35], kDur:.26, font:4.95, txtOut:[6.2,7.4],
   cols:[5.7,7.2], caps:[6.9,7.5], arches:[7.2,8.4],
-  camB:[8.3,11.4], lift:[7.8,9.6], pageOut:[8.2,9.7], push:[8.6,11.0], soft:[9.2,10.8], pushFade:[10.0,11.6],
-  paint:[[8.3,9.9],[9.2,10.6],[9.8,11.2],[10.1,11.7]], rodOut:[9.8,10.6],
+  camB:[8.3,11.4], lift:[7.8,9.6],
+  // the girl (see drawGirl): the page, hung in the arcade, slides one bay right as that bay closes; its foliage and plate drain into the
+  // wall; she alone keeps her curve, steps forward out of it (back wall → foreground, so she grows) onto the women's place and becomes them
+  push:[8.35,9.35], flowersOut:[8.8,9.35], pageOut:[9.55,10.4], grow:[9.35,10.85], become:[10.0,10.75], womenColour:[10.55,11.45],
+  paint:[[8.3,9.9],[9.2,10.6],[9.8,11.2],[9.95,11.55]], rodOut:[9.8,10.6],
   beats:[12.0,12.7,13.4], beatDur:.26, conv:[13.45,14.3], ring:[13.9,15.2], armsReal:[13.9,14.3],
   pull:[14.3,17.8], linesOut:[15.2,17.4], wallTo:[14.4,17.6], title:17.2};
 var HINT_A=.55;                                   // strength of the resting grid hint at hand-over (then it fades, see restHint)
@@ -2228,6 +2232,10 @@ var GEO={cols:[830,1510], piers:[150,2190], spring:418, top:112, ground:1330, ar
   tips:[[948,1078],[985,1123],[1087,1143]],       // blade tips
   swords:[[[948,1078],[1146,546]],[[985,1123],[1170,544]]],   // the two ropes land on these (tip → pommel)
   women:[1925,1395]};
+// the grieving women as an exact cut-out (rooms/neoclassical/cut/layers.json "women"): box in painting px. Its aspect (1.315) is the girl's
+// (woman.webp 849×647, 1.312): mapped box to box, her hat and face land between Camilla's and Sabina's heads, her billowing skirt on the
+// gold and rose drapes, her hanging leg on the drape's hem at the floor, the swing seat on their draped bench.
+var WOMEN={f:'cut/women.webp',x:1444,y:1021,w:956,h:727};
 SH.neoclassicalGeom=GEO;
 // arm layers (rooms/neoclassical/cut): box in painting px, the shoulder pivot (where the arm leaves the body) and the hand
 // (from rooms/neoclassical/cut/layers.json: pivot = the visible shoulder end, hand = the tip)
@@ -2341,13 +2349,13 @@ function ensureRoc(ctx,S){var F=ctx.from,r=F.rect,fp=r.fp||0,dpr=ctx.dpr||1,prot
   S.sk=CORNERS.map(function(c){return cornerSkeleton(c,prot);});S.st=CORNERS.map(cornerStraight);
   var sh=SHADOWS[F.frame]||SHADOWS.none,fbx={x:r.x-fp,y:r.y-fp,w:r.w+2*fp,h:r.h+2*fp};S.shFr=shadowCache(dpr,fbx,sh[0],sh[1],sh[2],sh[3]);S.shA=sh[4];}
 // the painting from its layers: plate, ropes, the woman on the swing (at angle th about the pivot), flowers, shoe
-function paintLayers(g,S,r,set,a,th,ropesA,plateA,womanA){var k=r.w/RW,L=ROC;if(a<=0)return;g.save();g.translate(r.x,r.y);g.scale(k,k);
+function paintLayers(g,S,r,set,a,th,ropesA,plateA,womanA,flA){if(flA==null)flA=1;var k=r.w/RW,L=ROC;if(a<=0)return;g.save();g.translate(r.x,r.y);g.scale(k,k);
   if(plateA>0&&set.plate){g.globalAlpha=a*plateA;g.drawImage(set.plate,0,0,RW,RH);}
   g.save();if(th){g.translate(L.pivot[0],L.pivot[1]);g.rotate(th);g.translate(-L.pivot[0],-L.pivot[1]);}
   if(ropesA>0&&set.ropes){g.globalAlpha=a*ropesA;g.drawImage(set.ropes,L.ropes.x,L.ropes.y,L.ropes.w,L.ropes.h);}
   if(womanA>0&&set.woman){g.globalAlpha=a*womanA;g.drawImage(set.woman,L.woman.x,L.woman.y,L.woman.w,L.woman.h);}
   g.restore();
-  if(plateA>0){g.globalAlpha=a*plateA;if(set.flowers)g.drawImage(set.flowers,L.flowers.x,L.flowers.y,L.flowers.w,L.flowers.h);if(set.shoe)g.drawImage(set.shoe,L.shoe.x,L.shoe.y,L.shoe.w,L.shoe.h);}
+  if(plateA>0&&flA>0){g.globalAlpha=a*plateA*flA;if(set.flowers)g.drawImage(set.flowers,L.flowers.x,L.flowers.y,L.flowers.w,L.flowers.h);if(set.shoe)g.drawImage(set.shoe,L.shoe.x,L.shoe.y,L.shoe.w,L.shoe.h);}
   g.restore();}
 // the frame: the band stays, each corner ornament fades as its scroll is taken over by a ribbon that gets combed straight
 function cornerPoly(r,fp,i){var M=cornerXf(i,r,fp);return[[-SPR_M,-SPR_M],[SPR_U-SPR_M,-SPR_M],[SPR_U-SPR_M,SPR_U-SPR_M],[-SPR_M,SPR_U-SPR_M]].map(function(p){return ap(M,p);});}
@@ -2357,16 +2365,29 @@ function framePass(g,S,r,t,fc,bc,a){if(a<=0||!fc)return;var fp=r.fp||0,fb=S.fb;g
   for(i=0;i<4;i++){var ca=cornerA(t,i);if(ca<=0)continue;var Q=cornerPoly(r,fp,i);g.save();g.beginPath();g.moveTo(Q[0][0],Q[0][1]);for(j=1;j<4;j++)g.lineTo(Q[j][0],Q[j][1]);g.closePath();g.clip();g.globalAlpha=a*ca;g.drawImage(fc,fb.x,fb.y,fb.w,fb.h);g.restore();}
   g.restore();}
 function drawPage(g,ctx,S,t,pg,drain){var F=ctx.from,r=F.rect,fp=r.fp||0,tau=TAU0+Math.min(t,T.snare),th=rocAngle(tau);ensureRoc(ctx,S);
-  var fade=1-sm(seg(t,T.pageOut[0],T.pageOut[1])),soft=sm(seg(t,T.soft[0],T.soft[1])),ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=fade*(1-sm(seg(t,T.k[2],T.k[2]+1.2)));
+  var fade=1-sm(seg(t,T.pageOut[0],T.pageOut[1])),ropesA=1-sm(seg(t,T.swap[0],T.swap[1])),frameA=fade*(1-sm(seg(t,T.k[2],T.k[2]+1.2)));
+  if(fade<=0)return;
   g.save();g.globalAlpha=pg.a;pageXform(g,pg);
   var sa=S.shA*(1-drain)*fade;if(sa>0){g.globalAlpha=pg.a*sa;g.drawImage(S.shFr.c,S.shFr.x,S.shFr.y,S.shFr.w,S.shFr.h);g.globalAlpha=pg.a;}
   if(t<T.swap[0]){g.drawImage(F.image,r.x,r.y,r.w,r.h);if(SH.rococoRest){try{SH.rococoRest(g,{W:ctx.W,H:ctx.H,rect:r,dpr:ctx.dpr||1,t:tau});}catch(e){console.error(e);}}else band(g,r,fp);}
-  else{var wa=1-soft;
-    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,wa);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
-    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,wa);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}
-    // the soft remainder of the woman: what couldn't be straightened
-    if(soft>0&&S.soft){var k=r.w/RW;g.save();g.translate(r.x,r.y);g.scale(k,k);g.translate(ROC.pivot[0],ROC.pivot[1]);g.rotate(th);g.translate(-ROC.pivot[0],-ROC.pivot[1]);
-      g.globalAlpha=pg.a*soft;g.drawImage(S.soft,ROC.woman.x-60,ROC.woman.y-60,ROC.woman.w+120,ROC.woman.h+120);g.restore();}}
+  else{var wa=t<T.grow[0]?1:0,fl=1-sm(seg(t,T.flowersOut[0],T.flowersOut[1]));   // from T.grow[0] on the girl is drawn by drawGirl (same pixels at that instant)
+    if(drain<1){paintLayers(g,S,r,S.cl,pg.a,th,ropesA,fade,wa,fl);framePass(g,S,r,t,S.fc,S.bc,pg.a*frameA);}
+    if(drain>0){paintLayers(g,S,r,S.gl,pg.a*drain,th,0,fade,wa,fl);framePass(g,S,r,t,S.gfc,S.gbc,pg.a*drain*frameA);}}
+  g.restore();}
+// the one curve the ruler can't straighten. Until T.grow[0] she is part of the drained page (drawn by paintLayers); then she is drawn here
+// with exactly the page's transform (G = 0) and eased to the women's box (G = 1): centre lerped, scale lerped in log, the frozen swing tilt
+// undone. The grieving women are drawn into the SAME box (shape-aligned by construction), so the cross-dissolve reads as one figure becoming
+// the group; they arrive grey like her and take David's colour while region 3 of the painting fills in around them.
+function girlBox(ctx,S,pg,m,t){var r=ctx.from.rect,k=r.w/RW,L=ROC.woman,th=rocAngle(TAU0+Math.min(t,T.snare));
+  var c0=[r.x+(L.x+L.w/2)*k,r.y+(L.y+L.h/2)*k],pv=[r.x+ROC.pivot[0]*k,r.y+ROC.pivot[1]*k],dx=c0[0]-pv[0],dy=c0[1]-pv[1],cs=Math.cos(th),sn=Math.sin(th);
+  c0=pagePt(pg,pv[0]+dx*cs-dy*sn,pv[1]+dx*sn+dy*cs);
+  var s0=k*pg.s,c1=[X(m,WOMEN.x+WOMEN.w/2),Y(m,WOMEN.y+WOMEN.h/2)],sx1=m.s*WOMEN.w/L.w,sy1=m.s*WOMEN.h/L.h,G=eio(seg(t,T.grow[0],T.grow[1]));
+  return{c:[lerp(c0[0],c1[0],G),lerp(c0[1],c1[1],G)],sx:Math.exp(lerp(Math.log(s0),Math.log(sx1),G)),sy:Math.exp(lerp(Math.log(s0),Math.log(sy1),G)),th:th*(1-G),G:G};}
+function drawGirl(g,ctx,S,t,m,pg){if(!S.girl||t<T.grow[0])return;var fu=sm(seg(t,T.paint[3][1],T.paint[3][1]+.5));if(fu>=1)return;
+  var B=girlBox(ctx,S,pg,m,t),L=ROC.woman,d=sm(seg(t,T.become[0],T.become[1])),col=sm(seg(t,T.womenColour[0],T.womenColour[1]));
+  g.save();g.translate(B.c[0],B.c[1]);if(B.th)g.rotate(B.th);g.scale(B.sx,B.sy);g.imageSmoothingQuality='high';
+  if(d>0&&S.womenG){g.globalAlpha=d;g.drawImage(S.womenG,-L.w/2,-L.h/2,L.w,L.h);if(col>0){g.globalAlpha=d*col;g.drawImage(S.women,-L.w/2,-L.h/2,L.w,L.h);}}
+  if(d<1){g.globalAlpha=1-d;g.drawImage(S.girl,-L.w/2,-L.h/2,L.w,L.h);}
   g.restore();}
 // pastel → lime plaster: saturation out, the darks lifted, a warm lime tint (blend fills on what is already there; no filters)
 function plaster(g,x,y,w,h,a){if(a<=0)return;g.save();g.beginPath();g.rect(x,y,w,h);g.clip();
@@ -2377,14 +2398,16 @@ function plaster(g,x,y,w,h,a){if(a<=0)return;g.save();g.beginPath();g.rect(x,y,w
 
 // ------------------------------------------------------------------ the page (the rococo painting as an object on the wall) and its snaps
 // returns {cx,cy,s,a}: the page's centre on screen, its scale against ctx.from.rect, its alpha
-function pageAt(t,ctx){var W=ctx.W,H=ctx.H,r=ctx.from.rect,cx0=r.x+r.w/2,cy0=r.y+r.h/2,m=xf(camA(W,H),W,H);
+function pageAt(t,ctx,noPush){var W=ctx.W,H=ctx.H,r=ctx.from.rect,cx0=r.x+r.w/2,cy0=r.y+r.h/2,m=xf(camA(W,H),W,H);
   // the middle bay: between the column shafts, under the springing line
   var bw=(GEO.cols[1]-GEO.cols[0]-2*GEO.shaft[0])*m.s*.84,ytop=Y(m,GEO.spring)+.06*H,hmax=Math.max(60,H*.94-ytop),s1=Math.min(bw/r.w,hmax/r.h),cy1=ytop+r.h*s1/2;
   var k1=backOut(seg(t,T.k[0],T.k[0]+T.kDur)),k2=backOut(seg(t,T.k[1],T.k[1]+T.kDur)),k3=backOut(seg(t,T.k[2],T.k[2]+T.kDur));
   var cx=lerp(cx0,W/2,k1),s=lerp(1,s1,k2),cy=lerp(cy0,cy1,k3),a=1;   // click 1: centred · click 2: sized to the bay · click 3: set on the line
-  // pushed into the right-hand bay, where the women will be
-  var pu=eio(seg(t,T.push[0],T.push[1]));if(pu>0){var mm=xf(camAt(t,ctx),W,H),tx=X(mm,GEO.women[0]),ty=Y(mm,GEO.women[1]);cx=lerp(cx,tx,pu);cy=lerp(cy,ty,pu);s=s*lerp(1,.92,pu);}
-  a=1-sm(seg(t,T.pushFade[0],T.pushFade[1]));
+  // from here on the page hangs in the arcade (painting space), so it goes with the camera; pushed one bay right (a ruled slide along the
+  // springing line) as the right-hand bay closes. noPush: where the ropes left it (the rods fly from there).
+  if(t>=T.camB[0]){var mc=xf(camAt(t,ctx),W,H),q=mc.s/m.s,pu=noPush?0:eio(seg(t,T.push[0],T.push[1]));
+    cx=mc.ox+((cx-m.ox)/m.s+(GEO.archC[2]-GEO.archC[1])*pu)*mc.s;cy=mc.oy+(cy-m.oy)/m.s*mc.s;s*=q;}
+  else if(!noPush&&t>=T.push[0]){pu=eio(seg(t,T.push[0],T.push[1]));cx+=(GEO.archC[2]-GEO.archC[1])*pu*m.s;}
   return{cx:cx,cy:cy,s:s,a:a,cx0:cx0,cy0:cy0};}
 function pageXform(g,pg){g.translate(pg.cx,pg.cy);g.scale(pg.s,pg.s);g.translate(-pg.cx0,-pg.cy0);}
 function pagePt(pg,x,y){return[pg.cx+(x-pg.cx0)*pg.s,pg.cy+(y-pg.cy0)*pg.s];}
@@ -2507,7 +2530,11 @@ function buildRegions(ctx,S){var src=S.plateOK?S.plate:ctx.to.image;if(!ok(src))
       lg.globalCompositeOperation='source-over';}
     var c=cv(w,h),g=c.getContext('2d');
     if(i<3){g.filter='blur('+(w/PW*26).toFixed(1)+'px)';g.drawImage(lab,0,0,w,h);g.filter='none';g.globalCompositeOperation='source-in';}
-    g.drawImage(src,0,0,w,h);S.reg.push(c);}
+    g.drawImage(src,0,0,w,h);
+    // the women arrive as their own layer (drawGirl): leave their exact silhouette out of the fill until then (full layer kept for i = 3)
+    if(S.girl&&S.womenG){if(i===3){var c2=cv(w,h),g2=c2.getContext('2d');g2.drawImage(c,0,0);c=c2;g=g2;}g.globalCompositeOperation='destination-out';
+      g.drawImage(S.women,WOMEN.x*k,WOMEN.y*k,WOMEN.w*k,WOMEN.h*k);g.globalCompositeOperation='source-over';}
+    S.reg.push(c);}
   S.regKey=w;}
 function drawArm(g,S,A,ang,m,al){var im=S.arm[A.id];if(!ok(im)||al<=0)return;g.save();g.globalAlpha=al;g.translate(X(m,A.piv[0]),Y(m,A.piv[1]));g.rotate(ang);g.translate(-X(m,A.piv[0]),-Y(m,A.piv[1]));
   g.drawImage(im,X(m,A.x),Y(m,A.y),A.w*m.s,A.h*m.s);g.restore();}
@@ -2515,10 +2542,10 @@ function armAngle(t){var a=ARM_LOW;for(var i=0;i<3;i++){var e=backOut(seg(t,T.be
 function drawOath(g,ctx,S,t,m){var al=T.paint.map(function(p){return sm(seg(t,p[0],p[1]));});if(!(al[0]>0))return;
   var key=Math.min(1700,Math.round(PW*Math.max(camA(ctx.W,ctx.H).s,camB(ctx.W,ctx.H).s)*Math.min(2,ctx.dpr||1)));if(!S.reg||S.regKey!==key)buildRegions(ctx,S);if(!S.reg)return;
   var x=X(m,0),y=Y(m,0),w=PW*m.s,h=PH*m.s,real=ARM_OK?sm(seg(t,T.armsReal[0],T.armsReal[1])):0;
-  var fu=ARM_OK?0:sm(seg(t,T.paint[3][1],T.paint[3][1]+.5));if(fu>=1){g.drawImage(S.full||ctx.to.image,x,y,w,h);return;}
+  var fu=ARM_OK?0:sm(seg(t,T.paint[3][1],T.paint[3][1]+.5));if(fu>=1){g.save();g.imageSmoothingQuality='high';g.drawImage(S.full||ctx.to.image,x,y,w,h);g.restore();return;}   // 'high' = the DOM's resampling (hand-over)
   if(real<1){for(var i=0;i<4;i++){if(al[i]<=0)continue;g.globalAlpha=al[i];g.drawImage(S.reg[i],x,y,w,h);}g.globalAlpha=1;
     if(ARM_OK){var ang=armAngle(t);ARMS.forEach(function(A){drawArm(g,S,A,ang,m,al[2]);});}}
-  if(real>0||fu>0){g.globalAlpha=Math.max(real,fu);g.drawImage(S.full||ctx.to.image,x,y,w,h);g.globalAlpha=1;}}
+  if(real>0||fu>0){g.save();g.imageSmoothingQuality='high';g.globalAlpha=Math.max(real,fu);g.drawImage(S.full||ctx.to.image,x,y,w,h);g.restore();}}
 // convergence: each arm (shoulder → hand → on to the grip) and each blade (tip → grip), ruled in Roman red
 function drawConv(g,ctx,t,m,alpha,restMode){if(alpha<=0)return;var P=[X(m,GEO.P[0]),Y(m,GEO.P[1])],lw=Math.max(1.2,Math.min(2.2,m.s*4));
   // every ruled line gets a pale plaster halo so the Roman red reads on the dark painting
@@ -2590,12 +2617,13 @@ function prewarm(ctx,S){try{var W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),c=cv(W*
   if(ok(ctx.to.image))g.drawImage(ctx.to.image,ctx.to.rect.x,ctx.to.rect.y,ctx.to.rect.w,ctx.to.rect.h);
   if(ctx.from){ensureRoc(ctx,S);var r=ctx.from.rect;paintLayers(g,S,r,S.cl,1,0,1,1,1);paintLayers(g,S,r,S.gl,1,0,0,1,1);framePass(g,S,r,0,S.fc,S.bc,1);framePass(g,S,r,0,S.gfc,S.gbc,1);}
   ARMS.forEach(function(A){if(ok(S.arm[A.id]))g.drawImage(S.arm[A.id],0,0,A.w*m.s,A.h*m.s);});
+  [S.girl,S.womenG,S.women].forEach(function(im){if(im){g.imageSmoothingQuality='high';g.drawImage(im,0,0,120,90);g.drawImage(im,0,0,480,360);}});
   g.getImageData(0,0,1,1);}catch(e){console.error(e);}}
 
 // ================================================================== the module
 EH.transition('neoclassical',{
   duration:D,
-  assets:USE_ARMS?ARMS.map(function(A){return A.file;}).concat([PLATE]):[],
+  assets:(USE_ARMS?ARMS.map(function(A){return A.file;}).concat([PLATE]):[]).concat([WOMEN.f]),
   fromAssets:rocAssets(),
   init:function(ctx){var S=ctx.state;myIdx=ctx.to.idx;injectFont(ctx.to.idx);
     try{if(document.fonts&&document.fonts.load)document.fonts.load('400 20px Cinzel');}catch(e){}
@@ -2604,7 +2632,9 @@ EH.transition('neoclassical',{
     S.full=ctx.to.image;
     if(ctx.from){S.fromImg=ctx.from.image;S.roc={};['plate','ropes','woman','flowers','shoe'].forEach(function(k){S.roc[k]=ctx.fromAsset(ROC[k].f);});
       S.rocOK=['plate','ropes','woman','flowers'].every(function(k){return ok(S.roc[k]);});}
-    if(S.rocOK){var sc=.5,wc=cv(ROC.woman.w*sc+120*sc,ROC.woman.h*sc+120*sc),wg=wc.getContext('2d');wg.filter='grayscale(1) blur('+(14*sc)+'px)';wg.drawImage(S.roc.woman,60*sc,60*sc,ROC.woman.w*sc,ROC.woman.h*sc);wg.filter='none';S.soft=wc;}
+    // the girl in lime plaster at full size (she grows ~4× on her way to the women) and the women, grey and in colour
+    S.women=ctx.asset(WOMEN.f);
+    if(S.rocOK){S.girl=greyOf(S.roc.woman,ROC.woman.w,ROC.woman.h);if(ok(S.women))S.womenG=greyOf(S.women,WOMEN.w,WOMEN.h);else S.women=null;}
     prewarm(ctx,S);},
   draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,R1=ctx.to.rect,F=ctx.from;
     if(p>=1){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink==='dark',1);g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);restHint(g,{rect:R1,t:0});domFrom(ctx,D);return;}
@@ -2622,13 +2652,14 @@ EH.transition('neoclassical',{
     // ---- the page (the Swing), its snaps, its push into the women's bay
     if(F){var pg=pageAt(t,ctx);
       if(pg.a>0)drawPage(g,ctx,S,t,pg,drain);
+      drawGirl(g,ctx,S,t,m,pg);
       // ---- the curls (rococo frame scrolls) → ruled lines → the grid
       drawCurls(g,ctx,S,t,pg);}
     // ---- the drawing: grid, columns, arches (fades to the resting hint)
     var lo=sm(seg(t,T.linesOut[0],T.linesOut[1]));
     drawArcade(g,ctx,t,m,1-lo);
     // ---- ropes → steel → swords
-    if(F&&t<T.rodOut[1])drawRopes(g,ctx,S,t,pageAt(t,ctx),rocAngle(TAU0+Math.min(t,T.snare)));
+    if(F&&t<T.rodOut[1])drawRopes(g,ctx,S,t,pageAt(t,ctx,true),rocAngle(TAU0+Math.min(t,T.snare)));
     // ---- convergence (then it settles into the resting hint)
     if(t>=T.beats[0])drawConv(g,ctx,t,m,1-lo,false);
     if(lo>0)restHint(g,{rect:{x:X(m,0),y:Y(m,0),w:PW*m.s,h:PH*m.s},alpha:HINT_A*lo});
@@ -2644,9 +2675,11 @@ EH.transition('neoclassical',{
 /* 浪漫主义 · 雾吞掉了网格 — the passage from David's Oath of the Horatii (neoclassical) into Friedrich's Wanderer above the Sea of Fog.
    Beats (seconds of D): a first wisp of mist curls out of the middle arch, then the side arches · the mist surges out of all three,
    runs along the invisible three-part grid (the lines light up where the front passes) and floods the painting, the columns, the
-   label and the navigation · the Horatii fade into the fog; their arcade stays as a grey silhouette and crumbles — the voussoirs
+   label and the navigation (the Oath's red resting grid is swallowed by the first wisps, from each arch outward, within ~2.4 s) ·
+   the Horatii dissolve into the fog: a veil drawn from the fog's own density field eats the frame and the painting's edges first,
+   then patch by patch where the fog is thickest (3.7–7.9 s, no global fade); their arcade stays as a grey silhouette and crumbles — the voussoirs
    fall, the columns and piers grow into jagged sandstone pinnacles — then sinks · wind rises from below (the fog streams upward) ·
-   where the three swords converged the fog parts: the back of a head rises from the bottom edge of the screen, a figure in a dark
+   where the three swords converged (no marker: the fog only thins there from 7.4 s) the fog parts: the back of a head rises from the bottom edge of the screen, a figure in a dark
    green coat walks away from the visitor up the rock (the rock continues below the frame), smaller with each step, onto the summit ·
    the mountain layers rise with parallax · the fog clears from the top down to a sea of fog that drowns half of the vertical title ·
    the sea sinks and settles into the valleys of the painting · hand-over.
@@ -2658,8 +2691,8 @@ EH.transition('neoclassical',{
 'use strict';
 var D=20.6, PW=1871, PH=2400, NW=2400, NH=1871;
 var SH=window.EH_SHARED=window.EH_SHARED||{};
-var T={wisp:[0.35,1.4,1.9], surge:[2.6,7.4], grid:[3.0,7.8], hintIn:[2.2,3.6], hintOut:[4.8,6.8], mark:[3.8,5.4], markOut:[9.3,10.3],
-  fromDom:[4.8,6.4], fogTint:[4.0,6.8], neoOut:[7.4,9.4],
+var T={wisp:[0.35,1.4,1.9], surge:[2.6,7.4], grid:[3.0,6.4], hintOut:[0.8,2.4], veil:[3.7,7.9], frameOut:[3.6,6.2], thin:[7.4,9.0],
+  fromDom:[4.8,6.4], fogTint:[4.0,6.8], neoOut:[7.7,8.2],
   arcIn:[4.6,6.0], crumble:[6.0,8.8], sink:[8.8,11.0], arcOcc:[5.6,6.8], wall:[6.0,9.0], wind:[8.0,12.5], romIn:[8.4,10.4], feather:[10.6,14.0],
   riseRock:[9.0,13.2], riseMid:[9.0,13.8], riseFar:[9.0,14.6], manIn:[8.5,9.2], hole:[9.0,10.2], walk:[10.1,17.0], late:[11.0,16.2], title:12.4,
   seaDown:[17.2,19.6], seaFade:[18.4,19.8], rockOcc:[9.0,10.5], occOut:[17.2,18.6], extOut:[17.6,19.4], valley:[17.0,19.8], fin:[19.4,20.4]};
@@ -2727,6 +2760,9 @@ function frameShadow(S,r,style){var q=SHADOW[style];if(!q)return null;var fp=r.f
 // the Horatii exactly as the hung painting shows them: core paints the work into a canvas of min(w·dpr, 2600) px (paintArt) — same resampling here
 function fromArt(ctx){var S=ctx.state,F=ctx.from,im=S.fromImg;if(F.frame==='fade')return im;var w=Math.min(Math.round(F.rect.w*(ctx.dpr||1)),2600);if(S.faW===w)return S.faC;
   var ok=im&&(im.naturalWidth||im.width);if(!ok)return im;var c=cv(w,Math.round(w*(im.naturalHeight||im.height)/(im.naturalWidth||im.width)));c.getContext('2d').drawImage(im,0,0,c.width,c.height);S.faW=w;S.faC=c;return c;}
+// where the hung painting's pixels land: the DOM canvas (fromArt's pixel size) is composited on the device-pixel grid — draw it 1:1 there
+function artBox(ctx){var R0=ctx.from.rect,im=fromArt(ctx),q=ctx.dpr||1;if(!(im instanceof HTMLCanvasElement))return R0;
+  var V=window.__romSnap||'round';if(V==='none')return R0;var f=V==='floor'?Math.floor:V==='ceil'?Math.ceil:Math.round;return{x:f(R0.x*q)/q,y:f(R0.y*q)/q,w:V==='floorw'?R0.w:im.width/q,h:V==='floorw'?R0.h:im.height/q,fp:R0.fp};}
 // the soft elliptical mask of frame 'fade' (index.html), baked into a copy of the image
 function fadeMasked(im){var w=im.naturalWidth||im.width,h=im.naturalHeight||im.height,c=cv(w,h),g=c.getContext('2d');g.drawImage(im,0,0);
   var m=g.createRadialGradient(0,0,0,0,0,1);m.addColorStop(0,'#000');m.addColorStop(.62,'#000');m.addColorStop(1,'rgba(0,0,0,0)');
@@ -2739,7 +2775,7 @@ var FS=[
 'uniform vec2 uRes,uCss,uDrift;uniform float uT,uStreak,uArchR;',
 'uniform vec4 uW0,uW1,uW2;uniform vec3 uFlood;uniform float uDen;',
 'uniform vec4 uGridR,uGridL;uniform float uGridA,uGridY;uniform sampler2D uArc;uniform float uArcA;',
-'uniform vec4 uHole;',
+'uniform vec4 uHole,uVeilR;uniform float uVeil,uMask;',
 'uniform sampler2D uRock,uMan,uValley;uniform vec4 uRockXf,uManXf,uTo;uniform float uRockA,uManA,uValA;',
 'uniform float uLateY,uLateOn;uniform vec3 uSea;',
 'uniform vec4 uP[12];uniform vec4 uRead;uniform float uReadOn,uAlpha;',
@@ -2763,7 +2799,7 @@ var FS=[
 '  float nl=fbm3(qw+vec2(-.05,-.07));',
 '  float b=smoothstep(.3,.72,n);',
 // early: wisps + surge
-'  float early=0.;float gridGlow=0.;',
+'  float early=0.;float gridGlow=0.;float veil=0.;',
 '  if(uLateOn<1.||uLateY<uCss.y+400.){',
 '    early=max(max(wisp(pix,uW0,n),wisp(pix,uW1,n)),wisp(pix,uW2,n));',
 '    if(uFlood.z>0.){float dist=1e5;',
@@ -2775,7 +2811,12 @@ var FS=[
 '        float ln=max(max(max(exp(-gx.x*gx.x*.1),exp(-gx.y*gx.y*.1)),max(exp(-gx.z*gx.z*.1),exp(-gx.w*gx.w*.1))),exp(-gy*gy*.1))*(.55+.6*n);',
 '        vec2 gu=(pix-uGridR.xy)/uGridR.zw;float gin=smoothstep(-.03,.01,gu.x)*smoothstep(1.03,.99,gu.x)*smoothstep(-.04,.01,gu.y)*smoothstep(1.04,.99,gu.y);',
 '        gridGlow=ln*gin*smoothstep(-70.,0.,f)*(1.-smoothstep(10.,240.,f))*uGridA;}}',
-'    early*=uDen;}',
+'    early*=uDen;',
+// the veil: how far the fog has eaten the Horatii — patch by patch where the field is densest, from the ragged edges in (mask pass only)
+'    if(uVeil>0.){vec2 dd=min(pix-uVeilR.xy,uVeilR.xy+uVeilR.zw-pix);float mdim=min(uVeilR.z,uVeilR.w),dm=min(dd.x,dd.y)+(n-.5)*mdim*.14;',
+'      float ed=1.-smoothstep(0.,.3*mdim,dm);',
+'      veil=smoothstep(0.,.35,uVeil*2.4-1.5+(n-.5)*1.1+ed);}}',
+'  if(uMask>0.){gl_FragColor=vec4(0.,0.,0.,veil);return;}',
 // late: the sea of fog outside the painting, the painting's own fog sea inside
 '  vec2 tu=(pix-uTo.xy)/uTo.zw;float inR=smoothstep(0.,.035,tu.x)*smoothstep(1.,.965,tu.x)*smoothstep(0.,.03,tu.y)*smoothstep(1.,.97,tu.y);',
 '  float val=texture2D(uValley,clamp(tu,0.,1.)).r*box(tu);',
@@ -2793,8 +2834,8 @@ var FS=[
 '  vec2 rd=pix-uRead.xy;cov*=1.-uReadOn*step(-8.,rd.x)*step(rd.x,uRead.z+8.)*step(-8.,rd.y)*step(rd.y,uRead.w+8.);',
 '  float a=clamp(cov*mix(mix(.42,.72,lm*(1.-inR)),1.,b),0.,1.)*uAlpha;',
 '  float sh=clamp(.62+(n-nl)*3.2,0.,1.);',
-'  vec3 col=mix(vec3(.66,.68,.745),vec3(.94,.945,.96),sh);col=mix(col,vec3(.98,.975,.965),clamp(gridGlow*.7,0.,1.));',
-'  a=max(a,clamp(gridGlow*.3,0.,1.)*uAlpha);',
+'  vec3 col=mix(vec3(.66,.68,.745),vec3(.94,.945,.96),sh);col=mix(col,vec3(.98,.975,.965),clamp(gridGlow*.45,0.,1.));',
+'  a=max(a,clamp(gridGlow*.18,0.,1.)*uAlpha);',
 '  gl_FragColor=vec4(col*a,a);}'].join('\n');
 
 function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,alpha:true,antialias:false,depth:false,stencil:false,preserveDrawingBuffer:false});
@@ -2804,7 +2845,7 @@ function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,a
   if(!gl.getProgramParameter(p,gl.LINK_STATUS)){console.warn(gl.getProgramInfoLog(p));return null;}
   gl.useProgram(p);var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
   var al=gl.getAttribLocation(p,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
-  var U={};['uRes','uCss','uDrift','uT','uStreak','uArchR','uW0','uW1','uW2','uFlood','uDen','uGridR','uGridA','uGridL','uGridY','uArc','uArcA','uHole','uRock','uMan','uValley','uRockXf','uManXf','uTo','uRockA','uManA','uValA','uLateY','uLateOn','uSea','uP','uRead','uReadOn','uAlpha'].forEach(function(n){U[n]=gl.getUniformLocation(p,n);});
+  var U={};['uRes','uCss','uDrift','uT','uStreak','uArchR','uW0','uW1','uW2','uFlood','uDen','uGridR','uGridA','uGridL','uGridY','uArc','uArcA','uHole','uVeil','uVeilR','uMask','uRock','uMan','uValley','uRockXf','uManXf','uTo','uRockA','uManA','uValA','uLateY','uLateOn','uSea','uP','uRead','uReadOn','uAlpha'].forEach(function(n){U[n]=gl.getUniformLocation(p,n);});
   var tex={};
   function texFrom(unit,name,im){var t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -2821,7 +2862,7 @@ function Fog(canvas){var gl=canvas.getContext('webgl',{premultipliedAlpha:true,a
       gl.uniform1f(U.uArcA,arcA);gl.uniform4fv(U.uGridL,o.gridL||[-1e4,-1e4,-1e4,-1e4]);gl.uniform1f(U.uGridY,o.gridY==null?-1e4:o.gridY);
       gl.uniform2f(U.uRes,cw,ch);gl.uniform2f(U.uCss,o.W,o.H);gl.uniform2f(U.uDrift,o.drift[0],o.drift[1]);gl.uniform1f(U.uT,o.t);gl.uniform1f(U.uStreak,o.streak);gl.uniform1f(U.uArchR,o.archR);
       gl.uniform4fv(U.uW0,o.w[0]);gl.uniform4fv(U.uW1,o.w[1]);gl.uniform4fv(U.uW2,o.w[2]);gl.uniform3fv(U.uFlood,o.flood);gl.uniform1f(U.uDen,o.den);
-      gl.uniform4fv(U.uGridR,o.gridR);gl.uniform1f(U.uGridA,o.gridA);gl.uniform4fv(U.uHole,o.hole);
+      gl.uniform4fv(U.uGridR,o.gridR);gl.uniform1f(U.uGridA,o.gridA);gl.uniform4fv(U.uHole,o.hole);gl.uniform1f(U.uVeil,o.veil||0);gl.uniform4fv(U.uVeilR,o.veilR||[0,0,1,1]);gl.uniform1f(U.uMask,o.mask?1:0);
       gl.uniform4fv(U.uRockXf,o.rockXf);gl.uniform4fv(U.uManXf,o.manXf);gl.uniform4fv(U.uTo,o.to);gl.uniform1f(U.uRockA,o.rockA);gl.uniform1f(U.uManA,o.manA);gl.uniform1f(U.uValA,o.valA);
       gl.uniform1f(U.uLateY,o.lateY);gl.uniform1f(U.uLateOn,o.lateOn);gl.uniform3fv(U.uSea,o.sea);
       P.fill(0);(o.ptr||[]).slice(0,12).forEach(function(h,i){P[i*4]=h[0];P[i*4+1]=h[1];P[i*4+2]=h[2];P[i*4+3]=h[3];});gl.uniform4fv(U.uP,P);
@@ -2914,19 +2955,34 @@ function fogParams(ctx,t){var S=ctx.state,W=ctx.W,H=ctx.H,R1=ctx.to.rect,k1=R1.w
   var conv=convAt(ctx),ws=walkState(ctx,t),mb=ws?manBox(ctx,ws):null;
   var hr0=Math.max(40,Math.min(W,H)*0.07),hx=conv[0],hy=conv[1],hr=hr0;
   // the parting sits on the back of his head (at first exactly where the swords met), wide enough for head and shoulders
-  if(mb){hx=mb.hx;hy=mb.hy+32*k1*ws.s;hr=Math.max(hr0,96*k1*ws.s)*(0.75+0.25*sm(seg(t,T.hole)));}
-  var holeA=sm(seg(t,T.hole))*(1-sm(seg(t,[16.8,18.4])));
+  if(mb){var bl=sm(seg(t,T.manIn));hx+=(mb.hx-hx)*bl;hy+=(mb.hy+32*k1*ws.s-hy)*bl;hr+=(Math.max(hr0,96*k1*ws.s)*(0.75+0.25*sm(seg(t,T.hole)))-hr)*bl;}
+  // no marker: the place is found only by the fog thinning there a little before it parts
+  var holeA=Math.max(0.32*sm(seg(t,T.thin)),sm(seg(t,T.hole)))*(1-sm(seg(t,[16.8,18.4])));
+  var veil=sm(seg(t,T.veil));
   var rise=R1.h*0.15*(1-eo(seg(t,T.riseRock))),rockA=sm(seg(t,T.rockOcc))*(1-sm(seg(t,T.occOut)));
   var manA=ws?sm(seg(t,[T.walk[0]-0.3,T.walk[0]+1.6]))*(1-sm(seg(t,T.occOut))):0,manXf=mb?[mb.x-mb.w*0.06,mb.y-mb.h*0.03,mb.w*1.12,mb.h*1.05]:[0,0,1,1];
   var lateY=-160+(H+420)*eio(seg(t,T.late)),lateOn=t>=T.late[0]?1:0;
   var ySea=titleMid(ctx),seaY=ySea+(H+320-ySea)*eio(seg(t,T.seaDown)),sea=[seaY,64,1-sm(seg(t,T.seaFade))];
   var valA=0.85+(REST_VAL-0.85)*sm(seg(t,T.valley));
   var z=[0,0,0,0];
-  return{W:W,H:H,t:t,drift:drift(t),streak:streak,archR:archR,w:w,flood:flood,den:den,gridR:[R0.x,R0.y,R0.w,R0.h],gridA:gridA,gridL:gridL,gridY:gridY,arcA:arcA,arcCanvas:S.arcM,hole:[hx,hy,hr,holeA],
+  return{W:W,H:H,t:t,drift:drift(t),streak:streak,archR:archR,w:w,flood:flood,den:den,gridR:[R0.x,R0.y,R0.w,R0.h],gridA:gridA,veil:F?veil:0,veilR:F?veilBox(ctx).r:null,gridL:gridL,gridY:gridY,arcA:arcA,arcCanvas:S.arcM,hole:[hx,hy,hr,holeA],
     rockXf:[R1.x+OCC_ROCK[0]*k1,R1.y+OCC_ROCK[1]*k1+rise,OCC_ROCK[2]*k1,OCC_ROCK[3]*k1],manXf:manXf,rockA:rockA,manA:manA,
     to:[R1.x,R1.y,R1.w,R1.h],valA:valA,lateY:lateY,lateOn:lateOn,sea:sea,ptr:[],read:null,alpha:1};}
 function renderFog(ctx,o){var S=ctx.state;if(!S.fog)return;var fs=fogSize(ctx.W,ctx.H);try{S.fog.draw(o,fs[0],fs[1]);}catch(e){console.error(e);}
   if(window.__romTap)try{window.__romTap(S.fogCanvas);}catch(e){}}   // test hook: the fog layer is read back in the same task (tools only)
+
+// the Horatii as far as the fog has not eaten them: the fog shader renders its veil (same field as the fog) into the fog canvas first,
+// that mask is cut out of a copy of the painting, then the fog itself is drawn over it (renderFog, same task)
+function veilBox(ctx){var R0=ctx.from.rect,fp=R0.fp||0,q=ctx.dpr||1,x=Math.floor((R0.x-fp)*q)/q,y=Math.floor((R0.y-fp)*q)/q,x1=Math.ceil((R0.x+R0.w+fp)*q)/q,y1=Math.ceil((R0.y+R0.h+fp)*q)/q;
+  return{x:x,y:y,w:x1-x,h:y1-y,cw:Math.round((x1-x)*q),ch:Math.round((y1-y)*q),q:q,r:[x,y,x1-x,y1-y]};}
+function veiled(ctx,t,fdA){var S=ctx.state,F=ctx.from,im=fromArt(ctx),v=sm(seg(t,T.veil));if(v<=0||!S.fog||!(im&&(im.width||im.naturalWidth)))return null;
+  var B=veilBox(ctx);if(!S.veilC||S.veilC.width!==B.cw||S.veilC.height!==B.ch)S.veilC=cv(B.cw,B.ch);
+  var fs=fogSize(ctx.W,ctx.H),o=fogParams(ctx,t);o.mask=1;o.arcA=0;o.alpha=1;try{S.fog.draw(o,fs[0],fs[1]);}catch(e){console.error(e);return null;}
+  var R0=F.rect,vg=S.veilC.getContext('2d');vg.setTransform(1,0,0,1,0,0);vg.globalCompositeOperation='source-over';vg.globalAlpha=1;vg.clearRect(0,0,B.cw,B.ch);
+  vg.setTransform(B.q,0,0,B.q,-B.x*B.q,-B.y*B.q);var A=artBox(ctx);frameDeco(vg,A,F.frame,fdA);vg.globalAlpha=1;vg.drawImage(im,A.x,A.y,A.w,A.h);
+  vg.setTransform(1,0,0,1,0,0);vg.globalCompositeOperation='destination-out';
+  vg.drawImage(S.fogCanvas,B.x/ctx.W*fs[0],B.y/ctx.H*fs[1],B.w/ctx.W*fs[0],B.h/ctx.H*fs[1],0,0,B.cw,B.ch);
+  vg.globalCompositeOperation='source-over';return B;}
 
 // ================================================================== stage: the Wanderer's layers
 function drawRom(g,ctx,t,ws,wall){var S=ctx.state,R=ctx.to.rect,k=R.w/PW,a=sm(seg(t,T.romIn));if(a<=0&&!ws)return;
@@ -2947,21 +3003,25 @@ function drawRom(g,ctx,t,ws,wall){var S=ctx.state,R=ctx.to.rect,k=R.w/PW,a=sm(se
   if(ws){var mb=manBox(ctx,ws),ma=sm(seg(t,T.manIn));g.save();g.globalAlpha=ma;g.translate(mb.X,mb.Y);g.rotate(ws.rot);g.drawImage(S.im.man,mb.x-mb.X,mb.y-mb.Y,mb.w,mb.h);g.restore();}}
 
 // ================================================================== the Oath's resting hint (grid + convergence, js/t-neoclassical.js)
-// p = 0 continues it at the strength the visitor last saw (it fades a few seconds into that room's rest), then it resurfaces as the fog runs along it
+// p = 0 continues it at the strength the visitor last saw (it fades a few seconds into that room's rest); the first wisps swallow it,
+// each from its arch outward, and it is gone within ~2.4 s. No marker is left on screen: later the fog only thins where the swords met.
 var lastRest={idx:-1,t0:0};
 (function watchRest(){try{var st=window.EH&&EH.debug&&EH.debug.state;if(st){if(st.phase==='rest'){if(lastRest.idx!==st.idx||!lastRest.on)lastRest={idx:st.idx,t0:performance.now(),on:true};}else if(lastRest.on){lastRest.on=false;lastRest.t1=performance.now();}}}catch(e){}
   requestAnimationFrame(watchRest);})();
 function entryHint(ctx){if(!ctx.from||lastRest.idx!==ctx.from.idx)return 0;var age=((lastRest.on?performance.now():lastRest.t1)-lastRest.t0)/1000;return 0.55*(1-sm((age-3.2)/3.0));}
-function hintAt(ctx,t){var S=ctx.state,h0=(S.hint0||0)*(1-sm(seg(t,[0.2,1.8])));return Math.max(h0,0.5*sm(seg(t,T.hintIn)))*(1-sm(seg(t,T.hintOut)));}
-// the swords' convergence stays where it was when everything else has drowned: a small Roman-red ring and cross above the fog (layer 'mark'),
-// until the fog parts there and it becomes the back of a head
-function drawMark(ctx,t){var S=ctx.state;if(!S.markC)return;var g=S.markC.__g,dpr=ctx.dpr||1,a=0.9*sm(seg(t,T.mark))*(1-sm(seg(t,T.markOut)));
-  if(S.markDirty){g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,S.markC.width,S.markC.height);S.markDirty=false;}
-  if(a<=0.002||!ctx.from)return;
-  var P=convAt(ctx),ms=ctx.from.rect.w/NW,R=Math.max(5,14*ms/.5)*(1+0.9*eo(seg(t,T.markOut))),lw=Math.max(.9,Math.min(1.6,ms*2.4));
-  g.setTransform(dpr,0,0,dpr,0,0);g.globalAlpha=a;g.strokeStyle='#8f2e22';g.lineWidth=lw;g.lineCap='round';
-  g.beginPath();g.arc(P[0],P[1],R,0,Math.PI*2);g.stroke();g.beginPath();g.moveTo(P[0]-R*1.8,P[1]);g.lineTo(P[0]+R*1.8,P[1]);g.moveTo(P[0],P[1]-R*1.8);g.lineTo(P[0],P[1]+R*1.8);g.stroke();
-  g.globalAlpha=1;S.markDirty=true;}
+function hintBox(ctx){var R0=ctx.from.rect,q=ctx.dpr||1,m=40,x=Math.floor((R0.x-m)*q)/q,y=Math.floor((R0.y-m)*q)/q,w=Math.ceil((R0.w+2*m)*q)/q,h=Math.ceil((R0.h+2*m)*q)/q;
+  return{x:x,y:y,w:w,h:h,cw:Math.round(w*q),ch:Math.round(h*q),q:q};}
+function drawHint(g,ctx,t,na){var S=ctx.state,a=(S.hint0||0)*(1-sm(seg(t,T.hintOut)))*na;if(a<=0.002||!ctx.from||typeof SH.neoclassicalRest!=='function')return;
+  var R0=ctx.from.rect,k0=R0.w/NW,B=hintBox(ctx);if(!S.hintC||S.hintC.width!==B.cw||S.hintC.height!==B.ch)S.hintC=cv(B.cw,B.ch);
+  var hg=S.hintC.getContext('2d');hg.setTransform(1,0,0,1,0,0);hg.globalCompositeOperation='source-over';hg.globalAlpha=1;hg.clearRect(0,0,B.cw,B.ch);
+  hg.setTransform(B.q,0,0,B.q,-B.x*B.q,-B.y*B.q);
+  try{SH.neoclassicalRest(hg,{W:ctx.W,H:ctx.H,rect:R0,dpr:ctx.dpr,alpha:a});}catch(e){console.error(e);}
+  // the mist eats the lines from each arch outward (the middle arch first: the swords' point goes with the first wisp)
+  hg.globalCompositeOperation='destination-out';hg.globalAlpha=1;
+  ARCH.forEach(function(c,i){var age=t-T.wisp[i];if(age<=0)return;var x=R0.x+c[0]*k0,y=R0.y+(c[1]+150)*k0,r=RI*k0*(0.35+1.7*age);
+    var gr=hg.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(0,0,0,1)');gr.addColorStop(.5,'rgba(0,0,0,.85)');gr.addColorStop(1,'rgba(0,0,0,0)');hg.fillStyle=gr;hg.fillRect(x-r,y-r,2*r,2*r);});
+  hg.globalCompositeOperation='source-over';hg.setTransform(1,0,0,1,0,0);
+  g.drawImage(S.hintC,B.x,B.y,B.w,B.h);}
 
 // ================================================================== warm-up
 function prewarm(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),R1=ctx.to.rect;
@@ -2970,7 +3030,7 @@ function prewarm(ctx){var S=ctx.state,W=ctx.W,H=ctx.H,q=Math.min(ctx.dpr||1,2),R
     // the walker at the scales he is drawn at (mip levels)
     [1,1.6,2.4,3.2,4.2].forEach(function(s){if(S.im.man&&S.im.man.naturalWidth)g.drawImage(S.im.man,0,0,LY.man[2]*R1.w/PW*s,LY.man[3]*R1.w/PW*s);});
     if(ctx.to.image&&ctx.to.image.naturalWidth)g.drawImage(ctx.to.image,R1.x,R1.y,R1.w,R1.h);
-    if(ctx.from){var R0=ctx.from.rect;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);}
+    if(ctx.from){var R0=ctx.from.rect;g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);var B=hintBox(ctx);if(!S.hintC||S.hintC.width!==B.cw||S.hintC.height!==B.ch)S.hintC=cv(B.cw,B.ch);g.drawImage(S.hintC,0,0,4,4);var VB=veilBox(ctx);if(!S.veilC||S.veilC.width!==VB.cw||S.veilC.height!==VB.ch)S.veilC=cv(VB.cw,VB.ch);g.drawImage(S.veilC,0,0,4,4);}
     if(S.rockPat){g.fillStyle=S.rockPat;g.fillRect(0,0,50,50);}
     g.getImageData(0,0,1,1);
   }catch(e){console.error(e);}}
@@ -2991,7 +3051,7 @@ EH.transition('romanticism',{
     S.stoneCol='rgb(58,54,52)';S.stoneHi='rgb(120,116,112)';
     if(ctx.from){S.fromImg=ctx.from.frame==='fade'?fadeMasked(ctx.from.image):ctx.from.image;}
     S.toImg=ctx.to.frame==='fade'?fadeMasked(ctx.to.image):ctx.to.image;
-    S.fogCanvas=ctx.layer('fog',{z:8,type:'webgl'});fogEl=S.fogCanvas;S.markC=ctx.layer('mark',{z:9});S.markDirty=true;
+    S.fogCanvas=ctx.layer('fog',{z:8,type:'webgl'});fogEl=S.fogCanvas;
     if(!S.fogCanvas.__fog){S.fogCanvas.__fog=Fog(S.fogCanvas);if(S.fogCanvas.__fog)S.fogCanvas.__fog.textures(ctx.asset('t_occ_rock.webp'),ctx.asset('t_occ_man.webp'),ctx.asset('t_valley.webp'));}
     S.fog=S.fogCanvas.__fog;
     // clear the layer until the transition draws (it may be created during the previous room's rest)
@@ -3001,27 +3061,27 @@ EH.transition('romanticism',{
   draw:function(p,ctx){var g=ctx.g,S=ctx.state,W=ctx.W,H=ctx.H,t=p*D,R1=ctx.to.rect,F=ctx.from;myIdx=ctx.to.idx;S.restT0=null;S.ptr=[];
     domFrom(ctx,t);domTitle(ctx,t);
     if(ctx.lastP==null)S.hint0=entryHint(ctx);
-    if(p>=1){drawMark(ctx,D);g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink,1);g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);renderFog(ctx,restFog(W,H,R1,D,[],null,1));return;}
+    if(p>=1){g.fillStyle=ctx.to.wall;g.fillRect(0,0,W,H);wash(g,W,H,R1,ctx.to.ink,1);g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);renderFog(ctx,restFog(W,H,R1,D,[],null,1));return;}
     // ---------------- the wall: the Horatii's, darkening into the Wanderer's under the fog
     var wl=sm(seg(t,T.wall)),fw=F?rgb(F.wall):rgb(ctx.to.wall),tw=rgb(ctx.to.wall);
     g.fillStyle=mixc(fw,tw,wl);g.fillRect(0,0,W,H);
     if(F)wash(g,W,H,F.rect,F.ink,1-wl);wash(g,W,H,R1,ctx.to.ink,wl);
     // ---------------- the Horatii, drowned in fog, and their arcade crumbling into rock
-    if(F&&t<T.neoOut[1]){var R0=F.rect,na=(1-0.55*sm(seg(t,T.fogTint)))*(1-sm(seg(t,T.neoOut)));
-      var fdA=1-sm(seg(t,[3.0,5.4])),shc=frameShadow(S,R0,F.frame);g.save();
+    if(F&&t<T.neoOut[1]){var R0=F.rect,na=(1-0.3*sm(seg(t,T.fogTint)))*(1-sm(seg(t,T.neoOut)));
+      var fdA=1-sm(seg(t,T.frameOut)),shc=frameShadow(S,R0,F.frame);g.save();
       if(shc&&fdA>0){g.globalAlpha=na*fdA;g.drawImage(shc,R0.x-(R0.fp||0)-shc.pad,R0.y-(R0.fp||0)-shc.pad);}
-      g.globalAlpha=na;frameDeco(g,R0,F.frame,fdA);g.drawImage(fromArt(ctx),R0.x,R0.y,R0.w,R0.h);
-      if(typeof SH.neoclassicalRest==='function'){var ha=hintAt(ctx,t)*na;if(ha>0.002){try{SH.neoclassicalRest(g,{W:W,H:H,rect:R0,dpr:ctx.dpr,alpha:ha});}catch(e){console.error(e);}}}
-      g.restore();}
+      // painting + frame, eaten by the fog's veil (null before the veil starts: drawn directly, identical to the hung painting)
+      g.globalAlpha=na;var VB=veiled(ctx,t,fdA);if(VB)g.drawImage(S.veilC,VB.x,VB.y,VB.w,VB.h);else{var A=artBox(ctx);frameDeco(g,A,F.frame,fdA);g.globalAlpha=na;g.drawImage(fromArt(ctx),A.x,A.y,A.w,A.h);}
+      g.restore();drawHint(g,ctx,t,na);}
     if(F)drawArcade(g,ctx,t);
     // ---------------- the Wanderer: layers rising with parallax, the walker
     var ws=walkState(ctx,t);drawRom(g,ctx,t,ws,mixc(fw,tw,wl));
     var fa=sm(seg(t,T.fin));if(fa>0){g.save();g.globalAlpha=fa;g.drawImage(S.toImg,R1.x,R1.y,R1.w,R1.h);g.restore();}
     // ---------------- the fog above everything
-    renderFog(ctx,fogParams(ctx,t));drawMark(ctx,t);
+    renderFog(ctx,fogParams(ctx,t));
   },
   done:function(ctx){ctx.state.restT0=performance.now();},
-  rest:function(ctx){if(ctx.state.markDirty)drawMark(ctx,D);restBody(ctx);}
+  rest:function(ctx){restBody(ctx);}
 });
 
 // ================================================================== rest: the cursor is the wind
